@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
@@ -13,12 +15,12 @@ export default function Home() {
         </div>
 
         <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
-          <button
-            type="button"
-            className="w-full rounded-lg bg-teal-700 px-5 py-3 text-base font-medium text-white sm:w-auto"
+          <Link
+            href="/report/lost"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-teal-700 px-5 py-3 text-base font-medium text-white sm:w-auto"
           >
             Report a lost item
-          </button>
+          </Link>
           <button
             type="button"
             className="w-full rounded-lg border border-teal-700 px-5 py-3 text-base font-medium text-teal-800 sm:w-auto"
