@@ -33,6 +33,41 @@
     0 2px 4px rgb(16 29 34 / 0.05), 0 14px 32px rgb(66 109 88 / 0.14);
 }
 
+@theme {
+  --animate-orbit: amanah-orbit 1.6s linear infinite;
+  --animate-breathe: amanah-breathe 2.4s ease-in-out infinite;
+  --animate-rise: amanah-rise 0.45s ease-out both;
+
+  @keyframes amanah-orbit {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes amanah-breathe {
+    0%,
+    100% {
+      transform: scale(0.7);
+      opacity: 0.55;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes amanah-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
 :root {
   --cream: #f4f3ee;
   --charcoal: #101d22;

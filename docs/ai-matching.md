@@ -4,7 +4,7 @@ Amanah flow: private AI matching, then hidden-detail ownership verification, the
 
 ## What the AI does
 
-The local `/admin` page can run Gemini over pairs of one lost report and one found report. Gemini reads only item name, description, and location. Report text is sent as data, never as instructions.
+Gemini compares pairs of one lost report and one found report. New reports are checked automatically after they are saved (see "Automatic matching"), and the local `/admin` page can still run matching by hand. Gemini reads only item name, description, and location. Report text is sent as data, never as instructions.
 
 Gemini returns one decision per pair:
 
@@ -61,6 +61,59 @@ The dev server logs one line per pair (Gemini duration, each HTTP attempt's dura
 ## Errors
 
 Errors and unchecked pairs are never counted as `no_match`. A run stops at the first failure and keeps suggestions already saved. Quota errors (429) and timeouts are not retried. Temporary server errors (500, 502, 503, 504) get one retry after 2 seconds. Each request times out after 20 seconds, and no new comparison starts after 30 seconds of a run.
+
+## Automatic matching (local development MVP)
+
+When someone submits a report, the server saves it first and confirms "Report saved." Then the report page checks only the pairs that involve the new report: a lost report against existing found reports, and a found report against existing lost reports. It uses the same comparison, score checks, pair tracking, and timing logs as `/admin` (`src/utils/matching/serverMatching.ts`).
+
+How it runs:
+
+1. `submitReport` creates the report ID on the server and inserts the report with the public, insert-only key. With the server key it then stores a submission credential in `report_submissions`. The credential is 32 random bytes; only its SHA-256 hash is stored. The browser receives the credential once.
+2. The page calls `continueMatching(credential)` repeatedly. Each call is awaited and sends at most one Gemini request, which compares the new report with up to 10 unchecked opposite-type reports. Larger inventories take several calls, one after another, never in parallel. Nothing keeps running after a request finishes.
+3. A 90-second lease (`processing_until`) stops two calls from processing the same report at once. A second call while the lease is held does no work and asks the page to wait 2 seconds.
+4. Progress is the `report_pair_checks` table, so a refresh or retry only continues with unchecked pairs. The page keeps the credential in `sessionStorage`, resumes after a refresh, and removes it once checking is complete. The page stops after 40 calls.
+
+The batch request (`compareReportWithCandidates`) uses the same decision rules, score guidance, and server checks as a single comparison. It also tells Gemini to judge each candidate on its own. Candidates are sent with temporary labels (`C1`, `C2`, …), never database IDs. The server accepts the answer only when every label appears exactly once and every result is valid. A missing, repeated, or unknown label, or any invalid result, rejects the whole batch. Nothing from it is recorded, so all its pairs are retried. The batch request times out after 30 seconds and has the same retry rules. `/admin` still sends one request per pair.
+
+Rate limits: a 429 is not retried at once. The page shows that checking is paused, waits 60 seconds, and asks again, at most twice. After that it shows that checking did not finish and offers Try again. Refreshing the page asks again immediately.
+
+What the browser receives: only a phase (`checking`, `complete`, `failed`, `rate_limited`, `unavailable`) and, for lost reports, an outcome (`possible_match`, `uncertain`, `no_match`). No found-item details, scores, explanations, IDs, or counts. Found reporters receive no outcome at all. A report ID alone, or an unknown or malformed credential, gets `{ ok: false }`.
+
+Messages for lost reporters:
+
+| Situation | Message |
+|---|---|
+| Checking | Report saved. Checking for possible matches… |
+| A `match` suggestion exists | We found a possible match. Ownership verification is the next step. |
+| Every pair checked, nothing saved | No possible match yet. Your report is saved. |
+| Every pair checked, only `insufficient_information` | Your report is saved. We could not tell from the details whether a found item matches, so staff may review it. |
+| Rate limit, waiting | Your report is saved. Checking is paused because the matching service is busy and will continue in about a minute if this page stays open. This is not a "no match" result. |
+| Rate limit, stopped | Your report is saved, but checking for possible matches did not finish because the matching service is busy. This is not a "no match" result. You can try again in a few minutes. |
+| Gemini or save error | Your report is saved, but checking for possible matches did not finish. This is not a "no match" result. You can try again. |
+
+`no_match` is shown only when every relevant pair has a recorded check. Failures, the 40-call cap, and a lost credential each have their own message.
+
+Closing the browser tab: processing stops after the current batch. `sessionStorage` is cleared, so that tab cannot resume. The unchecked pairs stay unchecked, never "no match". They are covered later when an opposite-type report is submitted (its check includes this report), or by Run matching on `/admin`. A background worker (for example a scheduled job) would remove this limit, but it is new infrastructure and was not added for this MVP.
+
+`report_submissions` (`20261023185900_create_report_submissions.sql`) has RLS enabled and no public access. The server role can read rows, insert only `report_id` and `token_hash`, and update only `processing_until`. It cannot rewrite a hash or delete a row. Migration history has 9 matching versions locally and remotely.
+
+### Verified (23 October 2026, fictional reports, before batching)
+
+- Found first, then lost: the matching lost report showed "We found a possible match" without Run matching. A refresh during checking resumed. The in-flight batch kept the lease, the resumed call waited, and no pair was checked twice.
+- Lost first, then found: the found report created a private `match` suggestion (score 95). The finder saw only "Report saved. Thank you for reporting this item." The lost reporter's page later showed the possible match.
+- Lost report with no matching found report: completed as "could not tell from the details" rather than "No possible match yet", because four existing found reports have very short descriptions (28–33 characters) that Gemini marked `insufficient_information`. The no-match message mapping was verified with controlled tests only.
+- Invalid Gemini key (production build, port 3002): the report was saved once, the page showed "did not finish… This is not a "no match" result" after submit, Try again, and refresh, no pair was recorded, and the lease was released.
+- Free-tier rate limit: after about 26 back-to-back comparisons Gemini returned 429. The page showed the "did not finish" message and those pairs stayed unchecked.
+- Captured server-action responses contained only `ok`, a phase, an optional lost-report outcome, and the submitter's own credential. The publishable key is denied all access to `report_submissions`.
+
+### Automatic matching limitations
+
+- Processing depends on the submitter's open tab (see above).
+- Every new report costs one Gemini request per 10 opposite-type reports, rounded up (2 for 13 reports; it was 13 before batching). A batch answer uses about as many output tokens as the separate answers did, so token use does not drop much. Nothing limits how many reports a visitor can submit.
+- Batching was verified with controlled tests only. Whether Gemini judges a pair the same way inside a batch as on its own has not been measured with live calls.
+- One invalid result rejects the whole batch, so a repeatedly malformed answer blocks those 10 candidates until a later attempt succeeds.
+- "Could not tell from the details" tells a lost reporter that at least one found report could not be ruled out. Vague existing reports make this the usual result.
+- An `/admin` run and an automatic run at the same moment can both send the same pair to Gemini. The database keeps only one row.
 
 ## Score migration application note
 

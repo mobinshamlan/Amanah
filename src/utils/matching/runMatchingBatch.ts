@@ -37,7 +37,14 @@ export type CompareOutcome =
   | { ok: true; result: ComparisonDetails }
   | { ok: false; failure: MatchingFailure };
 
+export type BatchCompareOutcome =
+  | { ok: true; results: ComparisonDetails[] }
+  | { ok: false; failure: MatchingFailure };
+
 export type SaveOutcome = "saved" | "duplicate" | "error";
+
+type SaveMatch = (pair: ReportPair, result: ComparisonDetails) => Promise<SaveOutcome>;
+type RecordCheck = (pair: ReportPair, result: ComparisonDetails) => Promise<SaveOutcome>;
 
 export type MatchingRunSummary = {
   checked: number;
@@ -88,12 +95,76 @@ export function buildPairs(
   });
 }
 
+function emptySummary(): MatchingRunSummary {
+  return {
+    checked: 0,
+    matched: 0,
+    uncertain: 0,
+    noMatch: 0,
+    failed: 0,
+    alreadySaved: 0,
+    remaining: 0,
+    failure: null,
+    stoppedForTime: false,
+  };
+}
+
 /**
- * Compares up to batchSize pairs that have not been checked yet. match and
- * insufficient_information results are saved for review, and every completed
- * comparison (including no_match) is recorded so it is not repeated. The first
- * failure stops the batch without recording that pair, so it is retried on the
- * next run.
+ * Saves match and insufficient_information results for review and records every
+ * completed comparison (including no_match) so it is not repeated. Returns false
+ * when saving fails; that pair stays unrecorded and is retried later.
+ */
+async function saveResult({
+  pair,
+  result,
+  summary,
+  checked,
+  saveMatch,
+  recordCheck,
+}: {
+  pair: ReportPair;
+  result: ComparisonDetails;
+  summary: MatchingRunSummary;
+  checked: Set<string>;
+  saveMatch: SaveMatch;
+  recordCheck: RecordCheck;
+}): Promise<boolean> {
+  if (result.decision !== "no_match") {
+    const saveOutcome = await saveMatch(pair, result);
+    if (saveOutcome === "error") {
+      summary.failed += 1;
+      summary.failure = "save";
+      return false;
+    }
+    if (saveOutcome === "duplicate") {
+      summary.alreadySaved += 1;
+    } else if (result.decision === "match") {
+      summary.matched += 1;
+    } else {
+      summary.uncertain += 1;
+    }
+    // A saved suggestion already counts as checked, even if recording below fails.
+    checked.add(pair.key);
+  }
+
+  if ((await recordCheck(pair, result)) === "error") {
+    summary.failed += 1;
+    summary.failure = "save";
+    return false;
+  }
+  checked.add(pair.key);
+
+  if (result.decision === "no_match") {
+    summary.noMatch += 1;
+  }
+  summary.checked += 1;
+  return true;
+}
+
+/**
+ * Compares up to batchSize pairs that have not been checked yet, one Gemini
+ * request per pair. The first failure stops the batch without recording that
+ * pair, so it is retried on the next run.
  */
 export async function runMatchingBatch({
   pairs,
@@ -111,21 +182,10 @@ export async function runMatchingBatch({
   timeBudgetMs?: number;
   now?: () => number;
   compare: (pair: ReportPair) => Promise<CompareOutcome>;
-  saveMatch: (pair: ReportPair, result: ComparisonDetails) => Promise<SaveOutcome>;
-  recordCheck: (pair: ReportPair, result: ComparisonDetails) => Promise<SaveOutcome>;
+  saveMatch: SaveMatch;
+  recordCheck: RecordCheck;
 }): Promise<MatchingRunSummary> {
-  const summary: MatchingRunSummary = {
-    checked: 0,
-    matched: 0,
-    uncertain: 0,
-    noMatch: 0,
-    failed: 0,
-    alreadySaved: 0,
-    remaining: 0,
-    failure: null,
-    stoppedForTime: false,
-  };
-
+  const summary = emptySummary();
   const startedAt = now();
   const checked = new Set(checkedKeys);
   const batch = pairs.filter((pair) => !checked.has(pair.key)).slice(0, batchSize);
@@ -143,36 +203,70 @@ export async function runMatchingBatch({
       break;
     }
 
-    const { result } = outcome;
-    if (result.decision !== "no_match") {
-      const saveOutcome = await saveMatch(pair, result);
-      if (saveOutcome === "error") {
-        summary.failed += 1;
-        summary.failure = "save";
-        break;
-      }
-      if (saveOutcome === "duplicate") {
-        summary.alreadySaved += 1;
-      } else if (result.decision === "match") {
-        summary.matched += 1;
-      } else {
-        summary.uncertain += 1;
-      }
-      // A saved suggestion already counts as checked, even if recording below fails.
-      checked.add(pair.key);
-    }
-
-    if ((await recordCheck(pair, result)) === "error") {
-      summary.failed += 1;
-      summary.failure = "save";
+    const saved = await saveResult({
+      pair,
+      result: outcome.result,
+      summary,
+      checked,
+      saveMatch,
+      recordCheck,
+    });
+    if (!saved) {
       break;
     }
-    checked.add(pair.key);
+  }
 
-    if (result.decision === "no_match") {
-      summary.noMatch += 1;
+  summary.remaining = pairs.filter((pair) => !checked.has(pair.key)).length;
+  return summary;
+}
+
+/**
+ * Compares up to batchSize unchecked pairs that share one new report with a
+ * single Gemini request. A failed or rejected answer records nothing, so every
+ * pair in the batch stays unchecked and is retried later.
+ */
+export async function runCandidateBatch({
+  pairs,
+  checkedKeys,
+  batchSize,
+  compareBatch,
+  saveMatch,
+  recordCheck,
+}: {
+  pairs: ReportPair[];
+  checkedKeys: Set<string>;
+  batchSize: number;
+  compareBatch: (batch: ReportPair[]) => Promise<BatchCompareOutcome>;
+  saveMatch: SaveMatch;
+  recordCheck: RecordCheck;
+}): Promise<MatchingRunSummary> {
+  const summary = emptySummary();
+  const checked = new Set(checkedKeys);
+  const batch = pairs.filter((pair) => !checked.has(pair.key)).slice(0, batchSize);
+
+  if (batch.length > 0) {
+    const outcome = await compareBatch(batch);
+    if (!outcome.ok) {
+      summary.failed += 1;
+      summary.failure = outcome.failure;
+    } else if (outcome.results.length !== batch.length) {
+      summary.failed += 1;
+      summary.failure = "invalid_response";
+    } else {
+      for (const [index, pair] of batch.entries()) {
+        const saved = await saveResult({
+          pair,
+          result: outcome.results[index],
+          summary,
+          checked,
+          saveMatch,
+          recordCheck,
+        });
+        if (!saved) {
+          break;
+        }
+      }
     }
-    summary.checked += 1;
   }
 
   summary.remaining = pairs.filter((pair) => !checked.has(pair.key)).length;
