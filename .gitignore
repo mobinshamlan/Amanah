@@ -1,0 +1,28 @@
+# Dependencies and generated files
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local secrets
+.env*
+!.env.example
+
+# Local files
+.DS_Store
+*.log
+
+# Additional Next.js starter exclusions
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+*.pem
+.vercel
+next-env.d.ts
