@@ -21,12 +21,12 @@ export default function Home() {
           >
             Report a lost item
           </Link>
-          <button
-            type="button"
-            className="w-full rounded-lg border border-teal-700 px-5 py-3 text-base font-medium text-teal-800 sm:w-auto"
+          <Link
+            href="/report/found"
+            className="inline-flex w-full items-center justify-center rounded-lg border border-teal-700 px-5 py-3 text-base font-medium text-teal-800 sm:w-auto"
           >
             Report a found item
-          </button>
+          </Link>
         </div>
       </div>
     </main>
