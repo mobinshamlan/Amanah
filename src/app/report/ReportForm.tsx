@@ -7,6 +7,7 @@ import {
   validateReportFields,
   type FieldErrors,
 } from "@/app/report/validation";
+import { SiteHeader } from "@/components/site-header";
 
 type ReportFormProps = {
   reportType: ReportType;
@@ -15,6 +16,9 @@ type ReportFormProps = {
   locationLabel: string;
   locationRequiredMessage: string;
 };
+
+const fieldClassName =
+  "h-11 w-full rounded-lg border border-foreground/50 bg-background px-3 text-base outline-none transition-colors hover:border-foreground/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
 export default function ReportForm({
   reportType,
@@ -75,105 +79,147 @@ export default function ReportForm({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-6 py-10">
-      <Link href="/" className="text-teal-800 underline">
-        Back to home
-      </Link>
+    <>
+      <SiteHeader />
+      <main className="flex-1">
+        <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pb-16 pt-6 sm:px-8 sm:pb-24 sm:pt-10">
+          <Link
+            href="/"
+            className="-ml-2 inline-flex w-fit items-center rounded-md px-2 py-1.5 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Back to home
+          </Link>
 
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-zinc-900">{title}</h1>
-        <p className="text-zinc-600">{intro}</p>
-      </div>
+          <h1 className="mt-5 text-balance font-serif text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl">
+            {title}
+          </h1>
+          <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            {intro}
+          </p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="itemName" className="font-medium text-zinc-900">
-            Item name
-          </label>
-          <input
-            id="itemName"
-            name="itemName"
-            type="text"
-            value={itemName}
-            onChange={(event) => setItemName(event.target.value)}
-            disabled={isSubmitting}
-            className="rounded border border-zinc-300 px-3 py-2 disabled:opacity-60"
-            aria-invalid={Boolean(errors.itemName)}
-            aria-describedby={errors.itemName ? "itemName-error" : undefined}
-          />
-          {errors.itemName ? (
-            <p id="itemName-error" className="text-sm text-red-700">
-              {errors.itemName}
+          <form
+            onSubmit={handleSubmit}
+            className="mt-8 flex flex-col gap-5 sm:mt-10"
+            noValidate
+          >
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="itemName"
+                className="text-base font-medium leading-snug text-foreground"
+              >
+                Item name
+              </label>
+              <input
+                id="itemName"
+                name="itemName"
+                type="text"
+                value={itemName}
+                onChange={(event) => setItemName(event.target.value)}
+                disabled={isSubmitting}
+                className={fieldClassName}
+                aria-invalid={Boolean(errors.itemName)}
+                aria-describedby={
+                  errors.itemName ? "itemName-error" : undefined
+                }
+              />
+              {errors.itemName ? (
+                <p
+                  id="itemName-error"
+                  className="text-sm font-medium leading-snug text-foreground"
+                >
+                  {errors.itemName}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="description"
+                className="text-base font-medium leading-snug text-foreground"
+              >
+                Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                rows={4}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                disabled={isSubmitting}
+                className={`${fieldClassName} h-auto min-h-24 py-2`}
+                aria-invalid={Boolean(errors.description)}
+                aria-describedby={
+                  errors.description ? "description-error" : undefined
+                }
+              />
+              {errors.description ? (
+                <p
+                  id="description-error"
+                  className="text-sm font-medium leading-snug text-foreground"
+                >
+                  {errors.description}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="location"
+                className="text-base font-medium leading-snug text-foreground"
+              >
+                {locationLabel}
+              </label>
+              <input
+                id="location"
+                name="location"
+                type="text"
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                disabled={isSubmitting}
+                className={fieldClassName}
+                aria-invalid={Boolean(errors.location)}
+                aria-describedby={
+                  errors.location ? "location-error" : undefined
+                }
+              />
+              {errors.location ? (
+                <p
+                  id="location-error"
+                  className="text-sm font-medium leading-snug text-foreground"
+                >
+                  {errors.location}
+                </p>
+              ) : null}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 sm:w-auto sm:self-start"
+            >
+              {isSubmitting ? "Saving…" : "Submit report"}
+            </button>
+          </form>
+
+          {formError ? (
+            <p
+              role="alert"
+              className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium leading-snug text-foreground"
+            >
+              {formError}
+            </p>
+          ) : null}
+
+          {successMessage ? (
+            <p
+              role="status"
+              className="mt-4 rounded-xl border border-forest/30 bg-accent px-4 py-3 text-sm font-medium leading-snug text-forest"
+            >
+              {successMessage}
             </p>
           ) : null}
         </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="description" className="font-medium text-zinc-900">
-            Description
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            rows={4}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            disabled={isSubmitting}
-            className="rounded border border-zinc-300 px-3 py-2 disabled:opacity-60"
-            aria-invalid={Boolean(errors.description)}
-            aria-describedby={
-              errors.description ? "description-error" : undefined
-            }
-          />
-          {errors.description ? (
-            <p id="description-error" className="text-sm text-red-700">
-              {errors.description}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="location" className="font-medium text-zinc-900">
-            {locationLabel}
-          </label>
-          <input
-            id="location"
-            name="location"
-            type="text"
-            value={location}
-            onChange={(event) => setLocation(event.target.value)}
-            disabled={isSubmitting}
-            className="rounded border border-zinc-300 px-3 py-2 disabled:opacity-60"
-            aria-invalid={Boolean(errors.location)}
-            aria-describedby={errors.location ? "location-error" : undefined}
-          />
-          {errors.location ? (
-            <p id="location-error" className="text-sm text-red-700">
-              {errors.location}
-            </p>
-          ) : null}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-lg bg-teal-700 px-5 py-3 font-medium text-white disabled:opacity-60"
-        >
-          {isSubmitting ? "Saving…" : "Submit report"}
-        </button>
-      </form>
-
-      {formError ? (
-        <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-red-800">
-          {formError}
-        </p>
-      ) : null}
-
-      {successMessage ? (
-        <p className="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-teal-900">
-          {successMessage}
-        </p>
-      ) : null}
-    </main>
+      </main>
+    </>
   );
 }

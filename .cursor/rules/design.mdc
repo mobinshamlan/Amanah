@@ -1,0 +1,19 @@
+---
+description: Apply Amanah visual design when building or changing UI
+globs: src/app/**/*.{tsx,css},src/components/**/*.tsx,src/app/globals.css
+alwaysApply: false
+---
+
+# Amanah UI design
+
+When adding or changing UI, follow `docs/design-guidelines.md`.
+
+- Cream background, charcoal text, forest for focus/trust, sage for decoration only.
+- Serif headings, sans-serif UI text. Arabic uses `font-arabic` with `lang="ar"` and `dir="rtl"`.
+- Semantic color tokens; no raw hex in components; no new palette, gradients, or dark mode without approval.
+- Phone first; `sm` (640px) is the main layout break. Narrow centered column (`max-w-3xl` content, `max-w-5xl` header).
+- Visible focus rings (forest). Real buttons and links. Loading, empty, error, and success states on new screens.
+
+If the guidelines list a conflict, ask before inventing a new default. Do not copy old screens or components.
+
+Applied defaults for this codebase: report forms and primary form actions use 44px (`h-11`) controls with stronger field borders; keep the light-only palette.

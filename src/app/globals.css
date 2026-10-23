@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-cream: #f4f3ee;
+  --color-charcoal: #101d22;
+  --color-sage: #8fae9a;
+  --color-forest: #426d58;
+
+  --color-background: #f4f3ee;
+  --color-foreground: #101d22;
+  --color-card: #fbfaf7;
+  --color-card-foreground: #101d22;
+  --color-primary: #101d22;
+  --color-primary-foreground: #f4f3ee;
+  --color-secondary: #e9e8e0;
+  --color-secondary-foreground: #101d22;
+  --color-muted: #e9e8e0;
+  --color-muted-foreground: #55656a;
+  --color-accent: #e1eae4;
+  --color-accent-foreground: #101d22;
+  --color-destructive: #8a2f2f;
+  --color-border: #dad8ce;
+  --color-input: #dad8ce;
+  --color-ring: #426d58;
+
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-cormorant);
+  --font-arabic: var(--font-amiri);
+  --font-heading: var(--font-cormorant);
+
+  --shadow-card: 0 1px 2px rgb(16 29 34 / 0.05), 0 6px 20px rgb(16 29 34 / 0.04);
+  --shadow-card-hover:
+    0 2px 4px rgb(16 29 34 / 0.05), 0 14px 32px rgb(66 109 88 / 0.14);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --cream: #f4f3ee;
+  --charcoal: #101d22;
+  --sage: #8fae9a;
+  --forest: #426d58;
+  --background: #f4f3ee;
+  --foreground: #101d22;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-dm-sans, ui-sans-serif), system-ui, sans-serif;
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-dm-sans, ui-sans-serif), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-sage) 40%, transparent);
+    color: var(--color-charcoal);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
