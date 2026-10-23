@@ -15,6 +15,10 @@ coverage/
 .DS_Store
 *.log
 
+# Local agent skills (keep these off GitHub)
+.agents/skills/
+/skills-lock.json
+
 # Additional Next.js starter exclusions
 /.pnp
 .pnp.*
