@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Server Function logs include call arguments, which would print report text.
+  logging: {
+    serverFunctions: false,
+  },
   turbopack: {
     rules: {
       "*.css": {

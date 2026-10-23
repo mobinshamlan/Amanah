@@ -18,6 +18,10 @@ coverage/
 # Local agent skills (keep these off GitHub)
 .agents/skills/
 /skills-lock.json
+/gemini-skills-main.zip
+
+# Supabase CLI temporary files (created by supabase link)
+/supabase/.temp/
 
 # Additional Next.js starter exclusions
 /.pnp
