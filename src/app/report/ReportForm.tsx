@@ -1,12 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import {
-  continueMatching,
-  submitReport,
-  type ReportType,
-} from "@/app/report/actions";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { submitReport, type ReportType } from "@/app/report/actions";
 import {
   validateReportFields,
   type FieldErrors,
@@ -14,66 +10,14 @@ import {
 import {
   FoundConfirmation,
   LostConfirmation,
-  type MatchingView,
+  statusMessage,
 } from "@/app/report/SubmissionConfirmation";
+import { trackingHref } from "@/app/report/tracking";
+import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { SiteHeader } from "@/components/site-header";
-
-// Each continuation request is bounded on the server; this caps requests per page visit.
-const MAX_CONTINUATION_STEPS = 40;
-// After this many waits for the Gemini rate limit, the submitter must choose Try again.
-const MAX_RATE_LIMIT_WAITS = 2;
 
 function storageKey(reportType: ReportType) {
   return `amanah:submission:${reportType}`;
-}
-
-function statusMessage(reportType: ReportType, view: MatchingView, waiting: boolean) {
-  if (reportType === "found") {
-    switch (view.phase) {
-      case "checking":
-        return "Report saved. Thank you for reporting this item. Finishing up…";
-      case "rate_limited":
-        return waiting
-          ? "Report saved. Thank you for reporting this item. Automatic processing is paused because the service is busy and will continue in about a minute."
-          : "Report saved. Thank you for reporting this item. Automatic processing did not finish because the service is busy. You can try again in a few minutes.";
-      case "complete":
-        return "Report saved. Thank you for reporting this item.";
-      case "stalled":
-        return "Report saved. Thank you for reporting this item. Processing is taking longer than expected; refresh the page to continue.";
-      case "lost_access":
-        return "Report saved. Thank you for reporting this item.";
-      default:
-        return "Report saved. Thank you for reporting this item. Some automatic processing did not finish. You can try again.";
-    }
-  }
-
-  if ("outcome" in view && view.outcome === "possible_match") {
-    return view.phase === "failed" ||
-      view.phase === "unavailable" ||
-      view.phase === "rate_limited"
-      ? "We found a possible match. Ownership verification is the next step. Some other checks did not finish."
-      : "We found a possible match. Ownership verification is the next step.";
-  }
-  switch (view.phase) {
-    case "checking":
-      return "Report saved. Checking for possible matches…";
-    case "rate_limited":
-      return waiting
-        ? "Your report is saved. Checking is paused because the matching service is busy and will continue in about a minute if this page stays open. This is not a “no match” result."
-        : "Your report is saved, but checking for possible matches did not finish because the matching service is busy. This is not a “no match” result. You can try again in a few minutes.";
-    case "complete":
-      return "outcome" in view && view.outcome === "uncertain"
-        ? "Your report is saved. We could not tell from the details whether a found item matches, so staff may review it."
-        : "No possible match yet. Your report is saved.";
-    case "unavailable":
-      return "Your report is saved, but automatic matching is not available right now. This is not a “no match” result.";
-    case "stalled":
-      return "Your report is saved. Checking is taking longer than expected and is not finished. Refresh the page to continue.";
-    case "lost_access":
-      return "Your report is saved. Its matching status is no longer available on this page.";
-    default:
-      return "Your report is saved, but checking for possible matches did not finish. This is not a “no match” result. You can try again.";
-  }
 }
 
 type ReportFormProps = {
@@ -84,7 +28,7 @@ type ReportFormProps = {
   locationRequiredMessage: string;
 };
 
-const fieldClassName =
+export const fieldClassName =
   "h-11 w-full rounded-lg border border-foreground/50 bg-background px-3 text-base outline-none transition-colors hover:border-foreground/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
 export default function ReportForm({
@@ -100,65 +44,20 @@ export default function ReportForm({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [credential, setCredential] = useState<string | null>(null);
-  const [matching, setMatching] = useState<MatchingView | null>(null);
-  const [isContinuing, setIsContinuing] = useState(false);
-  const activeRun = useRef(0);
+  const {
+    credential,
+    matching,
+    setMatching,
+    isContinuing,
+    canRetry,
+    continueChecks,
+    cancel,
+    clear,
+  } = useMatchingProgress({ reportType, storageKey: storageKey(reportType) });
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
   const itemNameRef = useRef<HTMLInputElement>(null);
   const focusFormAfterReset = useRef(false);
   const showConfirmation = matching !== null;
-
-  const continueChecks = useCallback(
-    async (submissionCredential: string) => {
-      const run = ++activeRun.current;
-      setCredential(submissionCredential);
-      setMatching({ phase: "checking" });
-      setIsContinuing(true);
-      let rateLimitWaits = 0;
-      try {
-        for (let step = 0; step < MAX_CONTINUATION_STEPS; step += 1) {
-          if (run !== activeRun.current) {
-            return;
-          }
-          const result = await continueMatching(submissionCredential);
-          if (run !== activeRun.current) {
-            return;
-          }
-          if (!result.ok) {
-            sessionStorage.removeItem(storageKey(reportType));
-            setMatching({ phase: "lost_access" });
-            return;
-          }
-          setMatching(result.status);
-          if (result.status.phase === "complete") {
-            sessionStorage.removeItem(storageKey(reportType));
-          }
-          if (result.status.phase === "rate_limited") {
-            if (rateLimitWaits >= MAX_RATE_LIMIT_WAITS) {
-              return;
-            }
-            rateLimitWaits += 1;
-          } else if (result.status.phase !== "checking") {
-            return;
-          }
-          if (result.waitMs) {
-            await new Promise((resolve) => setTimeout(resolve, result.waitMs));
-          }
-        }
-        setMatching({ phase: "stalled" });
-      } catch {
-        if (run === activeRun.current) {
-          setMatching({ phase: "failed" });
-        }
-      } finally {
-        if (run === activeRun.current) {
-          setIsContinuing(false);
-        }
-      }
-    },
-    [reportType],
-  );
 
   useEffect(() => {
     const saved = sessionStorage.getItem(storageKey(reportType));
@@ -169,9 +68,21 @@ export default function ReportForm({
     const timer = setTimeout(() => void continueChecks(saved), 0);
     return () => {
       clearTimeout(timer);
-      activeRun.current += 1;
+      cancel();
     };
-  }, [reportType, continueChecks]);
+  }, [reportType, continueChecks, cancel]);
+
+  // Coming back from the tracking page with Back may restore this page as it was
+  // left, mid-submit. The report was already saved, so show a fresh form.
+  useEffect(() => {
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setIsSubmitting(false);
+      }
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   // The confirmation replaces the form, so move focus with it.
   useEffect(() => {
@@ -186,11 +97,8 @@ export default function ReportForm({
 
   function startAnotherReport() {
     // Stop following the previous submission; it stays saved and is not sent again.
-    activeRun.current += 1;
+    clear();
     sessionStorage.removeItem(storageKey(reportType));
-    setMatching(null);
-    setCredential(null);
-    setIsContinuing(false);
     setErrors({});
     setFormError(null);
     setItemName("");
@@ -208,13 +116,6 @@ export default function ReportForm({
     void continueChecks(credential);
   }
 
-  const canRetry =
-    Boolean(credential) &&
-    !isContinuing &&
-    (matching?.phase === "failed" ||
-      matching?.phase === "rate_limited" ||
-      matching?.phase === "unavailable");
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
@@ -230,11 +131,10 @@ export default function ReportForm({
     }
 
     // A new submission replaces the previous one shown on this page.
-    activeRun.current += 1;
-    setMatching(null);
-    setCredential(null);
+    clear();
     sessionStorage.removeItem(storageKey(reportType));
     setIsSubmitting(true);
+    let leavingPage = false;
 
     try {
       const result = await submitReport(reportType, {
@@ -258,7 +158,12 @@ export default function ReportForm({
       setDescription("");
       setLocation("");
 
-      if (result.credential) {
+      if (result.credential && reportType === "lost") {
+        // The private tracking link follows matching from here, and keeps
+        // working after a refresh or when the browser is reopened.
+        leavingPage = true;
+        window.location.assign(trackingHref(result.credential));
+      } else if (result.credential) {
         sessionStorage.setItem(storageKey(reportType), result.credential);
         void continueChecks(result.credential);
       } else {
@@ -267,7 +172,9 @@ export default function ReportForm({
     } catch {
       setFormError("Could not save your report. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      if (!leavingPage) {
+        setIsSubmitting(false);
+      }
     }
   }
 
@@ -300,13 +207,23 @@ export default function ReportForm({
               />
             ) : (
               <LostConfirmation
+                title="Lost report saved"
+                intro="Your report is saved."
                 view={matching}
                 isContinuing={isContinuing}
                 canRetry={canRetry}
                 onRetry={retryChecks}
                 onReportAnother={startAnotherReport}
                 headingRef={confirmationHeadingRef}
-              />
+              >
+                {credential ? null : (
+                  <p className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+                    A private tracking link could not be created for this
+                    report, so its progress cannot be followed later. Your
+                    report is still saved.
+                  </p>
+                )}
+              </LostConfirmation>
             )
           ) : (
             <>

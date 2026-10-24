@@ -1,6 +1,6 @@
 # AI matching (private stage)
 
-Amanah flow: private AI matching, then hidden-detail ownership verification, then a final staff decision. This document covers only the first stage.
+Amanah flow: private AI matching, then hidden-detail ownership verification, then a final staff decision. This document covers only the first stage. Ownership verification and staff decisions are in `ownership-verification.md`.
 
 ## What the AI does
 
@@ -36,13 +36,15 @@ Known limits: scores from a few fictional examples have not been calibrated, Gem
 
 ## Decision rules
 
-1. A detail counts as agreement only when both reports state it and it agrees.
-2. A detail stated in only one report is unknown. It is listed as missing information, not as agreement or contradiction.
-3. Common item type, colour, brand, or location alone is not enough for `match` (for example, two black iPhones in the library).
+1. A detail counts as agreement only when both reports state it and it agrees. Supporting details may list only those grounded agreements.
+2. A detail stated in only one report is unknown. It is listed as missing information. Absence is never a contradiction, and missing details must not block `match` when the match rule is met.
+3. Common item type, colour, brand, or location alone is not enough for `match`. Location is weak and never decides alone.
 4. Longer or more careful writing is not evidence.
-5. Clear conflicts (different item types, colours, or brands) are listed as contradictions.
+5. Decide `match` only when the item types are compatible and at least one specific shared detail agrees, with no explicit contradictions. Extra details in only one report stay under missing information and must not block `match`.
+6. Decide `no_match` only when both reports explicitly state conflicting details (for example incompatible item types, colours, or brands).
+7. If those match conditions are already met, do not fall back to `insufficient_information` only because one report is thinner.
 
-The server also checks Gemini's answer. A `match` with no supporting detail, or with any contradiction, is saved as `insufficient_information` instead.
+The server also checks Gemini's answer. A `match` with no supporting detail, or with any contradiction, is saved as `insufficient_information` instead. The similarity score remains a ranking aid only.
 
 ## What a suggestion is not
 
@@ -71,13 +73,13 @@ How it runs:
 1. `submitReport` creates the report ID on the server and inserts the report with the public, insert-only key. With the server key it then stores a submission credential in `report_submissions`. The credential is 32 random bytes; only its SHA-256 hash is stored. The browser receives the credential once.
 2. The page calls `continueMatching(credential)` repeatedly. Each call is awaited and sends at most one Gemini request, which compares the new report with up to 10 unchecked opposite-type reports. Larger inventories take several calls, one after another, never in parallel. Nothing keeps running after a request finishes.
 3. A 90-second lease (`processing_until`) stops two calls from processing the same report at once. A second call while the lease is held does no work and asks the page to wait 2 seconds.
-4. Progress is the `report_pair_checks` table, so a refresh or retry only continues with unchecked pairs. The page keeps the credential in `sessionStorage`, resumes after a refresh, and removes it once checking is complete. The page stops after 40 calls.
+4. Progress is the `report_pair_checks` table, so a refresh or retry only continues with unchecked pairs. A found report's page keeps the credential in `sessionStorage`, resumes after a refresh, and removes it once checking is complete. A lost report's page moves to its private tracking link instead (see "Lost-report tracking link"). A page stops after 40 calls.
 
 The batch request (`compareReportWithCandidates`) uses the same decision rules, score guidance, and server checks as a single comparison. It also tells Gemini to judge each candidate on its own. Candidates are sent with temporary labels (`C1`, `C2`, …), never database IDs. The server accepts the answer only when every label appears exactly once and every result is valid. A missing, repeated, or unknown label, or any invalid result, rejects the whole batch. Nothing from it is recorded, so all its pairs are retried. The batch request times out after 30 seconds and has the same retry rules. `/admin` still sends one request per pair.
 
 Rate limits: a 429 is not retried at once. The page shows that checking is paused, waits 60 seconds, and asks again, at most twice. After that it shows that checking did not finish and offers Try again. Refreshing the page asks again immediately.
 
-What the browser receives: only a phase (`checking`, `complete`, `failed`, `rate_limited`, `unavailable`) and, for lost reports, an outcome (`possible_match`, `uncertain`, `no_match`). No found-item details, scores, explanations, IDs, or counts. Found reporters receive no outcome at all. A report ID alone, or an unknown or malformed credential, gets `{ ok: false }`.
+What the browser receives: only a phase (`checking`, `complete`, `failed`, `rate_limited`, `unavailable`) and, for lost reports, an outcome (`possible_match`, `uncertain`, `no_match`). No found-item details, scores, explanations, IDs, or counts. Found reporters receive no outcome at all. A report ID alone, an unknown or malformed credential, or a credential used on the page for the other report type gets `{ ok: false }`.
 
 Messages for lost reporters:
 
@@ -93,9 +95,19 @@ Messages for lost reporters:
 
 `no_match` is shown only when every relevant pair has a recorded check. Failures, the 40-call cap, and a lost credential each have their own message.
 
-Closing the browser tab: processing stops after the current batch. `sessionStorage` is cleared, so that tab cannot resume. The unchecked pairs stay unchecked, never "no match". They are covered later when an opposite-type report is submitted (its check includes this report), or by Run matching on `/admin`. A background worker (for example a scheduled job) would remove this limit, but it is new infrastructure and was not added for this MVP.
+Closing the browser tab: processing stops after the current batch. For a found report, `sessionStorage` is cleared, so that tab cannot resume. A lost report resumes whenever its tracking link is opened again. The unchecked pairs stay unchecked, never "no match". They are covered later when an opposite-type report is submitted (its check includes this report), or by Run matching on `/admin`. A background worker (for example a scheduled job) would remove this limit, but it is new infrastructure and was not added for this MVP.
 
 `report_submissions` (`20261023185900_create_report_submissions.sql`) has RLS enabled and no public access. The server role can read rows, insert only `report_id` and `token_hash`, and update only `processing_until`. It cannot rewrite a hash or delete a row. Migration history has 9 matching versions locally and remotely.
+
+### Lost-report tracking link
+
+After a lost report is saved, the page moves to `/report/track#<credential>`. The tracking link reuses the submission credential: it is random, only its hash is stored, and it sits in the URL fragment, which browsers do not send to the server or in Referer headers. No schema or permission change was needed. The page is excluded from search indexing.
+
+Opening the link calls `continueMatching` for that credential. It returns only the public status, so it shows one of four states: saved/checking, possible match, no possible match yet (including "could not tell from the details"), or matching needs attention (failed, busy, unavailable, or not finished). It never shows the found report, its description, or the lost report's own text. Each visit recomputes the status from `report_matches`, so a possible match created later by a found report appears on the next visit without resubmitting. Each visit also continues any unchecked pairs for this lost report, with the same limits as above.
+
+Anyone who has the link can see that report's progress. A lost credential cannot be revoked or rotated yet. If the credential could not be created when the report was saved, no tracking link is shown and the page says so.
+
+Found reporters get a confirmation with drop-off guidance and no matching information. The guidance is a placeholder (`FOUND_DROP_OFF_GUIDANCE` in `src/app/report/SubmissionConfirmation.tsx`) until the organization provides its real drop-off location.
 
 ### Verified (23 October 2026, fictional reports, before batching)
 
@@ -108,7 +120,7 @@ Closing the browser tab: processing stops after the current batch. `sessionStora
 
 ### Automatic matching limitations
 
-- Processing depends on the submitter's open tab (see above).
+- Processing depends on the submitter's open tab or, for a lost report, on its tracking link being opened (see above).
 - Every new report costs one Gemini request per 10 opposite-type reports, rounded up (2 for 13 reports; it was 13 before batching). A batch answer uses about as many output tokens as the separate answers did, so token use does not drop much. Nothing limits how many reports a visitor can submit.
 - Batching was verified with controlled tests only. Whether Gemini judges a pair the same way inside a batch as on its own has not been measured with live calls.
 - One invalid result rejects the whole batch, so a repeatedly malformed answer blocks those 10 candidates until a later attempt succeeds.

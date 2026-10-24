@@ -6,6 +6,59 @@ export type MatchingView =
   | { phase: "stalled" }
   | { phase: "lost_access" };
 
+export function statusMessage(
+  reportType: "lost" | "found",
+  view: MatchingView,
+  waiting: boolean,
+) {
+  if (reportType === "found") {
+    switch (view.phase) {
+      case "checking":
+        return "Report saved. Thank you for reporting this item. Finishing up…";
+      case "rate_limited":
+        return waiting
+          ? "Report saved. Thank you for reporting this item. Automatic processing is paused because the service is busy and will continue in about a minute."
+          : "Report saved. Thank you for reporting this item. Automatic processing did not finish because the service is busy. You can try again in a few minutes.";
+      case "complete":
+        return "Report saved. Thank you for reporting this item.";
+      case "stalled":
+        return "Report saved. Thank you for reporting this item. Processing is taking longer than expected; refresh the page to continue.";
+      case "lost_access":
+        return "Report saved. Thank you for reporting this item.";
+      default:
+        return "Report saved. Thank you for reporting this item. Some automatic processing did not finish. You can try again.";
+    }
+  }
+
+  if ("outcome" in view && view.outcome === "possible_match") {
+    return view.phase === "failed" ||
+      view.phase === "unavailable" ||
+      view.phase === "rate_limited"
+      ? "We found a possible match. Ownership verification is the next step. Some other checks did not finish."
+      : "We found a possible match. Ownership verification is the next step.";
+  }
+  switch (view.phase) {
+    case "checking":
+      return "Report saved. Checking for possible matches…";
+    case "rate_limited":
+      return waiting
+        ? "Your report is saved. Checking is paused because the matching service is busy and will continue in about a minute if this page stays open. This is not a “no match” result."
+        : "Your report is saved, but checking for possible matches did not finish because the matching service is busy. This is not a “no match” result. You can try again in a few minutes.";
+    case "complete":
+      return "outcome" in view && view.outcome === "uncertain"
+        ? "No possible match yet. Your report is saved. We could not tell from the details whether a found item matches, so staff may review it."
+        : "No possible match yet. Your report is saved.";
+    case "unavailable":
+      return "Your report is saved, but automatic matching is not available right now. This is not a “no match” result.";
+    case "stalled":
+      return "Your report is saved. Checking is taking longer than expected and is not finished. Refresh the page to continue.";
+    case "lost_access":
+      return "Your report is saved. Its matching status is no longer available on this page.";
+    default:
+      return "Your report is saved, but checking for possible matches did not finish. This is not a “no match” result. You can try again.";
+  }
+}
+
 type ConfirmationProps = {
   view: MatchingView;
   isContinuing: boolean;
@@ -15,10 +68,10 @@ type ConfirmationProps = {
   headingRef: RefObject<HTMLHeadingElement | null>;
 };
 
-const primaryButtonClassName =
+export const primaryButtonClassName =
   "inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto";
 
-const secondaryButtonClassName =
+export const secondaryButtonClassName =
   "inline-flex h-11 w-full items-center justify-center rounded-lg border border-border bg-background px-6 text-base font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto";
 
 function CheckIcon({ className }: { className?: string }) {
@@ -138,6 +191,28 @@ function SavedHeader({
   );
 }
 
+// Placeholder until the organization provides its real drop-off location.
+export const FOUND_DROP_OFF_GUIDANCE =
+  "Please take the item to your organization’s designated lost-and-found staff. The exact drop-off location will be added by the organization.";
+
+function PinIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+      <circle cx="12" cy="10" r="2.25" />
+    </svg>
+  );
+}
+
 function foundNote(view: MatchingView, waiting: boolean, canRetry: boolean) {
   if (waiting) {
     return view.phase === "rate_limited"
@@ -176,8 +251,28 @@ export function FoundConfirmation({
         returned to its owner safely.
       </SavedHeader>
 
+      <section
+        aria-labelledby="drop-off-title"
+        className="mt-8 rounded-2xl border border-forest/30 bg-accent p-5 motion-safe:animate-rise sm:p-6"
+      >
+        <div className="flex items-start gap-3">
+          <PinIcon className="mt-1 size-5 shrink-0 text-forest" />
+          <div>
+            <h2
+              id="drop-off-title"
+              className="font-serif text-2xl font-semibold leading-tight tracking-tight text-forest sm:text-[1.75rem]"
+            >
+              Next step: hand in the item
+            </h2>
+            <p className="mt-2 text-base leading-relaxed text-foreground">
+              {FOUND_DROP_OFF_GUIDANCE}
+            </p>
+          </div>
+        </div>
+      </section>
+
       {note ? (
-        <div className="mt-8 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 motion-safe:animate-rise sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 motion-safe:animate-rise sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             {isContinuing ? (
               <span
@@ -284,9 +379,9 @@ function lostResult(view: MatchingView, canRetry: boolean): LostResult {
       return "outcome" in view && view.outcome === "uncertain"
         ? {
             tone: "neutral",
-            title: "Not enough information to tell",
+            title: "No possible match yet",
             body: [
-              "We could not tell from the details whether a found item matches, so staff may review it.",
+              "We could not tell from the details whether a found item matches, so staff may review it. Your report stays saved.",
             ],
           }
         : {
@@ -299,7 +394,7 @@ function lostResult(view: MatchingView, canRetry: boolean): LostResult {
     case "rate_limited":
       return {
         tone: "notice",
-        title: "Checking paused",
+        title: "Matching needs attention",
         body: [
           `Your report is still saved, but checking did not finish because the matching service is busy. ${NOT_NO_MATCH}`,
           "You can try again in a few minutes.",
@@ -308,7 +403,7 @@ function lostResult(view: MatchingView, canRetry: boolean): LostResult {
     case "unavailable":
       return {
         tone: "notice",
-        title: "Matching unavailable right now",
+        title: "Matching needs attention",
         body: [
           `Your report is still saved, but automatic matching is not available right now. ${NOT_NO_MATCH}`,
           ...(canRetry ? ["You can try again."] : []),
@@ -317,9 +412,9 @@ function lostResult(view: MatchingView, canRetry: boolean): LostResult {
     case "stalled":
       return {
         tone: "notice",
-        title: "Taking longer than expected",
+        title: "Matching needs attention",
         body: [
-          `Your report is still saved. Checking is not finished. ${NOT_NO_MATCH}`,
+          `Your report is still saved. Checking is taking longer than expected and is not finished. ${NOT_NO_MATCH}`,
           "Refresh the page to continue.",
         ],
       };
@@ -334,7 +429,7 @@ function lostResult(view: MatchingView, canRetry: boolean): LostResult {
     default:
       return {
         tone: "notice",
-        title: "Checking did not finish",
+        title: "Matching needs attention",
         body: [
           `Your report is still saved, but checking for possible matches did not finish. ${NOT_NO_MATCH}`,
           ...(canRetry ? ["You can try again."] : []),
@@ -350,21 +445,28 @@ const resultToneClassName: Record<LostResult["tone"], string> = {
 };
 
 export function LostConfirmation({
+  title,
+  intro,
+  children,
   view,
   isContinuing,
   canRetry,
   onRetry,
   onReportAnother,
   headingRef,
-}: ConfirmationProps) {
+}: ConfirmationProps & {
+  title: string;
+  intro: string;
+  // Shown below the result, e.g. the tracking link.
+  children?: ReactNode;
+}) {
   const step = lostStep(view, isContinuing);
   const result = isContinuing ? null : lostResult(view, canRetry);
 
   return (
     <>
-      <SavedHeader title="Lost report saved" headingRef={headingRef}>
-        Your report is saved. Amanah checks it automatically against items
-        people have reported as found.
+      <SavedHeader title={title} headingRef={headingRef}>
+        {intro}
       </SavedHeader>
 
       <section
@@ -433,6 +535,8 @@ export function LostConfirmation({
           ) : null}
         </section>
       ) : null}
+
+      {children}
 
       {!isContinuing ? (
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">

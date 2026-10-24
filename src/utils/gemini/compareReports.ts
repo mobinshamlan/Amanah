@@ -328,7 +328,7 @@ function timedFetch(onAttempt: (attempt: GeminiAttempt) => void): typeof fetch {
 type CompareOptions = { onAttempt?: (attempt: GeminiAttempt) => void };
 
 /** Sends one structured request and returns Gemini's parsed JSON output. */
-async function requestJson({
+export async function requestJson({
   input,
   systemInstruction,
   schema,

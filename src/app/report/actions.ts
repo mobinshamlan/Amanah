@@ -133,10 +133,12 @@ export async function submitReport(
 /**
  * Runs one bounded batch of automatic matching for the submission that owns
  * this credential, then returns only the public status. Called repeatedly by
- * the submitter's browser until checking is no longer in progress.
+ * the submitter's browser until checking is no longer in progress, and again
+ * whenever a lost reporter opens their private tracking link.
  */
 export async function continueMatching(
   credential: string,
+  expectedType: ReportType,
 ): Promise<ContinueMatchingResult> {
   if (!isSubmissionCredential(credential)) {
     return { ok: false };
@@ -162,7 +164,8 @@ export async function continueMatching(
     | (MatchReport & { report_type: ReportType })
     | null
     | undefined;
-  if (!submission || !report) {
+  // A credential only works on the page for its own report type.
+  if (!submission || !report || report.report_type !== expectedType) {
     return { ok: false };
   }
 
