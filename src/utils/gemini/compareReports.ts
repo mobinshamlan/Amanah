@@ -98,7 +98,7 @@ const COMPARISON_PROPERTIES = {
     type: "string",
     enum: [...COMPARISON_DECISIONS],
     description:
-      "match only when specific details stated in both reports agree; no_match when stated details clearly conflict; otherwise insufficient_information.",
+      "match when item types are compatible and at least one specific detail stated in both reports agrees, with no explicit contradictions; no_match only when both reports state conflicting details; otherwise insufficient_information.",
   },
   reason: {
     type: "string",
@@ -173,14 +173,15 @@ const INPUT_RULES = [
 
 const DECISION_RULES = [
   "Rules:",
-  "1. A detail counts as agreement only when BOTH reports state it and it agrees.",
-  "2. A detail stated in only one report is unknown. List it under missing_information. It is neither agreement nor contradiction.",
-  "3. Common item type, colour, brand, or location alone is not enough for match. Many items share them. Use insufficient_information.",
+  "1. A detail counts as agreement only when BOTH reports state it and it agrees. supporting_details may list only those grounded agreements; never invent or stretch details.",
+  "2. A detail stated in only one report is unknown. List it under missing_information. Absence or silence is never a contradiction. Missing details must not block match when the match rule below is met.",
+  "3. Common item type, colour, brand, or location alone is not enough for match. Location is weak: shared or different campus places alone never decide match or no_match.",
   "4. Longer or more careful writing is not evidence. Only specific agreeing details count.",
-  "5. Decide match only when at least one distinctive detail (for example a specific sticker, engraving, damage, model number, or named contents) is stated in both reports and agrees, and nothing clearly conflicts.",
-  "6. Decide no_match when stated details clearly conflict, for example different item types, colours, or brands. List each conflict under contradictions.",
-  "7. Otherwise decide insufficient_information.",
-  "Similarity score: an integer from 0 to 100 that ranks how strongly the agreeing details point to the same item. It is not a probability.",
+  "5. Decide match only when the item types are compatible and at least one specific shared detail (for example a sticker, engraving, damage, model number, or named contents) is stated in both reports and agrees, and there are no explicit contradictions. Example: both mention the same engraved initials on a black wallet → match, even if only one also mentions a torn corner; list the torn corner under missing_information.",
+  "6. Decide no_match only when both reports explicitly state details that conflict, for example incompatible item types, colours, or brands. Do not invent conflicts from missing fields. A report that never mentions a feature is not contradicting a report that does.",
+  "7. Otherwise decide insufficient_information. Do not choose insufficient_information merely because one report has fewer details when rule 5 already applies.",
+  "Consistency: if item types are compatible, supporting_details lists at least one specific shared detail beyond common type/colour/brand/location, and contradictions is empty, decision must be match.",
+  "Similarity score: an integer from 0 to 100 that ranks how strongly the agreeing details point to the same item. It is a ranking aid only, not a probability, and it never changes the decision.",
   "Common category, colour, brand, or location agreement is weak evidence and keeps the score low.",
   "Agreement on distinctive identifying details is stronger evidence. Several independent distinctive agreements score higher than one.",
   "Missing details are unknown and neither raise nor lower the score. Writing length does not raise the score.",
