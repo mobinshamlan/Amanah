@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { ArrowRightIcon, KeyholeIllustration } from "@/components/icons";
+import { ArrowRightIcon, KeyholeGlyph } from "@/components/icons";
 import { SiteHeader } from "@/components/site-header";
-import { focusRingClassName } from "@/components/ui";
 
 const JOURNEY = [
   {
@@ -22,18 +21,26 @@ const JOURNEY = [
   },
 ];
 
+// The entrusted pair: the owner who lost something and the finder who hands it
+// in. Equal weight, mirrored on wide screens, joined by one keyhole.
 const ACTIONS = [
   {
     href: "/report/lost",
+    side: "lost",
     title: "Report a lost item",
     description: "Describe what you lost and where you last saw it.",
   },
   {
     href: "/report/found",
+    side: "found",
     title: "Report a found item",
     description: "Report an item so it can be returned safely.",
   },
-];
+] as const;
+
+// Staggered entrance on load. Without the motion preference nothing moves and
+// everything is visible from the start.
+const enter = "motion-safe:animate-enter";
 
 export default function Home() {
   return (
@@ -41,65 +48,95 @@ export default function Home() {
       <div className="bg-ink text-cream">
         <SiteHeader tone="ink" />
         <main id="main">
-        <section className="mx-auto grid w-full max-w-5xl items-center gap-6 px-5 pb-8 pt-8 sm:px-8 sm:pb-10 sm:pt-10 lg:grid-cols-[minmax(0,1fr)_180px] lg:gap-10">
-          <div className="max-w-xl">
-            <p className="flex items-baseline gap-4">
-              <span
-                lang="ar"
-                dir="rtl"
-                className="font-arabic text-4xl leading-none text-sage sm:text-5xl"
+          <section
+            aria-labelledby="brand-line"
+            className="mx-auto w-full max-w-[1440px] px-5 pb-14 pt-12 sm:px-8 sm:pb-20 sm:pt-16 lg:pb-24 lg:pt-16 xl:px-12"
+          >
+            <div className="lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-center lg:gap-8">
+              <div>
+                <h1
+                  id="brand-line"
+                  className={`max-w-[15ch] text-balance font-serif text-[2.9rem] font-semibold leading-[1.02] tracking-tight text-cream sm:text-7xl lg:text-[5.1rem] ${enter}`}
+                >
+                  Every lost item is an amanah.
+                </h1>
+                <p
+                  lang="ar"
+                  dir="rtl"
+                  className={`mt-4 w-fit font-arabic text-[1.9rem] leading-snug text-sage sm:mt-5 sm:text-[2.6rem] ${enter} motion-safe:[animation-delay:90ms]`}
+                >
+                  كل مفقود أمانة
+                </p>
+              </div>
+              <div
+                className={`mt-7 flex max-w-xl flex-col gap-3 sm:mt-9 lg:mt-0 ${enter} motion-safe:[animation-delay:180ms]`}
               >
-                أمانة
-              </span>
-              <span aria-hidden className="h-8 w-px bg-sage/80 sm:h-10" />
-              <span className="font-serif text-4xl font-semibold leading-none tracking-[0.08em] text-cream sm:text-5xl">
-                AMANAH
-              </span>
-            </p>
-            <h1 className="mt-6 max-w-lg font-serif text-[2.35rem] font-medium italic leading-[1.12] tracking-tight text-cream sm:text-5xl">
-              Lost belongings. Rightful owners. Securely reunited.
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-cream/80 sm:text-lg">
-              Report a lost or found item. Reports stay private, and staff make
-              the final decision on every claim.
-            </p>
-            <p className="mt-6 max-w-md border-t border-sage/50 pt-4 text-sm leading-relaxed text-sage sm:text-base">
-              <span className="font-serif text-lg italic text-cream">amanah</span>{" "}
-              <span className="text-cream/70">(n.)</span> something entrusted to
-              you — to keep safe and to return.
-            </p>
-          </div>
-          <KeyholeIllustration className="mx-auto h-36 w-auto text-sage sm:h-44 lg:mx-0 lg:h-64" />
-        </section>
+                <p className="text-lg leading-relaxed text-cream/90 sm:text-xl">
+                  Report a lost or found item. Reports stay private, and staff make
+                  the final decision on every claim.
+                </p>
+                <p className="text-base leading-relaxed text-cream/70">
+                  <span className="font-serif text-lg italic text-cream">amanah</span>{" "}
+                  (n.) something entrusted to you — to keep safe and to return.
+                </p>
+              </div>
+            </div>
 
-        <div className="mx-auto w-full max-w-5xl px-5 pb-10 sm:px-8 sm:pb-12">
-          <h2 className="font-serif text-[2rem] font-semibold leading-tight tracking-tight text-cream sm:text-4xl">
-            How can we help?
-          </h2>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-cream/15 bg-card text-foreground shadow-card">
-            {ACTIONS.map((action) => (
-              <Link
-                key={action.href}
-                href={action.href}
-                className={`group flex items-center gap-4 border-b border-border px-4 py-4 last:border-b-0 hover:bg-accent sm:px-6 sm:py-5 ${focusRingClassName}`}
+            <h2
+              className={`mt-12 font-serif text-[1.75rem] font-semibold leading-tight tracking-tight text-cream sm:mt-16 lg:mt-14 sm:text-[2rem] ${enter} motion-safe:[animation-delay:260ms]`}
+            >
+              How can we help?
+            </h2>
+            <div className="group/pair relative mt-5 grid gap-3 sm:grid-cols-2 sm:gap-4">
+              {ACTIONS.map((action, index) => {
+                const found = action.side === "found";
+                return (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    data-side={action.side}
+                    className={`group flex min-h-48 cursor-pointer flex-col justify-between gap-8 rounded-2xl bg-card p-6 text-foreground transition-[transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-accent active:translate-y-0 focus-visible:-translate-y-0.5 sm:min-h-64 sm:p-9 outline-none focus-visible:ring-3 focus-visible:ring-sage focus-visible:ring-offset-3 focus-visible:ring-offset-ink ${
+                      found
+                      ? "pt-12 sm:pl-16 sm:pt-9"
+                        : "pb-12 sm:pb-9 sm:pr-16"
+                    } ${enter}`}
+                    style={{ animationDelay: `${340 + index * 90}ms` }}
+                  >
+                    <span className="block">
+                      <span className="block text-balance font-serif text-[2rem] font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[2.15rem] lg:text-[2.6rem]">
+                        {action.title}
+                      </span>
+                      <span className="mt-3 block max-w-[30ch] text-base leading-relaxed text-muted-foreground sm:text-lg">
+                        {action.description}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-3 text-base font-semibold text-foreground">
+                      <span className="flex size-11 items-center justify-center rounded-full bg-ink text-cream transition-colors duration-200 group-hover:bg-forest group-focus-visible:bg-forest">
+                        <ArrowRightIcon className="size-5 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                      </span>
+                      Start report
+                    </span>
+                  </Link>
+                );
+              })}
+
+              {/* The keyhole sits on the seam and belongs to both choices. */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
               >
-                <span className="min-w-0 flex-1">
-                  <span className="block font-serif text-[1.45rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.7rem]">
-                    {action.title}
-                  </span>
-                  <span className="mt-1 block text-sm leading-relaxed text-muted-foreground sm:text-base">
-                    {action.description}
+                <span className="flex size-[4.75rem] items-center justify-center rounded-full bg-ink motion-safe:animate-seal motion-safe:[animation-delay:560ms] sm:size-24">
+                  <span className="flex size-14 items-center justify-center rounded-full border-2 border-sage/45 text-sage transition-colors duration-300 group-has-[a:hover]/pair:border-sage group-has-[a:hover]/pair:text-cream group-has-[a:focus-visible]/pair:border-sage group-has-[a:focus-visible]/pair:text-cream sm:size-[4.5rem]">
+                    <KeyholeGlyph className="size-9 sm:size-11" />
                   </span>
                 </span>
-                <ArrowRightIcon className="size-4 shrink-0 text-forest transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />
-              </Link>
-            ))}
-          </div>
-        </div>
+              </span>
+            </div>
+          </section>
 
       <div className="flex w-full flex-1 flex-col bg-background text-foreground">
-        <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pb-16 pt-10 sm:px-8 sm:pb-20 sm:pt-12">
-          <section aria-labelledby="journey-title">
+        <div className="mx-auto flex w-full max-w-[1440px] flex-col px-5 pb-16 pt-12 sm:px-8 sm:pb-20 sm:pt-16 xl:px-12">
+          <section aria-labelledby="journey-title" className="max-w-3xl">
             <h2
               id="journey-title"
               className="font-serif text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.9rem]"
@@ -127,7 +164,7 @@ export default function Home() {
                         <span className="sr-only">Step {index + 1}: </span>
                         {step.title}
                       </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground sm:text-base">
+                      <p className="mt-1 text-base leading-relaxed text-muted-foreground">
                         {step.detail}
                       </p>
                     </div>
@@ -135,7 +172,7 @@ export default function Home() {
                 );
               })}
             </ol>
-            <p className="mt-6 max-w-xl text-sm leading-relaxed text-foreground sm:text-base">
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-foreground">
               <span className="font-semibold">Private by default.</span> Found-item
               details are never shown publicly, and people reporting a loss never
               see a list of found items.

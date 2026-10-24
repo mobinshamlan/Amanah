@@ -93,16 +93,18 @@ Selection highlight (inferred from global CSS): a translucent sage wash with cha
 
 ---
 
-## Layout and spacing (documented)
+## Layout and spacing
 
-- Page content: centered, `max-w-3xl`.
-- Header: centered, `max-w-5xl`.
+- Shared desktop frame: `max-w-[1440px]`, with the wordmark and page content aligned to the same left edge. The frame may sit centered in the viewport; individual content should not be centered within it by default.
+- Header and page frame share the same width and horizontal gutters.
+- Report pages use a wider desktop composition: page title first, then the form as the main column and guidance as a secondary column. On phones, show the form first and guidance after it.
+- Local admin uses section navigation and displays one work area at a time: possible matches, ownership claims, or saved reports.
 - Horizontal padding: `px-5` on mobile, `sm:px-8` from the `sm` breakpoint (640px).
 - Generous whitespace. Group related items; separate groups clearly.
 
-**Inferred from homepage:** inner column is vertically centered; heading block then a large gap (`mt-10` / `sm:mt-14`) before the two actions.
+**Amanah homepage direction:** keep the ink brand stage and make the next action obvious. Align the headline and supporting copy to the shared frame; keep both report choices left-aligned, equal in weight, and joined by the keyhole mark.
 
-**Inferred from report screens:** same `max-w-3xl` column, back link, serif page title, muted intro, then the form. Vertical padding around `pt-6 pb-16` / `sm:pt-10 sm:pb-24`.
+**Report pages:** back link, serif page title and muted intro, then guidance beside the form at desktop widths. Keep the form readable and comfortable; use the saved 44px field and submit-button height. Vertical padding around `pt-6 pb-16` / `sm:pt-10 sm:pb-24`.
 
 ---
 
@@ -197,6 +199,6 @@ Model for large clickable surfaces:
 3. **Dark mode.** Guide forbids it; some control styles still contain `dark:` classes. Keep light-only until approved.
 4. **Error color.** Forms use charcoal error copy plus a destructive icon, not red body text. Confirm for all future errors.
 5. **Applying this palette to the current app.** Homepage, forms, and admin still use teal/zinc starter styles. Restyling is a separate task.
-6. **Staff/admin chrome.** Inferred only: same wordmark header, `max-w-5xl`, a small muted “Staff portal” pill. Not fully specified in the original guide.
+6. **Staff/admin chrome.** Use the shared wordmark and 1440px frame, with a small muted “Local admin” label. Keep review work in one section at a time.
 
 When a conflict blocks a UI change, ask before choosing.

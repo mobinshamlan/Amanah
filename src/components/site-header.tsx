@@ -21,7 +21,7 @@ export function SiteHeader({
       >
         Skip to content
       </a>
-      <div className="mx-auto flex h-16 w-full max-w-5xl items-center justify-between gap-3 px-5 sm:h-20 sm:px-8">
+      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-3 px-5 sm:h-20 sm:px-8 xl:px-12">
         <Link
           href="/"
           aria-label="AMANAH — home"

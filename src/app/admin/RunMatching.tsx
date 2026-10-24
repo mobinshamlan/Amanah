@@ -97,15 +97,15 @@ export function RunMatching() {
               Running…
             </>
           ) : (
-            "Run matching"
+            "Check for matches"
           )}
         </button>
         <p
           id="run-matching-help"
           className="text-sm leading-relaxed text-muted-foreground"
         >
-          Checks up to 4 unchecked lost and found pairs per run, newest first.
-          Completed checks are remembered across refreshes.
+          Checks the next 4 unchecked report pairs. Run again to continue;
+          completed checks are remembered.
         </p>
       </div>
 

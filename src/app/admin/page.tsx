@@ -7,7 +7,6 @@ import {
 } from "@/utils/supabase/admin";
 import { CheckIcon, ClockIcon, XIcon } from "@/components/icons";
 import {
-  Eyebrow,
   Notice,
   PageHeading,
   PageShell,
@@ -565,7 +564,7 @@ function OwnershipReview({
 
       {verification && compact ? (
         <a
-          href={`#verification-${verification.id}`}
+          href={`/admin?section=claims#verification-${verification.id}`}
           className="-ml-2 inline-flex w-fit items-center rounded-md px-2 py-1.5 text-sm font-medium text-foreground underline-offset-4 outline-none transition-colors hover:text-forest hover:underline focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           Go to staff decision
@@ -756,6 +755,7 @@ type Report = {
 };
 
 type Filter = "all" | "lost" | "found";
+type AdminSectionKey = "matches" | "claims" | "reports";
 
 function parseFilter(value: string | string[] | undefined): Filter {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -763,6 +763,14 @@ function parseFilter(value: string | string[] | undefined): Filter {
     return raw;
   }
   return "all";
+}
+
+function parseSection(value: string | string[] | undefined): AdminSectionKey | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw === "matches" || raw === "claims" || raw === "reports") {
+    return raw;
+  }
+  return null;
 }
 
 function filterClass(active: boolean) {
@@ -777,17 +785,12 @@ const FILTER_LABELS: Record<Filter, string> = {
   found: "Found",
 };
 
-/** One numbered stage of the review, in the order of the lost-and-found journey. */
 function AdminSection({
   id,
-  step,
-  eyebrow,
   title,
   children,
 }: {
   id: string;
-  step: number;
-  eyebrow: string;
   title: string;
   children: ReactNode;
 }) {
@@ -795,17 +798,12 @@ function AdminSection({
     <section
       id={id}
       aria-labelledby={`${id}-heading`}
-      className="mt-8 flex scroll-mt-6 flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card sm:p-6"
+      className="mt-8 flex scroll-mt-6 flex-col gap-5 border-t border-border pt-6"
     >
       <div>
-        <Eyebrow>
-          <span className="text-clay-ink">{String(step).padStart(2, "0")}</span>
-          <span aria-hidden> · </span>
-          {eyebrow}
-        </Eyebrow>
         <h2
           id={`${id}-heading`}
-          className="mt-3 font-serif text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.9rem]"
+          className="font-serif text-[1.8rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[2.1rem]"
         >
           {title}
         </h2>
@@ -815,33 +813,31 @@ function AdminSection({
   );
 }
 
-function JumpLink({
+function SectionTab({
   href,
-  step,
   title,
   summary,
-  highlight = false,
+  active,
 }: {
   href: string;
-  step: number;
   title: string;
   summary: string;
-  highlight?: boolean;
+  active: boolean;
 }) {
   return (
     <li>
-      <a
+      <Link
         href={href}
-        className={`flex h-full cursor-pointer flex-col gap-1 rounded-xl border bg-card px-4 py-3 shadow-card transition-[border-color,box-shadow] hover:border-forest/40 hover:shadow-card-hover ${focusRingClassName} ${
-          highlight ? "border-clay/60" : "border-border"
+        aria-current={active ? "page" : undefined}
+        className={`flex min-h-16 cursor-pointer items-center justify-between gap-4 border-b-2 px-2 py-3 text-left transition-colors ${focusRingClassName} ${
+          active ? "border-forest text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
         }`}
       >
-        <span className="text-xs font-semibold tabular-nums text-clay-ink">
-          {String(step).padStart(2, "0")}
+        <span className="min-w-0">
+          <span className="block text-base font-semibold leading-snug">{title}</span>
+          <span className="mt-1 block text-sm leading-snug text-muted-foreground">{summary}</span>
         </span>
-        <span className="text-base font-medium leading-snug text-foreground">{title}</span>
-        <span className="text-sm leading-snug text-muted-foreground">{summary}</span>
-      </a>
+      </Link>
     </li>
   );
 }
@@ -853,7 +849,7 @@ function countLabel(count: number, one: string, many: string) {
 export default async function AdminReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; section?: string }>;
 }) {
   if (!isLocalAdminEnabled()) {
     notFound();
@@ -861,6 +857,7 @@ export default async function AdminReportsPage({
 
   const params = await searchParams;
   const filter = parseFilter(params.type);
+  const requestedSection = parseSection(params.section);
 
   let reports: Report[] = [];
   let matches: ReportMatch[] = [];
@@ -938,14 +935,23 @@ export default async function AdminReportsPage({
   const awaitingDecision = verifications.filter(
     (verification) => currentDecision(verification) === null,
   ).length;
+  const section = requestedSection ?? (awaitingDecision > 0 ? "claims" : "matches");
   const verificationsLoaded = verificationsState === "ok" && !matchesError;
+  const needsReviewMatches = possibleMatches.filter((match) => {
+    const verification = verificationByMatch.get(match.id);
+    return !verification || currentDecision(verification) === null;
+  });
+  const reviewedMatches = possibleMatches.filter((match) => {
+    const verification = verificationByMatch.get(match.id);
+    return verification ? currentDecision(verification) !== null : false;
+  });
 
   return (
-    <PageShell badge="Local admin">
+    <PageShell badge="Local admin" width="wide">
       <PageHeading
         eyebrow="Staff workspace"
-        title="Staff review"
-        intro="Local development only. Work through possible matches, then ownership claims. AI suggestions never confirm ownership; staff decide."
+        title="Staff workspace"
+        intro="Review possible matches, make ownership decisions, or browse saved reports. AI suggestions are never a decision."
       />
 
       {missingConfig ? (
@@ -955,32 +961,30 @@ export default async function AdminReportsPage({
         </Notice>
       ) : (
         <>
-          <nav aria-label="Review stages" className="mt-8">
-            <ol className="grid gap-3 sm:grid-cols-3">
-              <JumpLink
-                href="#matches"
-                step={1}
+          <nav aria-label="Review sections" className="mt-8 border-b border-border">
+            <ol className="grid gap-2 sm:grid-cols-3 sm:gap-6">
+              <SectionTab
+                href="/admin?section=matches"
                 title="Possible matches"
                 summary={
                   matchesError
                     ? "Could not load"
                     : countLabel(possibleMatches.length, "suggestion", "suggestions")
                 }
+                active={section === "matches"}
               />
-              <JumpLink
-                href="#verification"
-                step={2}
+              <SectionTab
+                href="/admin?section=claims"
                 title="Ownership claims"
                 summary={
                   verificationsLoaded
                     ? `${awaitingDecision} awaiting decision`
                     : "Could not load"
                 }
-                highlight={verificationsLoaded && awaitingDecision > 0}
+                active={section === "claims"}
               />
-              <JumpLink
-                href="#reports"
-                step={3}
+              <SectionTab
+                href="/admin?section=reports"
                 title="All reports"
                 summary={
                   loadError
@@ -989,28 +993,19 @@ export default async function AdminReportsPage({
                       ? countLabel(reports.length, "report", "reports")
                       : `${reports.length} ${filter}`
                 }
+                active={section === "reports"}
               />
             </ol>
           </nav>
 
+          {section === "matches" ? (
           <AdminSection
             id="matches"
-            step={1}
-            eyebrow="Private matching"
             title="Possible matches"
           >
-            <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
-              <p>
-                Private AI suggestions from the report text only. Pending
-                review means staff have not checked them yet. A suggestion
-                does not establish ownership or authorize returning an item.
-              </p>
-              <p>
-                AI similarity (0–100) is an experimental ranking aid from
-                Gemini. It is not a probability and does not verify
-                ownership.
-              </p>
-            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              AI suggestions help you spot reports that may describe the same item. Staff decide every claim.
+            </p>
 
             <RunMatching />
 
@@ -1022,16 +1017,15 @@ export default async function AdminReportsPage({
               <>
                 <div className="flex flex-col gap-3">
                   <h3 className="text-sm font-medium text-foreground">
-                    AI: possible match ({possibleMatches.length})
+                    Needs review ({needsReviewMatches.length})
                   </h3>
-                  {possibleMatches.length === 0 ? (
-                    <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                      No possible matches saved yet. Run matching to check new
-                      reports.
+                  {needsReviewMatches.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+                      No suggestions need review. Check new reports when you are ready.
                     </p>
                   ) : (
                     <ul className="flex flex-col gap-3">
-                      {possibleMatches.map((match) => (
+                      {needsReviewMatches.map((match) => (
                         <MatchCard
                           key={match.id}
                           match={match}
@@ -1042,6 +1036,25 @@ export default async function AdminReportsPage({
                     </ul>
                   )}
                 </div>
+
+                {reviewedMatches.length > 0 ? (
+                  <details className="group/reviewed rounded-xl border border-border bg-background px-3 py-2 sm:px-4">
+                    <summary className={SUMMARY_TOGGLE_CLASS}>
+                      Reviewed suggestions ({reviewedMatches.length})
+                      <Chevron className="group-open/reviewed:rotate-180" />
+                    </summary>
+                    <ul className="mb-2 mt-3 flex flex-col gap-3">
+                      {reviewedMatches.map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          verification={verificationByMatch.get(match.id)}
+                          verifiedElsewhere={verifiedLostReports.has(match.lost_report_id)}
+                        />
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
 
                 {uncertainMatches.length > 0 ? (
                   <details className="group/uncertain rounded-xl border border-border bg-background px-3 py-2 sm:px-4">
@@ -1068,11 +1081,11 @@ export default async function AdminReportsPage({
               </>
             )}
           </AdminSection>
+          ) : null}
 
+          {section === "claims" ? (
           <AdminSection
             id="verification"
-            step={2}
-            eyebrow="Ownership verification"
             title="Ownership claims"
           >
             <p className="text-sm leading-relaxed text-muted-foreground">
@@ -1093,7 +1106,7 @@ export default async function AdminReportsPage({
                 Could not load ownership verifications. Please try again.
               </Notice>
             ) : orderedVerifications.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
                 No ownership claims yet. Questions are prepared when an owner
                 opens their tracking link after a possible match.
               </p>
@@ -1118,8 +1131,10 @@ export default async function AdminReportsPage({
               </ul>
             )}
           </AdminSection>
+          ) : null}
 
-          <AdminSection id="reports" step={3} eyebrow="Records" title="All reports">
+          {section === "reports" ? (
+          <AdminSection id="reports" title="All reports">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 Every saved report, newest first.
@@ -1129,7 +1144,7 @@ export default async function AdminReportsPage({
                   {(["all", "lost", "found"] as const).map((value) => (
                     <li key={value}>
                       <Link
-                        href={value === "all" ? "/admin#reports" : `/admin?type=${value}#reports`}
+                        href={value === "all" ? "/admin?section=reports" : `/admin?section=reports&type=${value}`}
                         aria-current={filter === value ? "page" : undefined}
                         className={filterClass(filter === value)}
                       >
@@ -1146,7 +1161,7 @@ export default async function AdminReportsPage({
                 Could not load reports. Please try again.
               </Notice>
             ) : reports.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
                 {filter === "all" ? "No reports to show." : `No ${filter} reports to show.`}
               </p>
             ) : (
@@ -1182,6 +1197,7 @@ export default async function AdminReportsPage({
               </ul>
             )}
           </AdminSection>
+          ) : null}
         </>
       )}
     </PageShell>

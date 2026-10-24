@@ -118,6 +118,16 @@ export function ArrowRightIcon({ className }: IconProps) {
   );
 }
 
+/** Solid keyhole, the Amanah symbol. Decorative. */
+export function KeyholeGlyph({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <circle cx="12" cy="9" r="3.15" />
+      <path d="M10.15 11.7 8.7 20.2h6.6l-1.45-8.5a3.6 3.6 0 0 1-3.7 0Z" />
+    </svg>
+  );
+}
+
 /** Small trust mark: a keyhole on a forest tile, as in the Amanah deck. */
 export function KeyholeMark({ className = "size-9" }: IconProps) {
   return (
@@ -125,56 +135,8 @@ export function KeyholeMark({ className = "size-9" }: IconProps) {
       aria-hidden
       className={`inline-flex shrink-0 items-center justify-center rounded-xl bg-forest text-cream ${className}`}
     >
-      <svg viewBox="0 0 24 24" fill="currentColor" className="size-[55%]">
-        <circle cx="12" cy="9" r="3.15" />
-        <path d="M10.15 11.7 8.7 20.2h6.6l-1.45-8.5a3.6 3.6 0 0 1-3.7 0Z" />
-      </svg>
+      <KeyholeGlyph className="size-[55%]" />
     </span>
-  );
-}
-
-/**
- * Homepage illustration only. An outlined keyhole inside a rounded frame;
- * it depicts trust, not a found item.
- */
-export function KeyholeIllustration({ className }: IconProps) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 220 320"
-      fill="none"
-      className={className}
-    >
-      <rect
-        x="18"
-        y="16"
-        width="184"
-        height="288"
-        rx="92"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeDasharray="8 10"
-        className="amanah-trace"
-        opacity="0.7"
-      />
-      <rect
-        x="36"
-        y="34"
-        width="148"
-        height="252"
-        rx="74"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        opacity="0.28"
-      />
-      <circle cx="110" cy="128" r="28" stroke="currentColor" strokeWidth="1.75" />
-      <path
-        d="M96 150.5 86 236h48l-10-85.5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 

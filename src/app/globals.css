@@ -41,6 +41,8 @@
   --animate-orbit: amanah-orbit 1.6s linear infinite;
   --animate-breathe: amanah-breathe 2.4s ease-in-out infinite;
   --animate-rise: amanah-rise 0.45s ease-out both;
+  --animate-enter: amanah-enter 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-seal: amanah-seal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 
   @keyframes amanah-orbit {
     to {
@@ -57,6 +59,30 @@
     50% {
       transform: scale(1);
       opacity: 1;
+    }
+  }
+
+  /* Page entrance: content rises into place once, on load. */
+  @keyframes amanah-enter {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* The keyhole settles onto the seam between the two choices. */
+  @keyframes amanah-seal {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: none;
     }
   }
 
@@ -125,16 +151,6 @@
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
-  }
-
-  .amanah-trace {
-    animation: amanah-trace 16s linear infinite;
-  }
-}
-
-@keyframes amanah-trace {
-  to {
-    stroke-dashoffset: -240;
   }
 }
 

@@ -27,18 +27,20 @@ export function PageShell({
   badge,
   backHref = "/",
   backLabel = "Back to home",
+  width = "narrow",
   children,
 }: {
   badge?: string;
   backHref?: string;
   backLabel?: string;
+  width?: "narrow" | "wide";
   children: ReactNode;
 }) {
   return (
     <>
       <SiteHeader badge={badge} />
       <main id="main" className="flex-1">
-        <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pb-16 pt-6 sm:px-8 sm:pb-24 sm:pt-10">
+        <div className={`mx-auto flex w-full ${width === "wide" ? "max-w-[1440px]" : "max-w-3xl"} flex-col px-5 pb-16 pt-6 sm:px-8 sm:pb-24 sm:pt-10 xl:px-12`}>
           <Link
             href={backHref}
             className={`-ml-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground ${focusRingClassName}`}
