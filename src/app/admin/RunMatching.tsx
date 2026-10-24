@@ -6,6 +6,8 @@ import type {
   MatchingFailure,
   MatchingRunSummary,
 } from "@/utils/matching/runMatchingBatch";
+import { CheckIcon } from "@/components/icons";
+import { Notice, Spinner, primaryButtonClassName } from "@/components/ui";
 
 const FAILURE_MESSAGES: Record<MatchingFailure, string> = {
   quota:
@@ -87,9 +89,16 @@ export function RunMatching() {
           onClick={handleRun}
           disabled={isPending}
           aria-describedby="run-matching-help"
-          className="inline-flex h-11 w-full shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 sm:w-auto"
+          className={primaryButtonClassName}
         >
-          {isPending ? "Running…" : "Run matching"}
+          {isPending ? (
+            <>
+              <Spinner />
+              Running…
+            </>
+          ) : (
+            "Run matching"
+          )}
         </button>
         <p
           id="run-matching-help"
@@ -101,18 +110,15 @@ export function RunMatching() {
       </div>
 
       {error ? (
-        <p
-          role="alert"
-          className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium leading-snug text-foreground"
-        >
+        <Notice tone="error" role="alert">
           {error}
-        </p>
+        </Notice>
       ) : null}
 
       {summary ? (
         <div
           role="status"
-          className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3"
+          className="flex flex-col gap-3 rounded-xl border border-border bg-background px-4 py-3"
         >
           {summary.failure ? (
             <p className="text-sm font-medium leading-snug text-foreground">
@@ -131,7 +137,8 @@ export function RunMatching() {
               Batch finished. Run again to check the next pairs.
             </p>
           ) : (
-            <p className="text-sm font-medium leading-snug text-forest">
+            <p className="flex items-center gap-2 text-sm font-medium leading-snug text-forest">
+              <CheckIcon className="size-4 shrink-0" />
               All current pairs have been checked.
             </p>
           )}

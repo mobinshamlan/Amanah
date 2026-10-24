@@ -5,7 +5,14 @@ import {
   createAdminClient,
   isLocalAdminEnabled,
 } from "@/utils/supabase/admin";
-import { SiteHeader } from "@/components/site-header";
+import { CheckIcon, ClockIcon, XIcon } from "@/components/icons";
+import {
+  Eyebrow,
+  Notice,
+  PageHeading,
+  PageShell,
+  focusRingClassName,
+} from "@/components/ui";
 import { RunMatching } from "@/app/admin/RunMatching";
 import {
   OwnershipDecisionForm,
@@ -164,6 +171,34 @@ function StatusPill({ children }: { children: ReactNode }) {
   );
 }
 
+/** Review status with the approval (green) and rejection (red) cues. */
+function DecisionPill({ verification }: { verification: Verification | undefined }) {
+  const decision = verification ? currentDecision(verification) : null;
+  const label = verification ? reviewStatus(verification) : "Pending review";
+  if (decision?.decision === "approved") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-forest px-3 py-1 text-xs font-medium text-primary-foreground">
+        <CheckIcon className="size-3.5" />
+        {label}
+      </span>
+    );
+  }
+  if (decision?.decision === "rejected") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive">
+        <XIcon className="size-3.5" />
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-clay/50 bg-background px-3 py-1 text-xs font-medium text-foreground">
+      <ClockIcon className="size-3.5 text-clay-ink" />
+      {label}
+    </span>
+  );
+}
+
 function ItemNames({ match }: { match: ReportMatch | undefined }) {
   return (
     <dl className="grid gap-2 sm:grid-cols-2 sm:gap-4">
@@ -237,19 +272,17 @@ function MatchCard({
 
   return (
     <li className="flex flex-col gap-3 rounded-xl border border-border bg-background p-3 sm:p-4">
+      <ItemNames match={match} />
+
       <div className="flex flex-wrap items-center gap-2">
+        <DecisionPill verification={verification} />
         <SimilarityBadge score={match.ai_similarity_score} />
-        <StatusPill>
-          {verification ? reviewStatus(verification) : "Pending review"}
-        </StatusPill>
         {match.contradictions.length > 0 ? (
           <span className="rounded-full border border-destructive/40 px-3 py-1 text-xs font-medium text-destructive">
             Contradictions noted ({match.contradictions.length})
           </span>
         ) : null}
       </div>
-
-      <ItemNames match={match} />
 
       <p className="line-clamp-2 text-sm leading-relaxed text-foreground">
         {match.explanation}
@@ -447,9 +480,7 @@ function OwnershipReview({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-sm font-medium text-foreground">Ownership review</h4>
-        {verification && showStatus ? (
-          <StatusPill>{reviewStatus(verification)}</StatusPill>
-        ) : null}
+        {verification && showStatus ? <DecisionPill verification={verification} /> : null}
       </div>
 
       {!verification ? (
@@ -565,9 +596,14 @@ function VerificationCard({
   return (
     <li
       id={`verification-${verification.id}`}
-      className="flex scroll-mt-6 flex-col gap-4 rounded-xl border border-border bg-background p-3 sm:p-4"
+      className={`flex scroll-mt-6 flex-col gap-4 rounded-xl border bg-background p-3 sm:p-4 ${
+        readyForDecision ? "border-clay/60" : "border-border"
+      }`}
     >
+      <ItemNames match={verifiedMatch} />
+
       <div className="flex flex-wrap items-center gap-2">
+        <DecisionPill verification={verification} />
         <StatusPill>{answersStatus(verification)}</StatusPill>
         {verifiedMatch ? (
           <SimilarityBadge score={verifiedMatch.ai_similarity_score} />
@@ -576,8 +612,6 @@ function VerificationCard({
           <StatusPill>AI assessment missing</StatusPill>
         ) : null}
       </div>
-
-      <ItemNames match={verifiedMatch} />
 
       <Disclosure
         group="review"
@@ -733,8 +767,87 @@ function parseFilter(value: string | string[] | undefined): Filter {
 
 function filterClass(active: boolean) {
   return active
-    ? "rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    : "rounded-full border border-border bg-card px-3 py-2 text-sm font-medium text-foreground outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+    ? `inline-flex h-9 cursor-pointer items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground ${focusRingClassName}`
+    : `inline-flex h-9 cursor-pointer items-center rounded-full border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted ${focusRingClassName}`;
+}
+
+const FILTER_LABELS: Record<Filter, string> = {
+  all: "All",
+  lost: "Lost",
+  found: "Found",
+};
+
+/** One numbered stage of the review, in the order of the lost-and-found journey. */
+function AdminSection({
+  id,
+  step,
+  eyebrow,
+  title,
+  children,
+}: {
+  id: string;
+  step: number;
+  eyebrow: string;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      aria-labelledby={`${id}-heading`}
+      className="mt-8 flex scroll-mt-6 flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card sm:p-6"
+    >
+      <div>
+        <Eyebrow>
+          <span className="text-clay-ink">{String(step).padStart(2, "0")}</span>
+          <span aria-hidden> · </span>
+          {eyebrow}
+        </Eyebrow>
+        <h2
+          id={`${id}-heading`}
+          className="mt-3 font-serif text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground sm:text-[1.9rem]"
+        >
+          {title}
+        </h2>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function JumpLink({
+  href,
+  step,
+  title,
+  summary,
+  highlight = false,
+}: {
+  href: string;
+  step: number;
+  title: string;
+  summary: string;
+  highlight?: boolean;
+}) {
+  return (
+    <li>
+      <a
+        href={href}
+        className={`flex h-full cursor-pointer flex-col gap-1 rounded-xl border bg-card px-4 py-3 shadow-card transition-[border-color,box-shadow] hover:border-forest/40 hover:shadow-card-hover ${focusRingClassName} ${
+          highlight ? "border-clay/60" : "border-border"
+        }`}
+      >
+        <span className="text-xs font-semibold tabular-nums text-clay-ink">
+          {String(step).padStart(2, "0")}
+        </span>
+        <span className="text-base font-medium leading-snug text-foreground">{title}</span>
+        <span className="text-sm leading-snug text-muted-foreground">{summary}</span>
+      </a>
+    </li>
+  );
+}
+
+function countLabel(count: number, one: string, many: string) {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 export default async function AdminReportsPage({
@@ -822,245 +935,255 @@ export default async function AdminReportsPage({
   const orderedVerifications = [...verifications].sort(
     (a, b) => Number(currentDecision(a) !== null) - Number(currentDecision(b) !== null),
   );
+  const awaitingDecision = verifications.filter(
+    (verification) => currentDecision(verification) === null,
+  ).length;
+  const verificationsLoaded = verificationsState === "ok" && !matchesError;
 
   return (
-    <>
-      <SiteHeader />
-      <main className="flex-1">
-        <div className="mx-auto flex w-full max-w-3xl flex-col px-5 pb-16 pt-6 sm:px-8 sm:pb-24 sm:pt-10">
-          <Link
-            href="/"
-            className="-ml-2 inline-flex w-fit items-center rounded-md px-2 py-1.5 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            Back to home
-          </Link>
+    <PageShell badge="Local admin">
+      <PageHeading
+        eyebrow="Staff workspace"
+        title="Staff review"
+        intro="Local development only. Work through possible matches, then ownership claims. AI suggestions never confirm ownership; staff decide."
+      />
 
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-balance font-serif text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl">
-                Admin reports
-              </h1>
-              <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-                Local development only. Newest reports appear first.
-              </p>
-            </div>
-            <span className="w-fit rounded-full border border-border px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Local admin
-            </span>
-          </div>
-
-          {missingConfig ? null : (
-            <section
-              aria-labelledby="matches-heading"
-              className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5"
-            >
-              <div>
-                <h2
-                  id="matches-heading"
-                  className="font-serif text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground"
-                >
-                  Possible matches
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Private AI suggestions from the report text only. Pending
-                  review means staff have not checked them yet. A suggestion
-                  does not establish ownership or authorize returning an item.
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  AI similarity (0–100) is an experimental ranking aid from
-                  Gemini. It is not a probability and does not verify
-                  ownership.
-                </p>
-              </div>
-
-              <RunMatching />
-
-              {matchesError ? (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium leading-snug text-foreground"
-                >
-                  Could not load possible matches. Please try again.
-                </p>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-3">
-                    <h3 className="text-sm font-medium text-foreground">
-                      AI: possible match ({possibleMatches.length})
-                    </h3>
-                    {possibleMatches.length === 0 ? (
-                      <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                        No possible matches saved yet.
-                      </p>
-                    ) : (
-                      <ul className="flex flex-col gap-3">
-                        {possibleMatches.map((match) => (
-                          <MatchCard
-                            key={match.id}
-                            match={match}
-                            verification={verificationByMatch.get(match.id)}
-                            verifiedElsewhere={verifiedLostReports.has(match.lost_report_id)}
-                          />
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  {uncertainMatches.length > 0 ? (
-                    <details className="group/uncertain rounded-xl border border-border px-3 py-2 sm:px-4">
-                      <summary className={SUMMARY_TOGGLE_CLASS}>
-                        AI: not enough information ({uncertainMatches.length})
-                        <Chevron className="group-open/uncertain:rotate-180" />
-                      </summary>
-                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                        The reports might describe the same item, but the
-                        details are too common or too thin to say.
-                      </p>
-                      <ul className="mt-3 mb-2 flex flex-col gap-3">
-                        {uncertainMatches.map((match) => (
-                          <MatchCard
-                            key={match.id}
-                            match={match}
-                            verification={verificationByMatch.get(match.id)}
-                            verifiedElsewhere={verifiedLostReports.has(match.lost_report_id)}
-                          />
-                        ))}
-                      </ul>
-                    </details>
-                  ) : null}
-                </>
-              )}
-            </section>
-          )}
-
-          {missingConfig ? null : (
-            <section
-              aria-labelledby="verification-heading"
-              className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5"
-            >
-              <div>
-                <h2
-                  id="verification-heading"
-                  className="font-serif text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground"
-                >
-                  Ownership verification
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Owners answer private questions about the highest-ranked
-                  possible match through their tracking link. They never see
-                  the found report or the expected answers. The AI assessment
-                  is a recommendation; staff make the final decision.
-                </p>
-              </div>
-
-              {verificationsState === "not_set_up" ? (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium leading-snug text-foreground"
-                >
-                  Ownership verification is not set up yet. Apply the
-                  ownership_verification migration, then refresh.
-                </p>
-              ) : verificationsState === "error" || matchesError ? (
-                <p
-                  role="alert"
-                  className="rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium leading-snug text-foreground"
-                >
-                  Could not load ownership verifications. Please try again.
-                </p>
-              ) : orderedVerifications.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                  No ownership claims yet. Questions are prepared when an owner
-                  opens their tracking link after a possible match.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {orderedVerifications.map((verification) => (
-                    <VerificationCard
-                      key={verification.id}
-                      verification={verification}
-                      verifiedMatch={matches.find(
-                        (match) => match.id === verification.report_match_id,
-                      )}
-                      otherMatches={matches
-                        .filter(
-                          (match) =>
-                            match.lost_report_id === verification.lost_report_id &&
-                            match.id !== verification.report_match_id,
-                        )
-                        .sort(byScoreThenNewest)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          <nav className="mt-8 flex flex-wrap gap-2" aria-label="Filter reports">
-            <Link href="/admin" className={filterClass(filter === "all")}>
-              All
-            </Link>
-            <Link
-              href="/admin?type=lost"
-              className={filterClass(filter === "lost")}
-            >
-              Lost
-            </Link>
-            <Link
-              href="/admin?type=found"
-              className={filterClass(filter === "found")}
-            >
-              Found
-            </Link>
+      {missingConfig ? (
+        <Notice tone="error" role="alert" className="mt-8">
+          Admin is not configured. Add SUPABASE_SECRET_KEY to your local
+          .env.local file, then restart the dev server.
+        </Notice>
+      ) : (
+        <>
+          <nav aria-label="Review stages" className="mt-8">
+            <ol className="grid gap-3 sm:grid-cols-3">
+              <JumpLink
+                href="#matches"
+                step={1}
+                title="Possible matches"
+                summary={
+                  matchesError
+                    ? "Could not load"
+                    : countLabel(possibleMatches.length, "suggestion", "suggestions")
+                }
+              />
+              <JumpLink
+                href="#verification"
+                step={2}
+                title="Ownership claims"
+                summary={
+                  verificationsLoaded
+                    ? `${awaitingDecision} awaiting decision`
+                    : "Could not load"
+                }
+                highlight={verificationsLoaded && awaitingDecision > 0}
+              />
+              <JumpLink
+                href="#reports"
+                step={3}
+                title="All reports"
+                summary={
+                  loadError
+                    ? "Could not load"
+                    : filter === "all"
+                      ? countLabel(reports.length, "report", "reports")
+                      : `${reports.length} ${filter}`
+                }
+              />
+            </ol>
           </nav>
 
-          {missingConfig ? (
-            <p
-              role="alert"
-              className="mt-6 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium leading-snug text-foreground"
-            >
-              Admin is not configured. Add SUPABASE_SECRET_KEY to your local
-              .env.local file, then restart the dev server.
+          <AdminSection
+            id="matches"
+            step={1}
+            eyebrow="Private matching"
+            title="Possible matches"
+          >
+            <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                Private AI suggestions from the report text only. Pending
+                review means staff have not checked them yet. A suggestion
+                does not establish ownership or authorize returning an item.
+              </p>
+              <p>
+                AI similarity (0–100) is an experimental ranking aid from
+                Gemini. It is not a probability and does not verify
+                ownership.
+              </p>
+            </div>
+
+            <RunMatching />
+
+            {matchesError ? (
+              <Notice tone="error" role="alert">
+                Could not load possible matches. Please try again.
+              </Notice>
+            ) : (
+              <>
+                <div className="flex flex-col gap-3">
+                  <h3 className="text-sm font-medium text-foreground">
+                    AI: possible match ({possibleMatches.length})
+                  </h3>
+                  {possibleMatches.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                      No possible matches saved yet. Run matching to check new
+                      reports.
+                    </p>
+                  ) : (
+                    <ul className="flex flex-col gap-3">
+                      {possibleMatches.map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          verification={verificationByMatch.get(match.id)}
+                          verifiedElsewhere={verifiedLostReports.has(match.lost_report_id)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {uncertainMatches.length > 0 ? (
+                  <details className="group/uncertain rounded-xl border border-border bg-background px-3 py-2 sm:px-4">
+                    <summary className={SUMMARY_TOGGLE_CLASS}>
+                      AI: not enough information ({uncertainMatches.length})
+                      <Chevron className="group-open/uncertain:rotate-180" />
+                    </summary>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      The reports might describe the same item, but the
+                      details are too common or too thin to say.
+                    </p>
+                    <ul className="mt-3 mb-2 flex flex-col gap-3">
+                      {uncertainMatches.map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          verification={verificationByMatch.get(match.id)}
+                          verifiedElsewhere={verifiedLostReports.has(match.lost_report_id)}
+                        />
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+              </>
+            )}
+          </AdminSection>
+
+          <AdminSection
+            id="verification"
+            step={2}
+            eyebrow="Ownership verification"
+            title="Ownership claims"
+          >
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Owners answer private questions about the highest-ranked
+              possible match through their tracking link. They never see the
+              found report or the expected answers. The AI assessment is a
+              recommendation; staff make the final decision. Claims awaiting
+              a decision are listed first.
             </p>
-          ) : loadError ? (
-            <p
-              role="alert"
-              className="mt-6 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-medium leading-snug text-foreground"
-            >
-              Could not load reports. Please try again.
-            </p>
-          ) : reports.length === 0 ? (
-            <p className="mt-6 rounded-2xl border border-dashed border-border px-6 py-12 text-center text-muted-foreground">
-              No reports to show.
-            </p>
-          ) : (
-            <ul className="mt-6 flex flex-col gap-4">
-              {reports.map((report) => (
-                <li
-                  key={report.id}
-                  className="flex flex-col gap-1 rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5"
-                >
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-forest">
-                    {report.report_type}
-                  </p>
-                  <h2 className="font-serif text-[1.65rem] font-semibold leading-tight tracking-tight text-foreground">
-                    {report.item_name}
-                  </h2>
-                  <p className="text-base leading-relaxed text-foreground">
-                    {report.description}
-                  </p>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    Location: {report.location}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(report.created_at).toLocaleString()}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </main>
-    </>
+
+            {verificationsState === "not_set_up" ? (
+              <Notice tone="error" role="alert">
+                Ownership verification is not set up yet. Apply the
+                ownership_verification migration, then refresh.
+              </Notice>
+            ) : verificationsState === "error" || matchesError ? (
+              <Notice tone="error" role="alert">
+                Could not load ownership verifications. Please try again.
+              </Notice>
+            ) : orderedVerifications.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                No ownership claims yet. Questions are prepared when an owner
+                opens their tracking link after a possible match.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {orderedVerifications.map((verification) => (
+                  <VerificationCard
+                    key={verification.id}
+                    verification={verification}
+                    verifiedMatch={matches.find(
+                      (match) => match.id === verification.report_match_id,
+                    )}
+                    otherMatches={matches
+                      .filter(
+                        (match) =>
+                          match.lost_report_id === verification.lost_report_id &&
+                          match.id !== verification.report_match_id,
+                      )
+                      .sort(byScoreThenNewest)}
+                  />
+                ))}
+              </ul>
+            )}
+          </AdminSection>
+
+          <AdminSection id="reports" step={3} eyebrow="Records" title="All reports">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Every saved report, newest first.
+              </p>
+              <nav aria-label="Filter reports">
+                <ul className="flex flex-wrap gap-2">
+                  {(["all", "lost", "found"] as const).map((value) => (
+                    <li key={value}>
+                      <Link
+                        href={value === "all" ? "/admin#reports" : `/admin?type=${value}#reports`}
+                        aria-current={filter === value ? "page" : undefined}
+                        className={filterClass(filter === value)}
+                      >
+                        {FILTER_LABELS[value]}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </div>
+
+            {loadError ? (
+              <Notice tone="error" role="alert">
+                Could not load reports. Please try again.
+              </Notice>
+            ) : reports.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                {filter === "all" ? "No reports to show." : `No ${filter} reports to show.`}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {reports.map((report) => (
+                  <li
+                    key={report.id}
+                    className="flex flex-col gap-1 rounded-xl border border-border bg-background p-3 sm:p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p
+                        className={`text-xs font-semibold uppercase tracking-[0.14em] ${
+                          report.report_type === "lost" ? "text-clay-ink" : "text-pine"
+                        }`}
+                      >
+                        {report.report_type}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(report.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    <h3 className="font-serif text-xl font-semibold leading-tight tracking-tight text-foreground sm:text-[1.4rem]">
+                      {report.item_name}
+                    </h3>
+                    <p className="text-sm leading-relaxed text-foreground">
+                      {report.description}
+                    </p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      Location: {report.location}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </AdminSection>
+        </>
+      )}
+    </PageShell>
   );
 }

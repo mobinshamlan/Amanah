@@ -1,15 +1,22 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { fieldClassName } from "@/app/report/ReportForm";
-import {
-  primaryButtonClassName,
-  secondaryButtonClassName,
-} from "@/app/report/SubmissionConfirmation";
+import type { OwnershipStage } from "@/app/report/SubmissionConfirmation";
 import {
   getOwnershipVerification,
   submitOwnershipAnswer,
 } from "@/app/report/track/actions";
+import { CheckIcon, ClockIcon, XIcon } from "@/components/icons";
+import {
+  Eyebrow,
+  FieldError,
+  LoadingRow,
+  Notice,
+  Spinner,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+  textareaClassName,
+} from "@/components/ui";
 import type {
   OwnerVerificationView,
   RetryReason,
@@ -24,38 +31,118 @@ const RETRY_MESSAGES: Record<RetryReason, string> = {
   unavailable: `Verification questions are not available right now. Your report and the possible match are saved, and staff can still review it. ${NOT_NO_MATCH}`,
 };
 
-function settledMessage(view: OwnerVerificationView) {
+type OutcomeTone = "positive" | "negative" | "neutral";
+
+type SettledCopy = {
+  title: string;
+  body: string;
+  tone: OutcomeTone;
+};
+
+function settledMessage(view: OwnerVerificationView): SettledCopy | null {
   switch (view.state) {
     case "staff_review":
       return {
         title: "Staff review needed",
         body: "Staff will review this possible match. There are no questions for you to answer right now. Check back here for updates.",
+        tone: "neutral",
       };
     case "answers_received":
       return {
         title: "Answers received; awaiting staff review",
         body: "Thank you. Staff will review your answers and decide on your claim. Check back here for updates.",
+        tone: "neutral",
       };
     case "decided":
       return view.decision === "approved"
         ? {
             title: "Approved for ownership follow-up",
             body: "Staff approved your claim for ownership follow-up. Please contact your organization’s lost-and-found staff for next steps. The item is handed over only after their checks.",
+            tone: "positive",
           }
         : {
             title: "Claim not verified",
             body: "Staff couldn’t verify this claim. Please contact your organization’s lost-and-found staff if you think there may have been a mistake.",
+            tone: "negative",
           };
     default:
       return null;
   }
 }
 
+function stageOf(
+  loading: boolean,
+  view: OwnerVerificationView | null,
+): OwnershipStage | null {
+  if (loading) return "loading";
+  if (!view || view.state === "not_needed") return null;
+  if (view.state === "decided") {
+    return view.decision === "approved" ? "approved" : "rejected";
+  }
+  return view.state;
+}
+
+const CARD_TONE: Record<OutcomeTone, string> = {
+  positive: "border-forest/30 bg-accent",
+  negative: "border-destructive/40 bg-background",
+  neutral: "border-border bg-card",
+};
+
+const ICON_TONE: Record<OutcomeTone, string> = {
+  positive: "text-forest",
+  negative: "text-destructive",
+  neutral: "text-forest",
+};
+
+const TITLE_TONE: Record<OutcomeTone, string> = {
+  positive: "text-forest",
+  negative: "text-destructive",
+  neutral: "text-foreground",
+};
+
+function OutcomeIcon({ tone }: { tone: OutcomeTone }) {
+  const className = `mt-1 size-5 shrink-0 ${ICON_TONE[tone]}`;
+  if (tone === "positive") return <CheckIcon className={className} />;
+  if (tone === "negative") return <XIcon className={className} />;
+  return <ClockIcon className={className} />;
+}
+
+function QuestionProgress({ number, total }: { number: number; total: number }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-pine">
+        Question {number} of {total}
+      </p>
+      <div aria-hidden className="flex gap-1.5">
+        {Array.from({ length: total }, (_, index) => (
+          <span
+            key={index}
+            className={`h-1 flex-1 rounded-full ${
+              index < number - 1
+                ? "bg-forest"
+                : index === number - 1
+                  ? "bg-clay"
+                  : "bg-border"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Asks the owner the private verification questions one at a time. It only
  * ever receives the owner-safe view: never the found report or expected answers.
  */
-export function OwnershipVerification({ credential }: { credential: string }) {
+export function OwnershipVerification({
+  credential,
+  onStageChange,
+}: {
+  credential: string;
+  // Lets the tracking page show the same state in its progress steps.
+  onStageChange?: (stage: OwnershipStage | null) => void;
+}) {
   const [view, setView] = useState<OwnerVerificationView | null>(null);
   const [loading, setLoading] = useState(true);
   const [answer, setAnswer] = useState("");
@@ -85,6 +172,11 @@ export function OwnershipVerification({ credential }: { credential: string }) {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  const stage = stageOf(loading, view);
+  useEffect(() => {
+    onStageChange?.(stage);
+  }, [stage, onStageChange]);
 
   // After an answer is saved, move focus to the next question or the outcome.
   useEffect(() => {
@@ -140,6 +232,7 @@ export function OwnershipVerification({ credential }: { credential: string }) {
   }
 
   const settled = view ? settledMessage(view) : null;
+  const tone: OutcomeTone = settled?.tone ?? "neutral";
   const announcement = loading
     ? "Preparing your verification questions."
     : view?.state === "question"
@@ -154,33 +247,47 @@ export function OwnershipVerification({ credential }: { credential: string }) {
     <section
       aria-labelledby="verification-title"
       aria-busy={loading}
-      className={`mt-4 rounded-2xl border p-5 shadow-card motion-safe:animate-rise sm:p-6 ${
-        view?.state === "decided" && view.decision === "approved"
-          ? "border-forest/30 bg-accent"
-          : "border-border bg-card"
-      }`}
+      className={`mt-4 rounded-2xl border p-5 shadow-card motion-safe:animate-rise sm:p-6 ${CARD_TONE[tone]}`}
     >
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      <h2
-        ref={headingRef}
-        id="verification-title"
-        tabIndex={-1}
-        className="font-serif text-2xl font-semibold leading-tight tracking-tight text-foreground outline-none sm:text-[1.75rem]"
-      >
-        {settled ? settled.title : "Ownership verification"}
-      </h2>
+      <Eyebrow>Ownership review</Eyebrow>
+      {settled ? (
+        <div className="mt-3 flex items-start gap-3">
+          <OutcomeIcon tone={tone} />
+          <div className="min-w-0 flex-1">
+            <h2
+              ref={headingRef}
+              id="verification-title"
+              tabIndex={-1}
+              className={`font-serif text-2xl font-semibold leading-tight tracking-tight outline-none sm:text-[1.75rem] ${TITLE_TONE[tone]}`}
+            >
+              {settled.title}
+            </h2>
+            <p className="mt-2 text-base leading-relaxed text-foreground">
+              {settled.body}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <h2
+          ref={headingRef}
+          id="verification-title"
+          tabIndex={-1}
+          className="mt-3 font-serif text-2xl font-semibold leading-tight tracking-tight text-foreground outline-none sm:text-[1.75rem]"
+        >
+          {loading
+            ? "Preparing your questions"
+            : view?.state === "question"
+              ? "A few questions about your item"
+              : "Questions not ready yet"}
+        </h2>
+      )}
 
       {loading ? (
-        <div className="mt-3 flex items-center gap-3">
-          <span
-            aria-hidden
-            className="size-2 shrink-0 rounded-full bg-forest motion-safe:animate-breathe"
-          />
-          <p className="text-base leading-relaxed text-muted-foreground">
-            Preparing your questions…
-          </p>
+        <div className="mt-4">
+          <LoadingRow>Preparing your questions…</LoadingRow>
         </div>
       ) : view?.state === "question" ? (
         <>
@@ -192,14 +299,13 @@ export function OwnershipVerification({ credential }: { credential: string }) {
           <form
             onSubmit={handleSubmit}
             noValidate
-            className="mt-5 flex flex-col gap-2"
+            aria-busy={saving}
+            className="mt-5 flex flex-col gap-3 border-t border-border pt-5"
           >
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-forest">
-              Question {view.number} of {view.total}
-            </p>
+            <QuestionProgress number={view.number} total={view.total} />
             <label
               htmlFor="ownership-answer"
-              className="text-base font-medium leading-snug text-foreground"
+              className="mt-1 text-base font-medium leading-snug text-foreground"
             >
               {view.question}
             </label>
@@ -212,7 +318,7 @@ export function OwnershipVerification({ credential }: { credential: string }) {
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
               disabled={saving}
-              className={`${fieldClassName} h-auto min-h-24 py-2`}
+              className={textareaClassName}
               aria-invalid={Boolean(answerError)}
               aria-describedby={
                 answerError
@@ -221,13 +327,9 @@ export function OwnershipVerification({ credential }: { credential: string }) {
               }
             />
             {answerError ? (
-              <p
-                id="ownership-answer-error"
-                role="alert"
-                className="text-sm font-medium leading-snug text-foreground"
-              >
+              <FieldError id="ownership-answer-error" role="alert">
                 {answerError}
-              </p>
+              </FieldError>
             ) : null}
             <p
               id="ownership-answer-help"
@@ -239,17 +341,24 @@ export function OwnershipVerification({ credential }: { credential: string }) {
             <button
               type="submit"
               disabled={saving}
-              className={`${primaryButtonClassName} mt-2 disabled:opacity-50 sm:self-start`}
+              className={`${primaryButtonClassName} mt-1 sm:self-start`}
             >
-              {saving ? "Saving…" : "Submit answer"}
+              {saving ? (
+                <>
+                  <Spinner />
+                  Saving…
+                </>
+              ) : (
+                "Submit answer"
+              )}
             </button>
           </form>
         </>
       ) : view?.state === "retry" ? (
         <>
-          <p className="mt-2 text-base leading-relaxed text-foreground">
-            {RETRY_MESSAGES[view.reason]}
-          </p>
+          <Notice className="mt-4">
+            <span className="font-normal">{RETRY_MESSAGES[view.reason]}</span>
+          </Notice>
           <button
             type="button"
             onClick={() => void load()}
@@ -258,10 +367,6 @@ export function OwnershipVerification({ credential }: { credential: string }) {
             Try again
           </button>
         </>
-      ) : settled ? (
-        <p className="mt-2 text-base leading-relaxed text-foreground">
-          {settled.body}
-        </p>
       ) : null}
     </section>
   );

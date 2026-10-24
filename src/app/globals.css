@@ -3,8 +3,12 @@
 @theme inline {
   --color-cream: #f4f3ee;
   --color-charcoal: #101d22;
+  --color-ink: #0c191e;
   --color-sage: #8fae9a;
   --color-forest: #426d58;
+  --color-pine: #214c43;
+  --color-clay: #c87742;
+  --color-clay-ink: #9a5326;
 
   --color-background: #f4f3ee;
   --color-foreground: #101d22;
@@ -66,6 +70,7 @@
       transform: none;
     }
   }
+
 }
 
 :root {
@@ -97,6 +102,39 @@
   ::selection {
     background: color-mix(in srgb, var(--color-sage) 40%, transparent);
     color: var(--color-charcoal);
+  }
+}
+
+/*
+  The ink surface is written here, not only as a scanned utility. A dev CSS
+  rebuild can omit `.bg-ink` while still emitting `.text-cream`, which leaves
+  cream type on the cream page.
+*/
+.bg-ink {
+  background-color: #0c191e;
+}
+
+.text-ink {
+  color: #0c191e;
+}
+
+.ring-offset-ink {
+  --tw-ring-offset-color: #0c191e;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .amanah-trace {
+    animation: amanah-trace 16s linear infinite;
+  }
+}
+
+@keyframes amanah-trace {
+  to {
+    stroke-dashoffset: -240;
   }
 }
 

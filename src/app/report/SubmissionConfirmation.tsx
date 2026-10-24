@@ -1,10 +1,29 @@
+import Link from "next/link";
 import type { ReactNode, RefObject } from "react";
 import type { PublicMatchingStatus } from "@/utils/matching/publicStatus";
+import { CheckIcon, ClockIcon, InfoIcon, PinIcon, XIcon } from "@/components/icons";
+import {
+  Eyebrow,
+  Notice,
+  PageHeading,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+} from "@/components/ui";
 
 export type MatchingView =
   | PublicMatchingStatus
   | { phase: "stalled" }
   | { phase: "lost_access" };
+
+/** Where the owner's claim stands, as shown by the ownership verification card. */
+export type OwnershipStage =
+  | "loading"
+  | "question"
+  | "retry"
+  | "staff_review"
+  | "answers_received"
+  | "approved"
+  | "rejected";
 
 export function statusMessage(
   reportType: "lost" | "found",
@@ -68,47 +87,6 @@ type ConfirmationProps = {
   headingRef: RefObject<HTMLHeadingElement | null>;
 };
 
-export const primaryButtonClassName =
-  "inline-flex h-11 w-full items-center justify-center rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto";
-
-export const secondaryButtonClassName =
-  "inline-flex h-11 w-full items-center justify-center rounded-lg border border-border bg-background px-6 text-base font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:w-auto";
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.25}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M5 12.5l4.5 4.5L19 7.5" />
-    </svg>
-  );
-}
-
-function InfoIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      className={className}
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5" />
-      <path d="M12 7.75v.01" strokeWidth={2.5} />
-    </svg>
-  );
-}
-
 function PauseBars() {
   return (
     <span className="flex gap-[3px]">
@@ -118,100 +96,262 @@ function PauseBars() {
   );
 }
 
-type StepState = "active" | "paused" | "done" | "stopped";
+type StepState =
+  | "done"
+  | "active"
+  | "paused"
+  | "waiting"
+  | "stopped"
+  | "rejected"
+  | "upcoming";
 
-function StepIndicator({ state }: { state: StepState }) {
-  if (state === "done") {
-    return (
-      <span
-        aria-hidden
-        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-forest text-primary-foreground"
-      >
-        <CheckIcon className="size-4" />
-      </span>
-    );
+type Step = { state: StepState; label: string; detail: string };
+
+// Read before each step, since the indicators are decorative.
+const STEP_STATE_TEXT: Record<StepState, string> = {
+  done: "Done",
+  active: "In progress",
+  paused: "Paused",
+  waiting: "Waiting",
+  stopped: "Did not finish",
+  rejected: "Not verified",
+  upcoming: "Not started",
+};
+
+function StepIndicator({ state, number }: { state: StepState; number: number }) {
+  const base = "flex size-7 shrink-0 items-center justify-center rounded-full";
+  switch (state) {
+    case "done":
+      return (
+        <span aria-hidden className={`${base} bg-forest text-primary-foreground`}>
+          <CheckIcon className="size-4" />
+        </span>
+      );
+    case "rejected":
+      return (
+        <span aria-hidden className={`${base} bg-destructive text-primary-foreground`}>
+          <XIcon className="size-4" />
+        </span>
+      );
+    case "stopped":
+      return (
+        <span aria-hidden className={`${base} border-2 border-sage bg-card`}>
+          <PauseBars />
+        </span>
+      );
+    case "waiting":
+      return (
+        <span aria-hidden className={`${base} border-2 border-forest/40 bg-card text-forest`}>
+          <ClockIcon className="size-4" />
+        </span>
+      );
+    case "upcoming":
+      return (
+        <span
+          aria-hidden
+          className={`${base} border border-border bg-background text-xs font-semibold tabular-nums text-muted-foreground`}
+        >
+          {number}
+        </span>
+      );
+    default:
+      // Active and paused share the calm ring; only active orbits.
+      return (
+        <span aria-hidden className="relative flex size-7 shrink-0 items-center justify-center">
+          <span className="absolute inset-0 rounded-full border-2 border-sage/40" />
+          {state === "active" ? (
+            <>
+              <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-forest motion-safe:animate-orbit motion-reduce:hidden" />
+              <span className="size-2 rounded-full bg-forest motion-safe:animate-breathe" />
+            </>
+          ) : (
+            <PauseBars />
+          )}
+        </span>
+      );
   }
-  if (state === "stopped") {
-    return (
-      <span
-        aria-hidden
-        className="flex size-7 shrink-0 items-center justify-center rounded-full border-2 border-sage bg-card"
-      >
-        <PauseBars />
-      </span>
-    );
-  }
-  // Active and paused share the calm ring; only active orbits.
-  return (
-    <span
-      aria-hidden
-      className="relative flex size-7 shrink-0 items-center justify-center"
-    >
-      <span className="absolute inset-0 rounded-full border-2 border-sage/40" />
-      {state === "active" ? (
-        <>
-          <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-forest motion-safe:animate-orbit motion-reduce:hidden" />
-          <span className="size-2 rounded-full bg-forest motion-safe:animate-breathe" />
-        </>
-      ) : (
-        <PauseBars />
-      )}
-    </span>
-  );
 }
 
-function SavedHeader({
-  title,
-  headingRef,
-  children,
-}: {
-  title: string;
-  headingRef: RefObject<HTMLHeadingElement | null>;
-  children: ReactNode;
-}) {
+function matchingStep(view: MatchingView, waiting: boolean): Step {
+  if (waiting) {
+    if (view.phase === "rate_limited") {
+      return {
+        state: "paused",
+        label: "Checking paused",
+        detail:
+          "The matching service is busy. Checking continues in about a minute if this page stays open.",
+      };
+    }
+    return {
+      state: "active",
+      label: "Checking for possible matches",
+      detail:
+        "outcome" in view && view.outcome === "possible_match"
+          ? "A possible match has turned up. Finishing the remaining checks…"
+          : "This can take a little while. Please keep this page open.",
+    };
+  }
+  if (view.phase === "complete") {
+    return {
+      state: "done",
+      label: "Check complete",
+      detail: "Every found-item report has been checked.",
+    };
+  }
+  return {
+    state: "stopped",
+    label: "Check did not finish",
+    detail:
+      view.phase === "lost_access"
+        ? "The status of this check is no longer available here."
+        : "Not every found-item report was checked.",
+  };
+}
+
+/** The last two steps, from the ownership state already shown on the page. */
+function ownershipSteps(
+  view: MatchingView,
+  waiting: boolean,
+  ownership: OwnershipStage | null | undefined,
+): [Step, Step] {
+  const decisionUpcoming: Step = {
+    state: "upcoming",
+    label: "Staff decision",
+    detail: "Staff review the claim and decide the next step.",
+  };
+  const possibleMatch = "outcome" in view && view.outcome === "possible_match";
+
+  if (!possibleMatch || !ownership) {
+    return [
+      {
+        state: "upcoming",
+        label: "Ownership questions",
+        detail:
+          possibleMatch && waiting
+            ? "Starts once matching finishes."
+            : "Only if a possible match is found: a few neutral questions about your item.",
+      },
+      decisionUpcoming,
+    ];
+  }
+
+  const questionsDone = (detail: string): Step => ({
+    state: "done",
+    label: "Ownership questions",
+    detail,
+  });
+
+  switch (ownership) {
+    case "loading":
+      return [
+        { state: "active", label: "Ownership questions", detail: "Preparing your questions…" },
+        decisionUpcoming,
+      ];
+    case "question":
+      return [
+        {
+          state: "active",
+          label: "Ownership questions",
+          detail: "Answer the questions below in your own words.",
+        },
+        decisionUpcoming,
+      ];
+    case "retry":
+      return [
+        {
+          state: "stopped",
+          label: "Ownership questions",
+          detail: "Your questions could not be prepared yet. See below.",
+        },
+        decisionUpcoming,
+      ];
+    case "staff_review":
+      return [
+        questionsDone("No questions are needed for this possible match."),
+        { state: "waiting", label: "Staff decision", detail: "Waiting for staff review." },
+      ];
+    case "answers_received":
+      return [
+        questionsDone("Your answers were received."),
+        { state: "waiting", label: "Staff decision", detail: "Waiting for staff to review your answers." },
+      ];
+    case "approved":
+      return [
+        questionsDone("Completed."),
+        { state: "done", label: "Staff decision", detail: "Approved for ownership follow-up." },
+      ];
+    case "rejected":
+      return [
+        questionsDone("Completed."),
+        { state: "rejected", label: "Staff decision", detail: "Staff couldn’t verify this claim." },
+      ];
+  }
+}
+
+function JourneySteps({ steps, busy }: { steps: Step[]; busy: boolean }) {
+  const current = steps.findIndex(
+    (step) => step.state !== "done" && step.state !== "upcoming",
+  );
   return (
-    <div className="mt-6 flex flex-col items-start sm:mt-10">
-      <span
-        aria-hidden
-        className="flex size-12 items-center justify-center rounded-full bg-accent text-forest ring-1 ring-forest/20 motion-safe:animate-rise"
-      >
-        <CheckIcon className="size-6" />
-      </span>
-      <h1
-        ref={headingRef}
-        tabIndex={-1}
-        className="mt-5 text-balance font-serif text-4xl font-semibold leading-[1.08] tracking-tight text-foreground outline-none sm:text-5xl"
-      >
-        {title}
-      </h1>
-      <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-        {children}
-      </p>
-    </div>
+    <section
+      aria-labelledby="journey-steps-title"
+      aria-busy={busy}
+      className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6"
+    >
+      <Eyebrow>
+        <span id="journey-steps-title">Your report’s progress</span>
+      </Eyebrow>
+      <ol className="mt-4 flex flex-col">
+        {steps.map((step, index) => {
+          const last = index === steps.length - 1;
+          const isCurrent = index === current;
+          return (
+            <li
+              key={step.label + index}
+              aria-current={isCurrent ? "step" : undefined}
+              className="flex gap-4"
+            >
+              <div className="flex flex-col items-center pt-2">
+                <StepIndicator state={step.state} number={index + 1} />
+                {last ? null : (
+                  <span
+                    aria-hidden
+                    className={`my-1.5 min-h-4 w-px flex-1 ${
+                      step.state === "done" ? "bg-forest/50" : "bg-border"
+                    }`}
+                  />
+                )}
+              </div>
+              <div
+                className={`mb-2 min-w-0 flex-1 rounded-xl px-3 py-2 ${
+                  isCurrent ? "bg-accent" : ""
+                }`}
+              >
+                <p
+                  className={`text-base font-medium leading-snug ${
+                    step.state === "upcoming" ? "text-muted-foreground" : "text-foreground"
+                  }`}
+                >
+                  <span className="sr-only">
+                    Step {index + 1}, {STEP_STATE_TEXT[step.state]}:{" "}
+                  </span>
+                  {step.label}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {step.detail}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 
 // Placeholder until the organization provides its real drop-off location.
 export const FOUND_DROP_OFF_GUIDANCE =
   "Please take the item to your organization’s designated lost-and-found staff. The exact drop-off location will be added by the organization.";
-
-function PinIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-    >
-      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
-      <circle cx="12" cy="10" r="2.25" />
-    </svg>
-  );
-}
 
 function foundNote(view: MatchingView, waiting: boolean, canRetry: boolean) {
   if (waiting) {
@@ -246,10 +386,13 @@ export function FoundConfirmation({
 
   return (
     <>
-      <SavedHeader title="Found report saved" headingRef={headingRef}>
-        Thank you for reporting this item. It has been saved so it can be
-        returned to its owner safely.
-      </SavedHeader>
+      <PageHeading
+        eyebrow="Report saved"
+        saved
+        title="Found report saved"
+        intro="Thank you for reporting this item. It has been saved so it can be returned to its owner safely."
+        headingRef={headingRef}
+      />
 
       <section
         aria-labelledby="drop-off-title"
@@ -260,7 +403,7 @@ export function FoundConfirmation({
           <div>
             <h2
               id="drop-off-title"
-              className="font-serif text-2xl font-semibold leading-tight tracking-tight text-forest sm:text-[1.75rem]"
+              className="font-serif text-2xl font-semibold leading-tight tracking-tight text-pine sm:text-[1.75rem]"
             >
               Next step: hand in the item
             </h2>
@@ -282,15 +425,13 @@ export function FoundConfirmation({
             ) : (
               <InfoIcon className="mt-0.5 size-5 shrink-0 text-forest" />
             )}
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {note}
-            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{note}</p>
           </div>
           {canRetry ? (
             <button
               type="button"
               onClick={onRetry}
-              className={`${secondaryButtonClassName} shrink-0 text-sm sm:px-4`}
+              className={`${secondaryButtonClassName} text-sm sm:px-4`}
             >
               Try again
             </button>
@@ -300,53 +441,16 @@ export function FoundConfirmation({
 
       {!isContinuing ? (
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={onReportAnother}
-            className={primaryButtonClassName}
-          >
+          <button type="button" onClick={onReportAnother} className={primaryButtonClassName}>
             Report another found item
           </button>
+          <Link href="/" className={secondaryButtonClassName}>
+            Back to home
+          </Link>
         </div>
       ) : null}
     </>
   );
-}
-
-function lostStep(view: MatchingView, waiting: boolean) {
-  if (waiting) {
-    if (view.phase === "rate_limited") {
-      return {
-        state: "paused" as const,
-        label: "Checking paused",
-        detail:
-          "The matching service is busy. Checking continues in about a minute if this page stays open.",
-      };
-    }
-    return {
-      state: "active" as const,
-      label: "Checking for possible matches",
-      detail:
-        "outcome" in view && view.outcome === "possible_match"
-          ? "A possible match has turned up. Finishing the remaining checks…"
-          : "This can take a little while. Please keep this page open.",
-    };
-  }
-  if (view.phase === "complete") {
-    return {
-      state: "done" as const,
-      label: "Check complete",
-      detail: "Every found-item report has been checked.",
-    };
-  }
-  return {
-    state: "stopped" as const,
-    label: "Check did not finish",
-    detail:
-      view.phase === "lost_access"
-        ? "The status of this check is no longer available here."
-        : "Not every found-item report was checked.",
-  };
 }
 
 type LostResult = {
@@ -444,9 +548,18 @@ const resultToneClassName: Record<LostResult["tone"], string> = {
   notice: "border-sage/60 bg-card",
 };
 
+const resultEyebrow: Record<LostResult["tone"], string> = {
+  match: "Matching result",
+  neutral: "Matching result",
+  notice: "Matching status",
+};
+
 export function LostConfirmation({
+  eyebrow,
+  saved = false,
   title,
   intro,
+  ownership,
   children,
   view,
   isContinuing,
@@ -455,83 +568,62 @@ export function LostConfirmation({
   onReportAnother,
   headingRef,
 }: ConfirmationProps & {
+  eyebrow: string;
+  saved?: boolean;
   title: string;
-  intro: string;
-  // Shown below the result, e.g. the tracking link.
+  intro: ReactNode;
+  // Ownership state from the verification card; undefined where it is not shown.
+  ownership?: OwnershipStage | null;
+  // Shown below the result, e.g. ownership questions and the tracking link.
   children?: ReactNode;
 }) {
-  const step = lostStep(view, isContinuing);
   const result = isContinuing ? null : lostResult(view, canRetry);
+  const steps: Step[] = [
+    { state: "done", label: "Report saved", detail: "Your details are stored privately." },
+    matchingStep(view, isContinuing),
+    ...ownershipSteps(view, isContinuing, ownership),
+  ];
 
   return (
     <>
-      <SavedHeader title={title} headingRef={headingRef}>
-        {intro}
-      </SavedHeader>
+      <PageHeading
+        eyebrow={eyebrow}
+        saved={saved}
+        title={title}
+        intro={intro}
+        headingRef={headingRef}
+      />
 
-      <section
-        aria-label="Progress"
-        aria-busy={isContinuing}
-        className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6"
-      >
-        <ol className="flex flex-col">
-          <li className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <StepIndicator state="done" />
-              <span aria-hidden className="my-1.5 min-h-5 w-px flex-1 bg-border" />
-            </div>
-            <div className="pb-5 pt-0.5">
-              <p className="text-base font-medium leading-snug text-foreground">
-                Report saved
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Your details are stored safely.
-              </p>
-            </div>
-          </li>
-          <li className="flex gap-4 motion-safe:animate-rise motion-safe:[animation-delay:150ms]">
-            <StepIndicator state={step.state} />
-            <div className="pt-0.5">
-              <p className="text-base font-medium leading-snug text-foreground">
-                {step.label}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                {step.detail}
-              </p>
-            </div>
-          </li>
-        </ol>
-      </section>
+      <JourneySteps steps={steps} busy={isContinuing} />
 
       {result ? (
         <section
           aria-labelledby="matching-result-title"
           className={`mt-4 rounded-2xl border p-5 motion-safe:animate-rise sm:p-6 ${resultToneClassName[result.tone]}`}
         >
+          <Eyebrow tone={result.tone === "notice" ? "clay" : "pine"}>
+            {resultEyebrow[result.tone]}
+          </Eyebrow>
           <h2
             id="matching-result-title"
-            className={`font-serif text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem] ${
-              result.tone === "match" ? "text-forest" : "text-foreground"
+            className={`mt-3 font-serif text-2xl font-semibold leading-tight tracking-tight sm:text-[1.75rem] ${
+              result.tone === "match" ? "text-pine" : "text-foreground"
             }`}
           >
             {result.title}
           </h2>
           {result.body.map((paragraph) => (
-            <p
-              key={paragraph}
-              className="mt-2 text-base leading-relaxed text-foreground"
-            >
+            <p key={paragraph} className="mt-2 text-base leading-relaxed text-foreground">
               {paragraph}
             </p>
           ))}
           {result.aiNote ? (
-            <p className="mt-4 flex items-start gap-2.5 rounded-lg border border-forest/20 bg-background/70 px-3 py-2.5 text-sm leading-relaxed text-foreground">
-              <InfoIcon className="mt-0.5 size-4 shrink-0 text-forest" />
-              <span>
+            <Notice className="mt-4 border-forest/20 bg-background/70">
+              <span className="font-normal">
                 This is an AI suggestion. It does not confirm that the item is
                 yours, and nothing is returned until ownership is verified.
               </span>
-            </p>
+            </Notice>
           ) : null}
         </section>
       ) : null}
@@ -539,22 +631,16 @@ export function LostConfirmation({
       {children}
 
       {!isContinuing ? (
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           {canRetry ? (
-            <button
-              type="button"
-              onClick={onRetry}
-              className={primaryButtonClassName}
-            >
+            <button type="button" onClick={onRetry} className={primaryButtonClassName}>
               Try again
             </button>
           ) : null}
           <button
             type="button"
             onClick={onReportAnother}
-            className={
-              canRetry ? secondaryButtonClassName : primaryButtonClassName
-            }
+            className={canRetry ? secondaryButtonClassName : primaryButtonClassName}
           >
             Report another lost item
           </button>

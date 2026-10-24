@@ -6,22 +6,30 @@ import {
   resetOwnershipDecision,
   retryOwnershipAssessment,
 } from "@/app/admin/actions";
-
-const PRIMARY_BUTTON_CLASS =
-  "inline-flex h-11 w-full shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/80 focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 sm:w-auto";
-
-const OUTLINE_BUTTON_CLASS =
-  "inline-flex h-11 w-full shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-border bg-background px-6 text-base font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 sm:w-auto";
+import {
+  Notice,
+  Spinner,
+  fieldClassName,
+  primaryButtonClassName,
+  rejectButtonClassName,
+  secondaryButtonClassName,
+} from "@/components/ui";
 
 function ErrorMessage({ message }: { message: string | null }) {
   return message ? (
-    <p
-      role="alert"
-      className="rounded-xl border border-border bg-card px-4 py-3 text-sm font-medium leading-snug text-foreground"
-    >
+    <Notice tone="error" role="alert">
       {message}
-    </p>
+    </Notice>
   ) : null;
+}
+
+function Busy({ label }: { label: string }) {
+  return (
+    <>
+      <Spinner />
+      {label}
+    </>
+  );
 }
 
 export function RetryAssessmentButton({ verificationId }: { verificationId: string }) {
@@ -48,17 +56,14 @@ export function RetryAssessmentButton({ verificationId }: { verificationId: stri
         type="button"
         onClick={handleRetry}
         disabled={isPending}
-        className={OUTLINE_BUTTON_CLASS}
+        className={secondaryButtonClassName}
       >
-        {isPending ? "Assessing…" : "Retry AI assessment"}
+        {isPending ? <Busy label="Assessing…" /> : "Retry AI assessment"}
       </button>
       <ErrorMessage message={error} />
     </div>
   );
 }
-
-const REJECT_BUTTON_CLASS =
-  "inline-flex h-11 w-full shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-destructive/40 bg-background px-6 text-base font-medium text-destructive outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 sm:w-auto";
 
 const DECISION_CHOICES = {
   approved: { action: "Approve for ownership follow-up", confirm: "Confirm approval" },
@@ -101,14 +106,14 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
           <button
             type="button"
             onClick={() => setChoice("approved")}
-            className={PRIMARY_BUTTON_CLASS}
+            className={primaryButtonClassName}
           >
             {DECISION_CHOICES.approved.action}
           </button>
           <button
             type="button"
             onClick={() => setChoice("rejected")}
-            className={REJECT_BUTTON_CLASS}
+            className={rejectButtonClassName}
           >
             {DECISION_CHOICES.rejected.action}
           </button>
@@ -135,15 +140,15 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
         maxLength={1000}
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        className="w-full rounded-lg border border-foreground/50 bg-background px-3 py-2 text-base outline-none transition-colors hover:border-foreground/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
+        className={`${fieldClassName} h-auto py-2`}
       />
       <div className="flex flex-col gap-2 sm:flex-row">
         <button
           type="button"
           onClick={handleConfirm}
-          className={choice === "approved" ? PRIMARY_BUTTON_CLASS : REJECT_BUTTON_CLASS}
+          className={choice === "approved" ? primaryButtonClassName : rejectButtonClassName}
         >
-          {isPending ? "Saving…" : DECISION_CHOICES[choice].confirm}
+          {isPending ? <Busy label="Saving…" /> : DECISION_CHOICES[choice].confirm}
         </button>
         <button
           type="button"
@@ -151,7 +156,7 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
             setChoice(null);
             setError(null);
           }}
-          className={OUTLINE_BUTTON_CLASS}
+          className={secondaryButtonClassName}
         >
           Cancel
         </button>
@@ -194,7 +199,7 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`${OUTLINE_BUTTON_CLASS} sm:self-start`}
+        className={`${secondaryButtonClassName} sm:self-start`}
       >
         Reset to pending review
       </button>
@@ -215,15 +220,15 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
         maxLength={1000}
         value={reason}
         onChange={(event) => setReason(event.target.value)}
-        className="w-full rounded-lg border border-foreground/50 bg-background px-3 py-2 text-base outline-none transition-colors hover:border-foreground/70 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
+        className={`${fieldClassName} h-auto py-2`}
       />
       <p className="text-sm leading-relaxed text-muted-foreground">
         The claim goes back to pending review and the owner no longer sees the
         decision. The current decision stays in the history.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <button type="button" onClick={handleReset} className={PRIMARY_BUTTON_CLASS}>
-          {isPending ? "Resetting…" : "Confirm reset"}
+        <button type="button" onClick={handleReset} className={primaryButtonClassName}>
+          {isPending ? <Busy label="Resetting…" /> : "Confirm reset"}
         </button>
         <button
           type="button"
@@ -231,7 +236,7 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
             setOpen(false);
             setError(null);
           }}
-          className={OUTLINE_BUTTON_CLASS}
+          className={secondaryButtonClassName}
         >
           Cancel
         </button>
