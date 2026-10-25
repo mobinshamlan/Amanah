@@ -5,6 +5,7 @@ import { Notice, focusRingClassName } from "@/components/ui";
 import { DailyBars, type BarCategory } from "@/app/admin/DailyBars";
 import type { RunFailure } from "@/utils/monitoring/runLog";
 import {
+  type DemoExclusions,
   MIN_RELIABLE_REVIEWS,
   MIN_TREND_DAYS,
   TREND_DAYS,
@@ -98,6 +99,22 @@ function runResult(run: MatchingRun) {
   return run.stoppedForTime ? "Stopped early (30-second limit)" : "Completed";
 }
 
+/** A waiting time in its largest whole unit, e.g. "3 days" or "40 minutes". */
+function formatAge(ms: number) {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) {
+    return "under a minute";
+  }
+  if (minutes < 60) {
+    return plural(minutes, "minute", "minutes");
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) {
+    return plural(hours, "hour", "hours");
+  }
+  return plural(Math.floor(hours / 24), "day", "days");
+}
+
 function formatDuration(ms: number) {
   return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
 }
@@ -180,6 +197,23 @@ function historyFact(snapshot: MonitoringSnapshot) {
   return `${plural(history.total, "check", "checks")} since ${formatDay(history.firstAt)}`;
 }
 
+/** What the demo filter left out, as counts, so staff can trust the totals. */
+function DemoExcludedNote({ excluded }: { excluded: DemoExclusions }) {
+  const parts = [
+    excluded.reports > 0 ? plural(excluded.reports, "report", "reports") : null,
+    excluded.comparisons > 0 ? plural(excluded.comparisons, "comparison", "comparisons") : null,
+    excluded.runs > 0 ? plural(excluded.runs, "check", "checks") : null,
+    excluded.claims > 0 ? plural(excluded.claims, "claim", "claims") : null,
+  ].filter(Boolean);
+  return (
+    <p className="text-sm leading-relaxed text-muted-foreground sm:pl-12">
+      {parts.length === 0
+        ? "Records marked DEMO are left out of these figures. None found."
+        : `Left out of every figure here as marked DEMO data: ${parts.join(", ")}. Nothing was deleted.`}
+    </p>
+  );
+}
+
 function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
   const state = healthMessage(snapshot);
   const Icon = state.tone === "ok" ? CheckIcon : state.tone === "problem" ? AlertIcon : InfoIcon;
@@ -220,9 +254,22 @@ function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
         </div>
         <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm sm:pl-12">
           {[
-            ["Gemini key", snapshot.geminiConfigured ? "Configured" : "Missing"],
+            [
+              "Gemini key",
+              snapshot.geminiConfigured
+                ? "Present (this only means a key is set, not that the service works)"
+                : "Missing",
+            ],
             ["Model", snapshot.model],
             ["Run history", historyFact(snapshot)],
+            [
+              "Last successful check",
+              snapshot.lastSuccessfulRun
+                ? `${formatTime(snapshot.lastSuccessfulRun.finishedAt)} · took ${formatDuration(snapshot.lastSuccessfulRun.durationMs)}`
+                : snapshot.history.available
+                  ? "None recorded"
+                  : "Not available",
+            ],
           ].map(([label, value]) => (
             <div key={label} className="flex min-w-0 flex-wrap gap-x-1.5">
               <dt className="text-muted-foreground">{label}:</dt>
@@ -230,6 +277,28 @@ function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
             </div>
           ))}
         </dl>
+        {snapshot.history.available ? (
+          <div className="text-sm sm:pl-12">
+            {snapshot.recentFailures.length === 0 ? (
+              <p className="text-muted-foreground">No failed checks recorded.</p>
+            ) : (
+              <>
+                <p className="font-medium text-foreground">Recent failed checks</p>
+                <ul className="mt-1 flex flex-col gap-0.5 text-foreground">
+                  {snapshot.recentFailures.map((failure) => (
+                    <li key={`${failure.finishedAt}-${failure.kind}`}>
+                      {FAILURE_LABELS[failure.kind]}{" "}
+                      <span className="text-muted-foreground">
+                        · {formatTime(failure.finishedAt)} · {SOURCE_LABELS[failure.source]}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        ) : null}
+        {snapshot.demoExcluded ? <DemoExcludedNote excluded={snapshot.demoExcluded} /> : null}
       </div>
     </section>
   );
@@ -278,13 +347,13 @@ function Metrics({
   return (
     <dl className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
       <MetricCard
-        label="Pairs not checked yet"
+        label="Possible report pairs not compared"
         value={pairs.unchecked}
-        detail={`${pairs.checked} of ${plural(pairs.total, "pair", "pairs")} checked`}
+        detail={`${pairs.checked} of ${plural(pairs.total, "possible pair", "possible pairs")} compared. Total = ${pairs.lostReports} lost × ${pairs.foundReports} found reports. A failed comparison stays not compared; it is never counted as no match.`}
       >
         <div
           role="progressbar"
-          aria-label="Report pairs checked"
+          aria-label="Possible report pairs compared"
           aria-valuemin={0}
           aria-valuemax={pairs.total}
           aria-valuenow={pairs.checked}
@@ -323,9 +392,17 @@ function Metrics({
         value={claims ? claims.awaitingDecision : "—"}
         attention={Boolean(claims && claims.assessmentRetry > 0)}
         detail={
-          claims
-            ? `${claims.assessmentRetry} ${claims.assessmentRetry === 1 ? "needs" : "need"} an AI assessment retry`
-            : "Ownership data is not available."
+          claims ? (
+            <>
+              {claims.oldestWaitingMs === null
+                ? "None waiting for staff right now."
+                : `Oldest waiting for staff: ${formatAge(claims.oldestWaitingMs)}.`}
+              <br />
+              {`${claims.assessmentRetry} ${claims.assessmentRetry === 1 ? "needs" : "need"} an AI assessment retry.`}
+            </>
+          ) : (
+            "Ownership data is not available."
+          )
         }
       >
         <Link href="/admin?section=claims" className={cardLinkClassName}>
@@ -556,11 +633,11 @@ function MatchReviewPanel({ review }: { review: MatchReview | null }) {
     <section aria-labelledby="match-review-title" className={panelClassName}>
       <div>
         <h3 id="match-review-title" className={cardTitleClassName}>
-          Staff-reviewed match rate
+          Staff approval rate
         </h3>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          How often staff approved an AI-suggested match once they decided on its
-          ownership claim. An AI accuracy signal based on staff decisions.
+          The share of decided ownership claims that staff approved. It reflects staff
+          decisions on AI-suggested matches. It is not verified AI accuracy.
         </p>
       </div>
       {!review ? (

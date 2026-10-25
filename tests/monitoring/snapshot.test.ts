@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildMonitoringSnapshot,
   dailySeries,
+  claimWaitingSince,
   localDayKey,
   RECENT_CHECKS_SHOWN,
   summarizeMatchReview,
@@ -74,6 +75,8 @@ describe("pair coverage", () => {
   it("counts checked pairs from completed comparisons and saved suggestions", () => {
     const { pairs, lastComparisonAt } = buildMonitoringSnapshot(input());
     assert.deepEqual(pairs, {
+      lostReports: 2,
+      foundReports: 3,
       total: 6,
       checked: 4,
       unchecked: 2,
@@ -252,6 +255,8 @@ describe("claims", () => {
       noQuestions: 1,
       approved: 1,
       rejected: 1,
+      waitingForStaff: 0,
+      oldestWaitingMs: null,
     });
   });
 
@@ -374,5 +379,152 @@ describe("staff-reviewed match rate", () => {
     assert.deepEqual(Object.keys(review).sort(), [
       "approved", "bands", "rate", "rejected", "reviewed", "smallSample", "unscored",
     ]);
+  });
+});
+
+describe("pair totals", () => {
+  it("is lost reports × found reports, and shows both factors", () => {
+    const { pairs } = buildMonitoringSnapshot(
+      input({
+        reports: [
+          ...Array.from({ length: 3 }, (_, i) => ({ id: `L${i}`, report_type: "lost", created_at: at(1) })),
+          ...Array.from({ length: 4 }, (_, i) => ({ id: `F${i}`, report_type: "found", created_at: at(1) })),
+        ],
+        pairChecks: [],
+        suggestions: [],
+      }),
+    );
+    assert.deepEqual([pairs.lostReports, pairs.foundReports, pairs.total], [3, 4, 12]);
+    assert.equal(pairs.unchecked, 12);
+    assert.equal(pairs.noMatch, 0);
+  });
+
+  it("has no pairs without one report of each kind", () => {
+    const { pairs } = buildMonitoringSnapshot(input({ reports: [], pairChecks: [], suggestions: [] }));
+    assert.deepEqual([pairs.lostReports, pairs.foundReports, pairs.total, pairs.unchecked], [0, 0, 0, 0]);
+  });
+});
+
+describe("matching health details", () => {
+  it("gives the last successful check's time and duration", () => {
+    const snapshot = buildMonitoringSnapshot(
+      input({
+        history: {
+          runs: [
+            run({ finishedAt: at(0, 12), failure: "quota" }),
+            run({ finishedAt: at(1, 9), durationMs: 5300 }),
+            run({ finishedAt: at(2, 9), durationMs: 900 }),
+          ],
+          total: 3,
+          firstAt: at(2, 9),
+        },
+      }),
+    );
+    assert.equal(snapshot.lastSuccessfulRun?.finishedAt, at(1, 9));
+    assert.equal(snapshot.lastSuccessfulRun?.durationMs, 5300);
+    assert.equal(snapshot.lastSuccessfulRunAt, at(1, 9));
+  });
+
+  it("has no successful check when every recorded check failed", () => {
+    const snapshot = buildMonitoringSnapshot(
+      input({ history: { runs: [run({ failure: "api" })], total: 1, firstAt: at(0) } }),
+    );
+    assert.equal(snapshot.lastSuccessfulRun, null);
+    assert.equal(snapshot.health, "last_run_failed");
+  });
+
+  it("lists the newest failure reasons only, as kinds and times", () => {
+    const failures = ["quota", "timeout", "api", "save"] as const;
+    const snapshot = buildMonitoringSnapshot(
+      input({
+        history: {
+          runs: [
+            run({ finishedAt: at(0, 14), failure: failures[0] }),
+            run({ finishedAt: at(0, 13) }),
+            run({ finishedAt: at(1, 9), failure: failures[1] }),
+            run({ finishedAt: at(2, 9), failure: failures[2] }),
+            run({ finishedAt: at(3, 9), failure: failures[3] }),
+          ],
+          total: 5,
+          firstAt: at(3, 9),
+        },
+      }),
+    );
+    assert.deepEqual(
+      snapshot.recentFailures.map((item) => item.kind),
+      ["quota", "timeout", "api"],
+    );
+    assert.deepEqual(Object.keys(snapshot.recentFailures[0]).sort(), ["finishedAt", "kind", "source"]);
+  });
+
+  it("a present key alone never makes matching 'working'", () => {
+    // Key configured, but no recorded check: not "working".
+    const snapshot = buildMonitoringSnapshot(
+      input({
+        pairChecks: [],
+        suggestions: [],
+        history: { runs: [], total: 0, firstAt: null },
+      }),
+    );
+    assert.equal(snapshot.geminiConfigured, true);
+    assert.notEqual(snapshot.health, "working");
+  });
+});
+
+describe("claims waiting for staff", () => {
+  const base = {
+    decided: false,
+    questionCount: 2,
+    createdAt: at(5, 9),
+    answerTimes: [at(4, 10), at(3, 15)],
+    followupAsked: false,
+    followupAnsweredAt: null,
+    resetAt: null,
+  };
+
+  it("starts waiting at the owner's last answer", () => {
+    assert.equal(claimWaitingSince(base), at(3, 15));
+  });
+
+  it("starts at creation when there were no questions", () => {
+    assert.equal(claimWaitingSince({ ...base, questionCount: 0, answerTimes: [] }), at(5, 9));
+  });
+
+  it("is not waiting for staff while the owner still owes an answer", () => {
+    assert.equal(claimWaitingSince({ ...base, answerTimes: [at(4, 10)] }), null);
+    assert.equal(claimWaitingSince({ ...base, followupAsked: true }), null);
+  });
+
+  it("restarts at the follow-up answer, or at a reset to pending", () => {
+    assert.equal(
+      claimWaitingSince({ ...base, followupAsked: true, followupAnsweredAt: at(1, 8) }),
+      at(1, 8),
+    );
+    assert.equal(claimWaitingSince({ ...base, resetAt: at(0, 7) }), at(0, 7));
+  });
+
+  it("is never waiting once decided", () => {
+    assert.equal(claimWaitingSince({ ...base, decided: true }), null);
+  });
+
+  it("reports the oldest wait and how many wait, ignoring decided claims", () => {
+    const claim = (waitingSince: string | null, decision: "approved" | null = null) => ({
+      questionCount: 1, answerCount: 1, assessed: true, decision, waitingSince,
+    });
+    const snapshot = buildMonitoringSnapshot(
+      input({
+        claims: [claim(at(3, 12)), claim(at(0, 9)), claim(at(9, 9), "approved"), claim(null)],
+      }),
+    );
+    assert.equal(snapshot.claims?.waitingForStaff, 2);
+    assert.equal(snapshot.claims?.oldestWaitingMs, NOW.getTime() - new Date(at(3, 12)).getTime());
+    assert.deepEqual(Object.keys(snapshot.claims ?? {}).includes("oldestWaitingAt"), false);
+  });
+
+  it("has no oldest wait when nothing waits", () => {
+    const snapshot = buildMonitoringSnapshot(input({ claims: [] }));
+    assert.equal(snapshot.claims?.waitingForStaff, 0);
+    assert.equal(snapshot.claims?.oldestWaitingMs, null);
+    assert.equal(buildMonitoringSnapshot(input({ claims: null })).claims, null);
   });
 });

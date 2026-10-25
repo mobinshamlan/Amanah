@@ -15,6 +15,7 @@ import {
   isMonitoringDemoEnabled,
 } from "@/utils/monitoring/demo";
 import { loadMonitoringSnapshot, type MonitoringLoad } from "@/utils/monitoring/server";
+import { claimWaitingSince } from "@/utils/monitoring/snapshot";
 import {
   AskFollowupForm,
   OwnershipDecisionForm,
@@ -368,7 +369,12 @@ type Verification = {
   decisions: DecisionEntry[] | null;
   // The optional staff follow-up; loaded separately, so it is absent until
   // its migration is applied.
-  followup?: { question: string; created_at: string; answer: string | null } | null;
+  followup?: {
+    question: string;
+    created_at: string;
+    answer: string | null;
+    answered_at: string | null;
+  } | null;
 };
 
 /** A follow-up question the owner has not answered yet. */
@@ -1064,7 +1070,7 @@ export default async function AdminReportsPage({
   let monitoring: MonitoringLoad = { ok: false };
   // Demo snapshot is built in memory only: no Supabase read/write, no Gemini.
   if (monitoringDemo) {
-    monitoring = { ok: true, snapshot: buildDemoMonitoringSnapshot() };
+    monitoring = { ok: true, snapshot: buildDemoMonitoringSnapshot(), reviewNeeded: null };
   }
 
   try {
@@ -1094,7 +1100,9 @@ export default async function AdminReportsPage({
       // only turns the feature off and never breaks the claims list.
       const followupsResult = await supabase
         .from("ownership_followups")
-        .select("verification_id, question, created_at, answer:ownership_followup_answers(answer)");
+        .select(
+          "verification_id, question, created_at, answer:ownership_followup_answers(answer, created_at)",
+        );
       if (!followupsResult.error) {
         followupsAvailable = true;
         const byVerification = new Map(
@@ -1103,7 +1111,10 @@ export default async function AdminReportsPage({
               verification_id: string;
               question: string;
               created_at: string;
-              answer: { answer: string } | { answer: string }[] | null;
+              answer:
+                | { answer: string; created_at: string }
+                | { answer: string; created_at: string }[]
+                | null;
             }[]
           ).map((row) => [
             row.verification_id,
@@ -1111,6 +1122,7 @@ export default async function AdminReportsPage({
               question: row.question,
               created_at: row.created_at,
               answer: single(row.answer)?.answer ?? null,
+              answered_at: single(row.answer)?.created_at ?? null,
             },
           ]),
         );
@@ -1126,6 +1138,13 @@ export default async function AdminReportsPage({
     if (!monitoringDemo && !matchesError) {
       monitoring = await loadMonitoringSnapshot(supabase, {
         suggestions: matches,
+        // Possible matches without a current staff decision (same rule as the queue).
+        needsReview: matches
+          .filter((match) => match.ai_decision === "match")
+          .filter((match) => {
+            const verification = verifications.find((item) => item.report_match_id === match.id);
+            return !verification || currentDecision(verification) === null;
+          }),
         claims:
           verificationsState === "ok"
             ? verifications.map((verification) => ({
@@ -1138,6 +1157,23 @@ export default async function AdminReportsPage({
                 similarityScore:
                   matches.find((match) => match.id === verification.report_match_id)
                     ?.ai_similarity_score ?? null,
+                waitingSince: claimWaitingSince({
+                  decided: currentDecision(verification) !== null,
+                  questionCount: verification.questions.length,
+                  createdAt: verification.created_at,
+                  answerTimes: (verification.answers ?? []).map((answer) => answer.created_at),
+                  followupAsked: Boolean(verification.followup),
+                  followupAnsweredAt: verification.followup?.answered_at ?? null,
+                  resetAt:
+                    (verification.decisions ?? [])
+                      .filter((entry) => entry.decision === "pending_review")
+                      .map((entry) => entry.created_at)
+                      .sort()
+                      .at(-1) ?? null,
+                }),
+                // Only used to recognise demo records; never shown.
+                lostReportId: verification.lost_report_id,
+                model: verification.model,
               }))
             : null,
       });
@@ -1478,7 +1514,7 @@ export default async function AdminReportsPage({
                   ? monitoring.snapshot.pairs.possible
                   : matchesError || !verificationsLoaded
                     ? null
-                    : needsReviewMatches.length
+                    : monitoring.reviewNeeded
               }
               demo={monitoringDemo}
             />

@@ -11,6 +11,8 @@ export const TREND_DAYS = 14;
 export const MIN_TREND_DAYS = 3;
 // The table shows this many of the newest recorded checks.
 export const RECENT_CHECKS_SHOWN = 10;
+// How many of the newest failed checks are listed with their reasons.
+export const RECENT_FAILURES_SHOWN = 3;
 
 export type MatchingRun = {
   finishedAt: string;
@@ -38,7 +40,52 @@ export type ClaimSummaryInput = {
   // AI similarity score (0-100) of the suggestion the claim was made for;
   // null or missing when that suggestion was never scored.
   similarityScore?: number | null;
+  // When the claim became ready for a staff decision (see claimWaitingSince);
+  // null or missing when it is decided or still waiting on the owner.
+  waitingSince?: string | null;
+  // Used only to recognise demo records. Never part of the snapshot.
+  lostReportId?: string;
+  model?: string | null;
 };
+
+export type DemoExclusions = {
+  reports: number;
+  comparisons: number;
+  suggestions: number;
+  runs: number;
+  claims: number;
+};
+
+/**
+ * When a claim started waiting for staff: the newest of its creation, the
+ * owner's last answer (including a follow-up answer), and its latest reset to
+ * pending review. Null when it is decided or still waiting on the owner.
+ */
+export function claimWaitingSince(claim: {
+  decided: boolean;
+  questionCount: number;
+  createdAt: string;
+  answerTimes: string[];
+  followupAsked: boolean;
+  followupAnsweredAt: string | null;
+  resetAt: string | null;
+}): string | null {
+  if (claim.decided) {
+    return null;
+  }
+  if (claim.answerTimes.length < claim.questionCount) {
+    return null;
+  }
+  if (claim.followupAsked && !claim.followupAnsweredAt) {
+    return null;
+  }
+  return newest([
+    claim.createdAt,
+    ...claim.answerTimes,
+    ...(claim.followupAnsweredAt ? [claim.followupAnsweredAt] : []),
+    ...(claim.resetAt ? [claim.resetAt] : []),
+  ]);
+}
 
 // Bands group similarity scores. They are not calibrated confidence levels.
 export const SCORE_BANDS = [
@@ -130,6 +177,8 @@ export type MonitoringInput = {
   history: RunHistoryInput | null;
   // null: ownership data is not available.
   claims: ClaimSummaryInput[] | null;
+  // What the demo filter left out; shown as counts so the totals can be trusted.
+  excludedDemo?: DemoExclusions | null;
 };
 
 export type MatchingHealth =
@@ -168,6 +217,9 @@ export type MonitoringSnapshot = {
   geminiConfigured: boolean;
   model: string;
   pairs: {
+    // Lost reports × found reports, the number of possible pairs.
+    lostReports: number;
+    foundReports: number;
     total: number;
     // Pairs with a completed comparison or a saved suggestion.
     checked: number;
@@ -186,6 +238,10 @@ export type MonitoringSnapshot = {
   };
   lastRun: MatchingRun | null;
   lastSuccessfulRunAt: string | null;
+  // The newest check that finished without a failure, for its time and duration.
+  lastSuccessfulRun: MatchingRun | null;
+  // Newest failed checks, for their reasons (kinds only).
+  recentFailures: { finishedAt: string; kind: RunFailure; source: RunSource }[];
   recentRuns: MatchingRun[];
   // Recorded checks in the trend window; null when history is unavailable.
   window: {
@@ -207,7 +263,12 @@ export type MonitoringSnapshot = {
     noQuestions: number;
     approved: number;
     rejected: number;
+    // Claims ready for a staff decision, and how long the oldest has waited.
+    waitingForStaff: number;
+    oldestWaitingMs: number | null;
   } | null;
+  // Demo records left out of every figure above; null when no filter ran.
+  demoExcluded: DemoExclusions | null;
   // Staff-reviewed match rate; null when ownership data is not available.
   matchReview: MatchReview | null;
 };
@@ -310,12 +371,19 @@ export function buildMonitoringSnapshot(input: MonitoringInput): MonitoringSnaps
   }
 
   const claims = input.claims;
+  // Timestamps of undecided claims that are ready for staff.
+  const waiting = (claims ?? [])
+    .filter((claim) => !claim.decision && claim.waitingSince)
+    .map((claim) => Date.parse(claim.waitingSince as string))
+    .filter((time) => Number.isFinite(time));
 
   return {
     health,
     geminiConfigured: input.geminiConfigured,
     model: input.model,
     pairs: {
+      lostReports: lost.size,
+      foundReports: found.size,
       total,
       checked: checkedKeys.size,
       unchecked: Math.max(0, total - checkedKeys.size),
@@ -331,6 +399,15 @@ export function buildMonitoringSnapshot(input: MonitoringInput): MonitoringSnaps
     },
     lastRun,
     lastSuccessfulRunAt: runs.find((run) => !run.failure)?.finishedAt ?? null,
+    lastSuccessfulRun: runs.find((run) => !run.failure) ?? null,
+    recentFailures: runs
+      .filter((run) => run.failure)
+      .slice(0, RECENT_FAILURES_SHOWN)
+      .map((run) => ({
+        finishedAt: run.finishedAt,
+        kind: run.failure as RunFailure,
+        source: run.source,
+      })),
     recentRuns: runs.slice(0, RECENT_CHECKS_SHOWN),
     window: history
       ? {
@@ -369,8 +446,13 @@ export function buildMonitoringSnapshot(input: MonitoringInput): MonitoringSnaps
           noQuestions: claims.filter((claim) => !claim.decision && claim.questionCount === 0).length,
           approved: claims.filter((claim) => claim.decision === "approved").length,
           rejected: claims.filter((claim) => claim.decision === "rejected").length,
+          waitingForStaff: waiting.length,
+          oldestWaitingMs: waiting.length
+            ? Math.max(0, input.now.getTime() - Math.min(...waiting))
+            : null,
         }
       : null,
+    demoExcluded: input.excludedDemo ?? null,
     matchReview: claims ? summarizeMatchReview(claims) : null,
   };
 }
