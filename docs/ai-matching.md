@@ -60,6 +60,18 @@ Each run takes up to 4 pairs that have not been checked, newest pairs first, so 
 
 The dev server logs one line per pair (Gemini duration, each HTTP attempt's duration and status, decision) and one line per run (database load, total Gemini time, total save time, counts). Report contents, IDs, and keys are never logged.
 
+## Monitoring (local admin)
+
+`/admin?section=monitoring` is a dashboard for local staff inside the development-only admin workspace. It is never shown on public or tracking pages. It shows aggregate counts and timestamps only, never report names, descriptions, locations, IDs, credentials, keys, questions, or answers, and it never calls Gemini ("Gemini key: Configured" means the key is present).
+
+- **Health summary:** whether matching is configured and what happened on the latest recorded check. It separates "nothing to compare yet" (no lost/found pair), "no checks have run yet" (no comparison and no recorded check, ever), and "no checks recorded since run history began" (comparisons exist from before `matching_runs` existed). **Check for matches** sits beside it and is the same action as on Possible matches.
+- **Metric cards:** pairs not checked yet (with checked/total), check problems in the last 14 days (failed and stopped-early recorded checks, with the check count), possible matches to review (suggestions with no current staff decision), and claims awaiting decision (with assessment retries).
+- **Reports per day** (lost/found, from `reports.created_at`) and **comparison results per day** (possible match / not enough information / no match, from `report_pair_checks.checked_at`), for the last 14 days in the server's time zone. Each chart states its sample size; fewer than 3 active days is described as too few to read a trend. Failed comparisons are not stored per pair, so they appear only in Recent checks, never as no match. Each chart has a legend, hover/focus tooltips, and a table view.
+- **Recent checks:** the newest 10 recorded checks, with a 14-day summary of completed, failed, and stopped-early checks and their failure kinds. An automatic check covers only the new report's pairs, so its "left unchecked" counts those pairs alone.
+- **Ownership claims:** awaiting decision, assessment retry, waiting for owner answers, staff review without questions, and current approved/rejected counts. These are decision counts, not a measure of AI accuracy.
+
+Run history is stored in `matching_runs` (`20261024222909_create_matching_runs.sql`): one aggregate row per bounded batch (`source` admin or auto, finish time, duration, request count, checked / matched / uncertain / no-match / failed / already-saved counts, unchecked pairs left, failure kind, `stopped_for_time`, model). A run that could not load its data is recorded with failure `load` and an unknown unchecked count. RLS is enabled with no public grants; the server role can only read and insert those columns. Recording is best-effort: if the insert fails, matching continues and only the error code is logged. The dashboard loads the newest 200 recorded checks and says so when the 14-day figures may be incomplete.
+
 ## Errors
 
 Errors and unchecked pairs are never counted as `no_match`. A run stops at the first failure and keeps suggestions already saved. Quota errors (429) and timeouts are not retried. Temporary server errors (500, 502, 503, 504) get one retry after 2 seconds. Each request times out after 20 seconds, and no new comparison starts after 30 seconds of a run.

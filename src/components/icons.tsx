@@ -140,6 +140,35 @@ export function KeyholeMark({ className = "size-9" }: IconProps) {
   );
 }
 
+/** Two linked rings: a lost report and a found report suggested as a pair. */
+export function PairIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <circle cx="8.5" cy="12" r="4.5" />
+      <circle cx="15.5" cy="12" r="4.5" />
+    </Icon>
+  );
+}
+
+export function PulseIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />
+    </Icon>
+  );
+}
+
+export function ListIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M9 6h11" />
+      <path d="M9 12h11" />
+      <path d="M9 18h11" />
+      <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth={2.5} />
+    </Icon>
+  );
+}
+
 export function ArrowLeftIcon({ className }: IconProps) {
   return (
     <Icon className={className}>

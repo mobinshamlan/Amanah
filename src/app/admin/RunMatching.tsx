@@ -56,7 +56,7 @@ function CountList({
   );
 }
 
-export function RunMatching() {
+export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
   const [summary, setSummary] = useState<MatchingRunSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -83,7 +83,8 @@ export function RunMatching() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Stacked: button above its help text, for narrow side panels. */}
+      <div className={`flex flex-col gap-3 ${stacked ? "items-stretch" : "sm:flex-row sm:items-center"}`}>
         <button
           type="button"
           onClick={handleRun}
@@ -118,7 +119,7 @@ export function RunMatching() {
       {summary ? (
         <div
           role="status"
-          className="flex flex-col gap-3 rounded-xl border border-border bg-background px-4 py-3"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3"
         >
           {summary.failure ? (
             <p className="text-sm font-medium leading-snug text-foreground">

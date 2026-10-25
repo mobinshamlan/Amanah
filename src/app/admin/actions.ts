@@ -25,6 +25,8 @@ import {
   createAdminClient,
   isLocalAdminEnabled,
 } from "@/utils/supabase/admin";
+import { getGeminiModel } from "@/utils/gemini/compareReports";
+import { loadFailureRow, recordMatchingRun } from "@/utils/monitoring/runLog";
 
 export type RunMatchingResult =
   | { ok: true; summary: MatchingRunSummary }
@@ -82,6 +84,10 @@ export async function runMatching(): Promise<RunMatchingResult> {
       lostResult.error ?? foundResult.error ?? savedResult.error ?? checksResult.error;
     if (loadError) {
       console.error("Failed to load matching data:", loadError.code, `${loadMs}ms`);
+      await recordMatchingRun(
+        supabase,
+        loadFailureRow("admin", { durationMs: loadMs, model: getGeminiModel() }),
+      );
       return { ok: false, message: "Could not load reports. Nothing was checked." };
     }
 

@@ -28,6 +28,8 @@ import {
   toPublicStatus,
   type PublicMatchingStatus,
 } from "@/utils/matching/publicStatus";
+import { getGeminiModel } from "@/utils/gemini/compareReports";
+import { loadFailureRow, recordMatchingRun } from "@/utils/monitoring/runLog";
 
 export type ReportType = "lost" | "found";
 
@@ -201,6 +203,13 @@ export async function continueMatching(
     const loadError = otherResult.error ?? savedResult.error ?? checksResult.error;
     if (loadError) {
       console.error("Matching (auto) failed to load data:", loadError.code, `${loadMs}ms`);
+      // Only the call holding the lease would have run; a waiting call is not a run.
+      if (hasLease) {
+        await recordMatchingRun(
+          supabase,
+          loadFailureRow("auto", { durationMs: loadMs, model: getGeminiModel() }),
+        );
+      }
       return { ok: true, status: { phase: "failed" } };
     }
 

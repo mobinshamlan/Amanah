@@ -23,6 +23,7 @@ import {
   type SaveOutcome,
 } from "@/utils/matching/runMatchingBatch";
 import type { createAdminClient } from "@/utils/supabase/admin";
+import { recordMatchingRun, toRunRow } from "@/utils/monitoring/runLog";
 
 // Server-only: uses the admin client and the Gemini key. Never import from client components.
 
@@ -202,15 +203,20 @@ export async function runMatchingPairs({
     recordCheck: saver.recordCheck,
   });
 
+  const totalMs = elapsedSince(runStartedAt) + loadMs;
   logRunSummary({
     source,
-    totalMs: elapsedSince(runStartedAt) + loadMs,
+    totalMs,
     loadMs,
     geminiMs,
     saveMs: saver.timing.saveMs,
     requests: pairNumber,
     summary,
   });
+  await recordMatchingRun(
+    supabase,
+    toRunRow(source, summary, { durationMs: totalMs, requests: pairNumber, model: getGeminiModel() }),
+  );
   return summary;
 }
 
@@ -275,14 +281,19 @@ export async function runNewReportMatching({
     recordCheck: saver.recordCheck,
   });
 
+  const totalMs = elapsedSince(runStartedAt) + loadMs;
   logRunSummary({
     source: "auto",
-    totalMs: elapsedSince(runStartedAt) + loadMs,
+    totalMs,
     loadMs,
     geminiMs,
     saveMs: saver.timing.saveMs,
     requests,
     summary,
   });
+  await recordMatchingRun(
+    supabase,
+    toRunRow("auto", summary, { durationMs: totalMs, requests, model: getGeminiModel() }),
+  );
   return summary;
 }
