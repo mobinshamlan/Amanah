@@ -10,6 +10,10 @@ import { Notice, focusRingClassName } from "@/components/ui";
 import { AdminShell, type AdminNavItem, type AdminSectionKey } from "@/app/admin/AdminShell";
 import { RunMatching } from "@/app/admin/RunMatching";
 import { MonitoringPanel } from "@/app/admin/Monitoring";
+import {
+  buildDemoMonitoringSnapshot,
+  isMonitoringDemoEnabled,
+} from "@/utils/monitoring/demo";
 import { loadMonitoringSnapshot, type MonitoringLoad } from "@/utils/monitoring/server";
 import {
   OwnershipDecisionForm,
@@ -950,7 +954,7 @@ function ReportsList({ reports }: { reports: Report[] }) {
 export default async function AdminReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; section?: string }>;
+  searchParams: Promise<{ type?: string; section?: string; demo?: string }>;
 }) {
   if (!isLocalAdminEnabled()) {
     notFound();
@@ -959,6 +963,7 @@ export default async function AdminReportsPage({
   const params = await searchParams;
   const filter = parseFilter(params.type);
   const requestedSection = parseSection(params.section);
+  const monitoringDemo = isMonitoringDemoEnabled(params.demo);
 
   let reports: Report[] = [];
   let matches: ReportMatch[] = [];
@@ -968,6 +973,10 @@ export default async function AdminReportsPage({
   let verifications: Verification[] = [];
   let verificationsState: "ok" | "error" | "not_set_up" = "ok";
   let monitoring: MonitoringLoad = { ok: false };
+  // Demo snapshot is built in memory only: no Supabase read/write, no Gemini.
+  if (monitoringDemo) {
+    monitoring = { ok: true, snapshot: buildDemoMonitoringSnapshot() };
+  }
 
   try {
     const supabase = createAdminClient();
@@ -994,7 +1003,8 @@ export default async function AdminReportsPage({
     }
 
     // Aggregate counts only; it needs the full suggestion list to count pairs.
-    if (!matchesError) {
+    // Skip when demo mode is on so live figures never mix with the fixture.
+    if (!monitoringDemo && !matchesError) {
       monitoring = await loadMonitoringSnapshot(supabase, {
         suggestions: matches,
         claims:
@@ -1341,7 +1351,14 @@ export default async function AdminReportsPage({
           {monitoring.ok ? (
             <MonitoringPanel
               snapshot={monitoring.snapshot}
-              reviewNeeded={matchesError || !verificationsLoaded ? null : needsReviewMatches.length}
+              reviewNeeded={
+                monitoringDemo
+                  ? monitoring.snapshot.pairs.possible
+                  : matchesError || !verificationsLoaded
+                    ? null
+                    : needsReviewMatches.length
+              }
+              demo={monitoringDemo}
             />
           ) : (
             <Notice tone="error" role="alert">

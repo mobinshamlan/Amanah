@@ -643,16 +643,55 @@ function MatchReviewPanel({ review }: { review: MatchReview | null }) {
   );
 }
 
+function DemoBanner({ demo }: { demo: boolean }) {
+  if (demo) {
+    return (
+      <Notice role="status" surface="bg-clay/15">
+        <span className="font-semibold text-clay-ink">DEMO DATA</span>
+        <span className="font-normal">
+          {" "}
+          Synthetic figures for local layout checks. Nothing was read from or
+          written to the database, and Gemini was not called.{" "}
+          <Link
+            href="/admin?section=monitoring&demo=0"
+            className={`font-semibold text-foreground underline underline-offset-4 ${focusRingClassName}`}
+          >
+            Show real data
+          </Link>
+        </span>
+      </Notice>
+    );
+  }
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
+  return (
+    <p className="text-sm leading-relaxed text-muted-foreground">
+      Local development only.{" "}
+      <Link
+        href="/admin?section=monitoring&demo=1"
+        className={`font-semibold text-foreground underline underline-offset-4 ${focusRingClassName}`}
+      >
+        Preview with demo data
+      </Link>
+    </p>
+  );
+}
+
 export function MonitoringPanel({
   snapshot,
   reviewNeeded,
+  demo = false,
 }: {
   snapshot: MonitoringSnapshot;
   // Possible matches with no current staff decision; null when not loaded.
   reviewNeeded: number | null;
+  // Development-only synthetic snapshot; never mixed with live counts.
+  demo?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-5">
+      <DemoBanner demo={demo} />
       <HealthSummary snapshot={snapshot} />
       <Metrics snapshot={snapshot} reviewNeeded={reviewNeeded} />
       <MatchReviewPanel review={snapshot.matchReview} />
