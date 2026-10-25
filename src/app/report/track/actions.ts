@@ -2,6 +2,7 @@
 
 import {
   getOwnerVerification,
+  submitFollowupAnswer,
   submitOwnerAnswer,
   type OwnerVerificationResult,
   type SubmitAnswerResult,
@@ -31,4 +32,15 @@ export async function submitOwnershipAnswer(
     return { ok: false, reason: "save_failed" };
   }
   return submitOwnerAnswer(deps, credential, questionNumber, answer);
+}
+
+export async function submitOwnershipFollowupAnswer(
+  credential: string,
+  answer: string,
+): Promise<SubmitAnswerResult> {
+  const deps = createOwnershipDeps();
+  if (!deps) {
+    return { ok: false, reason: "save_failed" };
+  }
+  return submitFollowupAnswer(deps, credential, answer);
 }

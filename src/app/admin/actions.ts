@@ -13,11 +13,14 @@ import {
   runMatchingPairs,
 } from "@/utils/matching/serverMatching";
 import {
+  askFollowup,
   DECISION_NOTE_MAX,
+  FOLLOWUP_QUESTION_MAX,
   recordDecision,
   resetDecision,
   retryAssessment,
   type DecisionResult,
+  type FollowupResult,
   type OwnershipDeps,
 } from "@/utils/ownership/service";
 import { createOwnershipDeps } from "@/utils/ownership/server";
@@ -221,4 +224,38 @@ export async function resetOwnershipDecision(
   const result = await resetDecision(checked.deps, verificationId, note);
   revalidatePath("/admin");
   return decisionResult(result, `Keep the reason under ${DECISION_NOTE_MAX} characters.`);
+}
+
+const FOLLOWUP_MESSAGES: Record<Exclude<FollowupResult, "saved" | "invalid">, string> = {
+  already_asked: "A follow-up question was already asked on this claim. Only one is allowed.",
+  already_decided: "This claim already has a decision, so a follow-up can no longer be asked.",
+  not_set_up: "Follow-up questions are not set up yet. Apply the ownership_followups migration, then refresh.",
+  failed: "The follow-up question could not be saved. Please try again.",
+};
+
+/**
+ * Staff asks one optional follow-up question on an undecided claim. The owner
+ * sees it on their private tracking page. It never approves or rejects the
+ * claim, and no AI is used.
+ */
+export async function askOwnershipFollowup(
+  verificationId: string,
+  question: string,
+): Promise<OwnershipActionResult> {
+  const checked = decisionDeps(verificationId);
+  if (!checked.ok) {
+    return checked;
+  }
+  const result = await askFollowup(checked.deps, verificationId, question);
+  revalidatePath("/admin");
+  if (result === "saved") {
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    message:
+      result === "invalid"
+        ? `Write a question of up to ${FOLLOWUP_QUESTION_MAX} characters.`
+        : FOLLOWUP_MESSAGES[result],
+  };
 }

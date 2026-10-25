@@ -55,6 +55,8 @@ export function createMemoryStore() {
     previousDecision: DecisionLogValue | null;
     createdAt: string;
   }[] = [];
+  const followups: { verificationId: string; question: string }[] = [];
+  const followupAnswers: { verificationId: string; answer: string }[] = [];
   const failures = new Set<string>();
   const calls: string[] = [];
 
@@ -85,6 +87,15 @@ export function createMemoryStore() {
         ? { assessment: assessment.assessment, explanation: assessment.explanation }
         : null,
       latestDecision: latestDecision(log),
+      followup: (() => {
+        const asked = followups.find((item) => item.verificationId === row.id);
+        return asked
+          ? {
+              question: asked.question,
+              answer: followupAnswers.find((item) => item.verificationId === row.id)?.answer ?? null,
+            }
+          : null;
+      })(),
     };
   }
 
@@ -143,6 +154,25 @@ export function createMemoryStore() {
       assessments.push(row);
       return "saved";
     },
+    async insertFollowup(row) {
+      maybeFail("insertFollowup");
+      if (followups.some((item) => item.verificationId === row.verificationId)) {
+        return "duplicate";
+      }
+      followups.push(row);
+      return "saved";
+    },
+    async insertFollowupAnswer(row) {
+      maybeFail("insertFollowupAnswer");
+      if (
+        !followups.some((item) => item.verificationId === row.verificationId) ||
+        followupAnswers.some((item) => item.verificationId === row.verificationId)
+      ) {
+        return "duplicate";
+      }
+      followupAnswers.push(row);
+      return "saved";
+    },
     async insertDecision(row) {
       maybeFail("insertDecision");
       // Same as unique nulls not distinct (verification_id, previous_decision_id).
@@ -188,6 +218,8 @@ export function createMemoryStore() {
     answers,
     assessments,
     decisions,
+    followups,
+    followupAnswers,
     failures,
     calls,
   };

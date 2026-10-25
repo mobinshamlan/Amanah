@@ -16,6 +16,7 @@ import {
 } from "@/utils/monitoring/demo";
 import { loadMonitoringSnapshot, type MonitoringLoad } from "@/utils/monitoring/server";
 import {
+  AskFollowupForm,
   OwnershipDecisionForm,
   ResetDecisionForm,
   RetryAssessmentButton,
@@ -365,7 +366,15 @@ type Verification = {
   answers: { question_number: number; answer: string; created_at: string }[] | null;
   assessment: VerificationAssessment | VerificationAssessment[] | null;
   decisions: DecisionEntry[] | null;
+  // The optional staff follow-up; loaded separately, so it is absent until
+  // its migration is applied.
+  followup?: { question: string; created_at: string; answer: string | null } | null;
 };
+
+/** A follow-up question the owner has not answered yet. */
+function followupPending(verification: Verification) {
+  return Boolean(verification.followup && verification.followup.answer === null);
+}
 
 type VerificationAssessment = {
   assessment: "supports" | "unclear" | "conflicts";
@@ -432,19 +441,25 @@ function reviewStatus(verification: Verification) {
   if (answered < verification.questions.length) {
     return `Awaiting answer (${answered}/${verification.questions.length})`;
   }
+  if (followupPending(verification)) {
+    return "Awaiting follow-up answer";
+  }
   return "Ready for staff review";
 }
 
 /** Owner answer progress only (the decision is shown in the Staff decision panel). */
 function answersStatus(verification: Verification) {
-  if (verification.questions.length === 0) {
-    return "No questions needed";
-  }
   const answered = answeredCount(verification);
-  if (answered < verification.questions.length) {
+  if (verification.questions.length > 0 && answered < verification.questions.length) {
     return `Awaiting answer (${answered}/${verification.questions.length})`;
   }
-  return "Answers received";
+  if (followupPending(verification)) {
+    return "Awaiting follow-up answer";
+  }
+  if (verification.followup) {
+    return "Follow-up answered";
+  }
+  return verification.questions.length === 0 ? "No questions needed" : "Answers received";
 }
 
 function assessmentMissing(verification: Verification) {
@@ -575,11 +590,77 @@ function OwnershipReview({
   );
 }
 
+/**
+ * The optional staff follow-up on a claim: the question and the owner's
+ * answer once given, or the form to ask one while the claim is undecided.
+ */
+function FollowupPanel({
+  verification,
+  decided,
+  available,
+}: {
+  verification: Verification;
+  decided: boolean;
+  available: boolean;
+}) {
+  const followup = verification.followup;
+  if (followup) {
+    return (
+      <section aria-label="Follow-up question" className="flex min-w-0 flex-col gap-2 rounded-2xl bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h5 className="text-base font-semibold text-foreground">Follow-up question</h5>
+          <span
+            className={`${chipClassName} ${
+              followup.answer === null ? "bg-wait-soft text-wait-ink" : "bg-ok-soft text-ok-ink"
+            }`}
+          >
+            {followup.answer === null ? "Awaiting answer" : "Answered"}
+          </span>
+        </div>
+        <p className="break-words text-[0.9375rem] font-semibold leading-relaxed text-foreground">
+          {followup.question}
+        </p>
+        {followup.answer === null ? (
+          <p className="text-sm leading-relaxed text-foreground/70">
+            The owner sees this on their tracking page. You can decide without waiting for an
+            answer.
+          </p>
+        ) : (
+          <div className="border-l-2 border-forest pl-3">
+            <p className="text-[0.8125rem] font-semibold text-forest">Owner&apos;s answer</p>
+            <p className="mt-0.5 break-words text-[0.9375rem] leading-relaxed text-foreground">
+              {followup.answer}
+            </p>
+          </div>
+        )}
+        <p className="text-[0.8125rem] text-muted-foreground">
+          Asked {new Date(followup.created_at).toLocaleString()} · Only one follow-up is allowed
+          per claim.
+        </p>
+      </section>
+    );
+  }
+  if (decided) {
+    return null;
+  }
+  if (!available) {
+    return (
+      <p className="text-sm leading-relaxed text-foreground/70">
+        Follow-up questions are not set up yet. Apply the ownership_followups migration, then
+        refresh.
+      </p>
+    );
+  }
+  return <AskFollowupForm verificationId={verification.id} />;
+}
+
 function VerificationCard({
   verification,
   verifiedMatch,
   otherMatches,
+  followupsAvailable,
 }: {
+  followupsAvailable: boolean;
   verification: Verification;
   verifiedMatch: ReportMatch | undefined;
   otherMatches: ReportMatch[];
@@ -590,6 +671,7 @@ function VerificationCard({
   );
   const readyForDecision =
     !decision &&
+    !followupPending(verification) &&
     (verification.questions.length === 0 ||
       answeredCount(verification) >= verification.questions.length);
 
@@ -699,6 +781,12 @@ function VerificationCard({
               {decision ? DECISION_LABELS[decision.decision] : "Pending review"}
             </span>
           </div>
+
+          <FollowupPanel
+            verification={verification}
+            decided={Boolean(decision)}
+            available={followupsAvailable}
+          />
 
           {decision ? (
             <>
@@ -972,6 +1060,7 @@ export default async function AdminReportsPage({
   let missingConfig = false;
   let verifications: Verification[] = [];
   let verificationsState: "ok" | "error" | "not_set_up" = "ok";
+  let followupsAvailable = false;
   let monitoring: MonitoringLoad = { ok: false };
   // Demo snapshot is built in memory only: no Supabase read/write, no Gemini.
   if (monitoringDemo) {
@@ -1000,6 +1089,36 @@ export default async function AdminReportsPage({
       verificationsState = code === "PGRST205" || code === "42P01" ? "not_set_up" : "error";
     } else {
       verifications = (verificationsResult.data ?? []) as unknown as Verification[];
+
+      // Follow-ups load on their own: a missing table (migration not applied)
+      // only turns the feature off and never breaks the claims list.
+      const followupsResult = await supabase
+        .from("ownership_followups")
+        .select("verification_id, question, created_at, answer:ownership_followup_answers(answer)");
+      if (!followupsResult.error) {
+        followupsAvailable = true;
+        const byVerification = new Map(
+          (
+            (followupsResult.data ?? []) as unknown as {
+              verification_id: string;
+              question: string;
+              created_at: string;
+              answer: { answer: string } | { answer: string }[] | null;
+            }[]
+          ).map((row) => [
+            row.verification_id,
+            {
+              question: row.question,
+              created_at: row.created_at,
+              answer: single(row.answer)?.answer ?? null,
+            },
+          ]),
+        );
+        verifications = verifications.map((verification) => ({
+          ...verification,
+          followup: byVerification.get(verification.id) ?? null,
+        }));
+      }
     }
 
     // Aggregate counts only; it needs the full suggestion list to count pairs.
@@ -1085,13 +1204,15 @@ export default async function AdminReportsPage({
     readyForDecision: verifications.filter(
       (verification) =>
         currentDecision(verification) === null &&
+        !followupPending(verification) &&
         (verification.questions.length === 0 ||
           answeredCount(verification) >= verification.questions.length),
     ).length,
     awaitingAnswers: verifications.filter(
       (verification) =>
         currentDecision(verification) === null &&
-        answeredCount(verification) < verification.questions.length,
+        (answeredCount(verification) < verification.questions.length ||
+          followupPending(verification)),
     ).length,
     assessmentRetry: verifications.filter(assessmentMissing).length,
     decided: verifications.length - awaitingDecision,
@@ -1310,6 +1431,7 @@ export default async function AdminReportsPage({
                   {orderedVerifications.map((verification) => (
                     <VerificationCard
                       key={verification.id}
+                      followupsAvailable={followupsAvailable}
                       verification={verification}
                       verifiedMatch={matches.find(
                         (match) => match.id === verification.report_match_id,

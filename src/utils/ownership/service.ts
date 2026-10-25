@@ -35,6 +35,8 @@ export type VerificationRecord = {
   assessment: { assessment: OwnershipAssessmentValue; explanation: string } | null;
   // Newest decision-log entry, or null when staff have never decided.
   latestDecision: { id: string; decision: DecisionLogValue } | null;
+  // The one optional staff follow-up question, and the owner's answer once given.
+  followup: { question: string; answer: string | null } | null;
 };
 
 export type MatchReports = {
@@ -88,6 +90,10 @@ export type OwnershipStore = {
     explanation: string;
     model: string;
   }): Promise<InsertOutcome>;
+  // "duplicate": this claim already has a follow-up question.
+  insertFollowup(row: { verificationId: string; question: string }): Promise<InsertOutcome>;
+  // "duplicate": the follow-up was already answered.
+  insertFollowupAnswer(row: { verificationId: string; answer: string }): Promise<InsertOutcome>;
   // "duplicate" means another staff action was logged after previousDecisionId.
   insertDecision(row: {
     verificationId: string;
@@ -126,6 +132,8 @@ export type RetryReason = "busy" | "failed" | "unavailable";
 export type OwnerVerificationView =
   | { state: "not_needed" }
   | { state: "question"; number: number; total: number; question: string }
+  // A staff follow-up question: only the question text, never staff notes.
+  | { state: "followup"; question: string }
   | { state: "staff_review" }
   | { state: "answers_received" }
   | { state: "decided"; decision: OwnershipDecisionValue }
@@ -174,9 +182,7 @@ export function ownerView(record: VerificationRecord): OwnerVerificationView {
   if (decision) {
     return { state: "decided", decision };
   }
-  if (record.questions.length === 0) {
-    return { state: "staff_review" };
-  }
+  // The original questions come first; a follow-up is asked after them.
   const next = record.answers.length;
   if (next < record.questions.length) {
     return {
@@ -186,7 +192,10 @@ export function ownerView(record: VerificationRecord): OwnerVerificationView {
       question: record.questions[next],
     };
   }
-  return { state: "answers_received" };
+  if (record.followup && record.followup.answer === null) {
+    return { state: "followup", question: record.followup.question };
+  }
+  return record.questions.length === 0 ? { state: "staff_review" } : { state: "answers_received" };
 }
 
 /** Returns the lost report this credential belongs to, or null. */
@@ -389,6 +398,104 @@ export async function retryAssessment(
   } catch (error) {
     (deps.logger ?? console).error("Ownership: failed to load verification:", errorKind(error));
     return failureReason(error);
+  }
+}
+
+export const FOLLOWUP_QUESTION_MAX = 500;
+
+export type FollowupResult =
+  | "saved"
+  | "invalid"
+  | "already_asked"
+  | "already_decided"
+  | "not_set_up"
+  | "failed";
+
+/**
+ * Staff asks one optional follow-up question on a claim with no current
+ * decision. It is plain text written by staff: no AI is involved, and asking
+ * never approves or rejects anything. At most one per claim.
+ */
+export async function askFollowup(
+  { store, logger = console }: OwnershipDeps,
+  verificationId: string,
+  question: unknown,
+): Promise<FollowupResult> {
+  const text = typeof question === "string" ? question.trim() : "";
+  if (!text || text.length > FOLLOWUP_QUESTION_MAX) {
+    return "invalid";
+  }
+  try {
+    const record = await store.findVerificationById(verificationId);
+    if (!record) {
+      return "failed";
+    }
+    if (currentDecision(record)) {
+      return "already_decided";
+    }
+    if (record.followup) {
+      return "already_asked";
+    }
+    const outcome = await store.insertFollowup({ verificationId, question: text });
+    logger.info(`Ownership: follow-up ${outcome}`);
+    return outcome === "saved" ? "saved" : "already_asked";
+  } catch (error) {
+    logger.error("Ownership: failed to save follow-up:", errorKind(error));
+    return error instanceof OwnershipStoreError && error.isMissingTable ? "not_set_up" : "failed";
+  }
+}
+
+/**
+ * Saves the owner's one answer to a staff follow-up, authorized by their
+ * private credential. It only saves the answer: no assessment, no decision.
+ */
+export async function submitFollowupAnswer(
+  { store, logger = console }: OwnershipDeps,
+  credential: unknown,
+  answer: unknown,
+): Promise<SubmitAnswerResult> {
+  const text = typeof answer === "string" ? answer.trim() : "";
+  if (!text) {
+    return { ok: false, reason: "invalid_answer", message: "Please write an answer." };
+  }
+  if (text.length > OWNER_ANSWER_MAX) {
+    return {
+      ok: false,
+      reason: "invalid_answer",
+      message: `Please keep your answer under ${OWNER_ANSWER_MAX} characters.`,
+    };
+  }
+
+  let lostReportId: string | null;
+  try {
+    lostReportId = await authorizeLostReport(store, credential);
+  } catch (error) {
+    logger.error("Ownership: failed to check credential:", errorKind(error));
+    return { ok: false, reason: "save_failed" };
+  }
+  if (!lostReportId) {
+    return { ok: false, reason: "invalid_link" };
+  }
+
+  try {
+    let record = await store.findVerificationByLostReport(lostReportId);
+    if (!record) {
+      return { ok: false, reason: "save_failed" };
+    }
+    // Only while a follow-up is waiting for its answer. Otherwise (already
+    // answered, decided, or never asked) show the current state instead.
+    if (ownerView(record).state !== "followup") {
+      return { ok: true, view: ownerView(record) };
+    }
+    await store.insertFollowupAnswer({ verificationId: record.id, answer: text });
+    record = await store.findVerificationByLostReport(lostReportId);
+    if (!record) {
+      return { ok: false, reason: "save_failed" };
+    }
+    return { ok: true, view: ownerView(record) };
+  } catch (error) {
+    logger.error("Ownership: failed to save follow-up answer:", errorKind(error));
+    return { ok: false, reason: "save_failed" };
   }
 }
 

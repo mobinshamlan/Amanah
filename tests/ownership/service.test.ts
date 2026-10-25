@@ -12,10 +12,13 @@ import type {
   ParsedOwnershipQuestions,
 } from "@/utils/gemini/ownershipVerification";
 import {
+  askFollowup,
+  FOLLOWUP_QUESTION_MAX,
   getOwnerVerification,
   recordDecision,
   resetDecision,
   retryAssessment,
+  submitFollowupAnswer,
   submitOwnerAnswer,
   type OwnershipAi,
   type OwnershipDeps,
@@ -535,5 +538,204 @@ describe("latestDecision", () => {
     assert.deepEqual(latestDecision([...rows]), { id: "c", decision: "rejected" });
     assert.deepEqual(latestDecision([rows[1], rows[2]]), { id: "b", decision: "pending_review" });
     assert.equal(latestDecision([]), null);
+  });
+});
+
+describe("staff follow-up question", () => {
+  const FOLLOWUP = "Where did you buy the bottle?";
+
+  // A claim whose two questions are both answered, ready for staff.
+  async function answered() {
+    const ctx = setup();
+    await getOwnerVerification(ctx.deps, ctx.credential);
+    await submitOwnerAnswer(ctx.deps, ctx.credential, 1, "Blue sticker");
+    await submitOwnerAnswer(ctx.deps, ctx.credential, 2, "R.K. on the lid");
+    return ctx;
+  }
+
+  it("is optional: staff can decide without ever asking one", async () => {
+    const { memory, deps } = await answered();
+    assert.equal(await recordDecision(deps, "verification-1", "approved", ""), "saved");
+    assert.equal(memory.followups.length, 0);
+  });
+
+  it("saves one trimmed question and shows only its text to the owner", async () => {
+    const { memory, deps, credential } = await answered();
+    assert.equal(await askFollowup(deps, "verification-1", `  ${FOLLOWUP}  `), "saved");
+    assert.deepEqual(memory.followups, [{ verificationId: "verification-1", question: FOLLOWUP }]);
+
+    const result = await getOwnerVerification(deps, credential);
+    assert.deepEqual(result, { ok: true, view: { state: "followup", question: FOLLOWUP } });
+    assertOwnerSafe(result);
+  });
+
+  it("rejects blank and too-long questions without saving", async () => {
+    const { memory, deps } = await answered();
+    for (const question of ["", "   ", undefined, 7, "x".repeat(FOLLOWUP_QUESTION_MAX + 1)]) {
+      assert.equal(await askFollowup(deps, "verification-1", question), "invalid");
+    }
+    assert.equal(await askFollowup(deps, "verification-1", "x".repeat(FOLLOWUP_QUESTION_MAX)), "saved");
+    assert.equal(memory.followups.length, 1);
+  });
+
+  it("allows at most one follow-up per claim, even if asked twice", async () => {
+    const { memory, deps } = await answered();
+    assert.equal(await askFollowup(deps, "verification-1", FOLLOWUP), "saved");
+    assert.equal(await askFollowup(deps, "verification-1", "A different question?"), "already_asked");
+    assert.equal(memory.followups.length, 1);
+    assert.equal(memory.followups[0].question, FOLLOWUP);
+  });
+
+  it("stays at one when two staff actions race", async () => {
+    const { memory, deps } = await answered();
+    const results = await Promise.all([
+      askFollowup(deps, "verification-1", "First?"),
+      askFollowup(deps, "verification-1", "Second?"),
+    ]);
+    assert.equal(results.filter((item) => item === "saved").length, 1);
+    assert.equal(memory.followups.length, 1);
+  });
+
+  it("is refused once the claim has a decision, and unknown claims fail", async () => {
+    const { memory, deps } = await answered();
+    await recordDecision(deps, "verification-1", "rejected", "");
+    assert.equal(await askFollowup(deps, "verification-1", FOLLOWUP), "already_decided");
+    assert.equal(memory.followups.length, 0);
+    assert.equal(await askFollowup(deps, "nope", FOLLOWUP), "failed");
+  });
+
+  it("can be asked again after a reset only if none was asked before", async () => {
+    const { deps } = await answered();
+    await recordDecision(deps, "verification-1", "approved", "");
+    await resetDecision(deps, "verification-1", "");
+    assert.equal(await askFollowup(deps, "verification-1", FOLLOWUP), "saved");
+    assert.equal(await askFollowup(deps, "verification-1", "Another?"), "already_asked");
+  });
+
+  it("asking never approves, rejects, assesses, or calls Gemini", async () => {
+    const { memory, deps, calls } = await answered();
+    const assessmentsBefore = calls.assess.length;
+    const generateBefore = calls.generate;
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    assert.equal(memory.decisions.length, 0);
+    assert.equal(calls.assess.length, assessmentsBefore);
+    assert.equal(calls.generate, generateBefore);
+  });
+
+  it("shows the original questions first when the owner has not finished them", async () => {
+    const { memory, deps, credential } = setup();
+    await getOwnerVerification(deps, credential);
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    const view = await getOwnerVerification(deps, credential);
+    assert.equal(view.ok && view.view.state, "question");
+    await submitOwnerAnswer(deps, credential, 1, "Blue sticker");
+    assert.equal(memory.followupAnswers.length, 0);
+    await submitOwnerAnswer(deps, credential, 2, "R.K. on the lid");
+    const next = await getOwnerVerification(deps, credential);
+    assert.deepEqual(next, { ok: true, view: { state: "followup", question: FOLLOWUP } });
+  });
+
+  it("saves the owner's single answer and returns the claim to staff review", async () => {
+    const { memory, deps, calls, credential } = await answered();
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    const assessments = calls.assess.length;
+
+    const result = await submitFollowupAnswer(deps, credential, "  At the campus shop  ");
+    assert.deepEqual(result, { ok: true, view: { state: "answers_received" } });
+    assert.deepEqual(memory.followupAnswers, [
+      { verificationId: "verification-1", answer: "At the campus shop" },
+    ]);
+    // No decision, no new AI work.
+    assert.equal(memory.decisions.length, 0);
+    assert.equal(calls.assess.length, assessments);
+    assertOwnerSafe(result);
+
+    // A second answer is not saved; the owner just sees the current state.
+    assert.deepEqual(await submitFollowupAnswer(deps, credential, "Changed my mind"), {
+      ok: true,
+      view: { state: "answers_received" },
+    });
+    assert.equal(memory.followupAnswers.length, 1);
+    assert.equal(memory.followupAnswers[0].answer, "At the campus shop");
+  });
+
+  it("returns a no-question claim to staff review after the follow-up is answered", async () => {
+    const { memory, deps, credential } = setup();
+    memory.addVerification({
+      id: "verification-1",
+      lostReportId: "lost-1",
+      reportMatchId: "match-top",
+      questions: [],
+      expectedDetails: [],
+    });
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    assert.equal((await getOwnerVerification(deps, credential)).ok && true, true);
+    const result = await submitFollowupAnswer(deps, credential, "At the campus shop");
+    assert.deepEqual(result, { ok: true, view: { state: "staff_review" } });
+  });
+
+  it("validates the answer and keeps nothing on invalid input", async () => {
+    const { memory, deps, credential } = await answered();
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    for (const answer of ["", "   ", undefined, 7]) {
+      assert.deepEqual(await submitFollowupAnswer(deps, credential, answer), {
+        ok: false,
+        reason: "invalid_answer",
+        message: "Please write an answer.",
+      });
+    }
+    const tooLong = await submitFollowupAnswer(deps, credential, "x".repeat(1001));
+    assert.equal(tooLong.ok === false && tooLong.reason, "invalid_answer");
+    assert.equal(memory.followupAnswers.length, 0);
+  });
+
+  it("does not save an answer when no follow-up was asked or after a decision", async () => {
+    const { memory, deps, credential } = await answered();
+    const none = await submitFollowupAnswer(deps, credential, "Unasked");
+    assert.deepEqual(none, { ok: true, view: { state: "answers_received" } });
+    assert.equal(memory.followupAnswers.length, 0);
+
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    await recordDecision(deps, "verification-1", "approved", "");
+    const decided = await submitFollowupAnswer(deps, credential, "Too late");
+    assert.deepEqual(decided, { ok: true, view: { state: "decided", decision: "approved" } });
+    assert.equal(memory.followupAnswers.length, 0);
+  });
+
+  it("only the matching private credential can answer", async () => {
+    const { memory, deps } = await answered();
+    const other = memory.addSubmission("lost-2", "lost");
+    const foundCredential = memory.addSubmission("found-1", "found");
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    for (const credential of ["", "lost-1", "A".repeat(43), foundCredential, undefined]) {
+      assert.deepEqual(await submitFollowupAnswer(deps, credential, "Answer"), {
+        ok: false,
+        reason: "invalid_link",
+      });
+    }
+    // A different owner has no claim, so nothing is saved against this one.
+    const result = await submitFollowupAnswer(deps, other, "Answer");
+    assert.equal(result.ok, false);
+    assert.equal(memory.followupAnswers.length, 0);
+  });
+
+  it("reports save failures without losing the question", async () => {
+    const { memory, deps, credential } = await answered();
+    await askFollowup(deps, "verification-1", FOLLOWUP);
+    memory.failures.add("insertFollowupAnswer");
+    assert.deepEqual(await submitFollowupAnswer(deps, credential, "Answer"), {
+      ok: false,
+      reason: "save_failed",
+    });
+    memory.failures.delete("insertFollowupAnswer");
+    assert.equal((await submitFollowupAnswer(deps, credential, "Answer")).ok, true);
+  });
+
+  it("says when the follow-up tables are not set up, and keeps other failures generic", async () => {
+    const { memory, deps } = await answered();
+    memory.failures.add("insertFollowup");
+    assert.equal(await askFollowup(deps, "verification-1", FOLLOWUP), "failed");
+    memory.failures.add("missing_table");
+    assert.equal(await askFollowup(deps, "verification-1", FOLLOWUP), "not_set_up");
   });
 });

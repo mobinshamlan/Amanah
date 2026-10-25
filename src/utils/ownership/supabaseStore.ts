@@ -76,7 +76,15 @@ export function latestDecision(rows: DecisionRow[]) {
   return heads[0] ? { id: heads[0].id, decision: heads[0].decision } : null;
 }
 
-function toRecord(row: VerificationRow): VerificationRecord {
+type FollowupRow = {
+  question: string;
+  answer: { answer: string } | { answer: string }[] | null;
+};
+
+function toRecord(
+  row: VerificationRow,
+  followup: VerificationRecord["followup"] = null,
+): VerificationRecord {
   const assessment = single(row.assessment);
   return {
     id: row.id,
@@ -91,6 +99,7 @@ function toRecord(row: VerificationRow): VerificationRecord {
       ? { assessment: assessment.assessment, explanation: assessment.explanation }
       : null,
     latestDecision: latestDecision(row.decisions ?? []),
+    followup,
   };
 }
 
@@ -121,6 +130,24 @@ export function createSupabaseOwnershipStore(supabase: AdminClient): OwnershipSt
     fail(action, error);
   }
 
+  // Loaded on its own so everything else keeps working before the follow-up
+  // migration is applied: a missing table just means "no follow-up".
+  async function findFollowup(verificationId: string): Promise<VerificationRecord["followup"]> {
+    const { data, error } = await supabase
+      .from("ownership_followups")
+      .select("question, answer:ownership_followup_answers(answer)")
+      .eq("verification_id", verificationId)
+      .maybeSingle();
+    if (error) {
+      if (error.code === "PGRST205" || error.code === "42P01") {
+        return null;
+      }
+      fail("load follow-up", error);
+    }
+    const row = data as unknown as FollowupRow | null;
+    return row ? { question: row.question, answer: single(row.answer)?.answer ?? null } : null;
+  }
+
   async function findVerification(column: "id" | "lost_report_id", value: string) {
     const { data, error } = await supabase
       .from("ownership_verifications")
@@ -130,7 +157,11 @@ export function createSupabaseOwnershipStore(supabase: AdminClient): OwnershipSt
     if (error) {
       fail("load verification", error);
     }
-    return data ? toRecord(data as unknown as VerificationRow) : null;
+    if (!data) {
+      return null;
+    }
+    const row = data as unknown as VerificationRow;
+    return toRecord(row, await findFollowup(row.id));
   }
 
   return {
@@ -220,6 +251,20 @@ export function createSupabaseOwnershipStore(supabase: AdminClient): OwnershipSt
           model: row.model,
         },
         "save assessment",
+      ),
+
+    insertFollowup: (row) =>
+      insert(
+        "ownership_followups",
+        { verification_id: row.verificationId, question: row.question },
+        "save follow-up",
+      ),
+
+    insertFollowupAnswer: (row) =>
+      insert(
+        "ownership_followup_answers",
+        { verification_id: row.verificationId, answer: row.answer },
+        "save follow-up answer",
       ),
 
     insertDecision: (row) =>

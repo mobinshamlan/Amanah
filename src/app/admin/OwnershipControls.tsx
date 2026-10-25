@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import {
+  askOwnershipFollowup,
   decideOwnership,
   resetOwnershipDecision,
   retryOwnershipAssessment,
 } from "@/app/admin/actions";
 import {
+  FieldError,
   Notice,
   Spinner,
   textareaClassName,
@@ -236,6 +238,103 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
           type="button"
           onClick={() => {
             setOpen(false);
+            setError(null);
+          }}
+          className={secondaryButtonClassName}
+        >
+          Cancel
+        </button>
+      </div>
+      <ErrorMessage message={error} />
+    </fieldset>
+  );
+}
+
+const FOLLOWUP_MAX = 500;
+
+/**
+ * Optional: staff asks the owner one plain-language follow-up question on a
+ * claim with no decision. It is written by staff, only one is allowed, and it
+ * never approves or rejects the claim.
+ */
+export function AskFollowupForm({ verificationId }: { verificationId: string }) {
+  const [open, setOpen] = useState(false);
+  const [question, setQuestion] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const fieldId = `followup-${verificationId}`;
+
+  function handleSend() {
+    const text = question.trim();
+    if (!text) {
+      setFieldError("Write a question first.");
+      return;
+    }
+    if (text.length > FOLLOWUP_MAX) {
+      setFieldError(`Keep the question under ${FOLLOWUP_MAX} characters.`);
+      return;
+    }
+    setFieldError(null);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await askOwnershipFollowup(verificationId, text);
+        if (!result.ok) {
+          setError(result.message);
+        }
+      } catch {
+        setError("The follow-up question could not be saved. Please try again.");
+      }
+    });
+  }
+
+  if (!open) {
+    return (
+      <div className="@container flex flex-col items-start gap-2">
+        <button type="button" onClick={() => setOpen(true)} className={secondaryButtonClassName}>
+          Ask a follow-up question
+        </button>
+        <p className="text-sm leading-relaxed text-foreground/70">
+          Optional. Use it only if the existing answers need clarifying. You can also decide
+          without one.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <fieldset className="@container flex min-w-0 flex-col gap-3" disabled={isPending}>
+      <legend className="text-base font-semibold text-foreground">Ask a follow-up question</legend>
+      <label htmlFor={fieldId} className="text-sm font-medium text-foreground">
+        Question for the owner
+      </label>
+      <textarea
+        id={fieldId}
+        rows={3}
+        maxLength={FOLLOWUP_MAX}
+        value={question}
+        onChange={(event) => setQuestion(event.target.value)}
+        className={textareaClassName}
+        aria-invalid={Boolean(fieldError)}
+        aria-describedby={fieldError ? `${fieldId}-error ${fieldId}-help` : `${fieldId}-help`}
+      />
+      {fieldError ? <FieldError id={`${fieldId}-error`} role="alert">{fieldError}</FieldError> : null}
+      <p id={`${fieldId}-help`} className="text-sm leading-relaxed text-foreground/70">
+        <span className="tabular-nums">{question.length}/{FOLLOWUP_MAX}</span> · The owner sees this
+        on their private tracking page and can answer once. Only one follow-up is allowed, and it
+        cannot be changed. It does not approve or reject the claim. Do not include details from the
+        found report.
+      </p>
+      <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap">
+        <button type="button" onClick={handleSend} className={primaryButtonClassName}>
+          {isPending ? <Busy label="Sending…" /> : "Send question"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            setFieldError(null);
             setError(null);
           }}
           className={secondaryButtonClassName}

@@ -5,6 +5,7 @@ import type { OwnershipStage } from "@/app/report/SubmissionConfirmation";
 import {
   getOwnershipVerification,
   submitOwnershipAnswer,
+  submitOwnershipFollowupAnswer,
 } from "@/app/report/track/actions";
 import { CheckIcon, ClockIcon, XIcon } from "@/components/icons";
 import {
@@ -188,7 +189,7 @@ export function OwnershipVerification({
       return;
     }
     focusAfterUpdate.current = false;
-    if (view.state === "question") {
+    if (view.state === "question" || view.state === "followup") {
       answerRef.current?.focus();
     } else {
       headingRef.current?.focus();
@@ -197,7 +198,7 @@ export function OwnershipVerification({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!view || view.state !== "question" || saving) {
+    if (!view || (view.state !== "question" && view.state !== "followup") || saving) {
       return;
     }
     const text = answer.trim();
@@ -212,7 +213,10 @@ export function OwnershipVerification({
     setAnswerError(null);
     setSaving(true);
     try {
-      const result = await submitOwnershipAnswer(credential, view.number, text);
+      const result =
+        view.state === "followup"
+          ? await submitOwnershipFollowupAnswer(credential, text)
+          : await submitOwnershipAnswer(credential, view.number, text);
       if (result.ok) {
         setAnswer("");
         focusAfterUpdate.current = true;
@@ -241,7 +245,9 @@ export function OwnershipVerification({
     ? "Preparing your verification questions."
     : view?.state === "question"
       ? `Question ${view.number} of ${view.total}.`
-      : view?.state === "retry"
+      : view?.state === "followup"
+        ? "Staff have one more question for you."
+        : view?.state === "retry"
         ? RETRY_MESSAGES[view.reason]
         : settled
           ? `${settled.title}. ${settled.body}`
@@ -285,7 +291,9 @@ export function OwnershipVerification({
             ? "Preparing your questions"
             : view?.state === "question"
               ? "A few questions about your item"
-              : "Questions not ready yet"}
+              : view?.state === "followup"
+                ? "One more question from staff"
+                : "Questions not ready yet"}
         </h2>
       )}
 
@@ -293,12 +301,12 @@ export function OwnershipVerification({
         <div className="mt-4">
           <LoadingRow>Preparing your questions…</LoadingRow>
         </div>
-      ) : view?.state === "question" ? (
+      ) : view?.state === "question" || view?.state === "followup" ? (
         <>
           <p className="mt-2 text-base leading-relaxed text-foreground">
-            To help staff check that this item is yours, please answer from
-            memory in your own words. If you are not sure, say so rather than
-            guessing.
+            {view.state === "followup"
+              ? "Staff would like a little more detail to review your claim. Please answer from memory in your own words, or say if you are not sure."
+              : "To help staff check that this item is yours, please answer from memory in your own words. If you are not sure, say so rather than guessing."}
           </p>
           <form
             onSubmit={handleSubmit}
@@ -306,7 +314,11 @@ export function OwnershipVerification({
             aria-busy={saving}
             className="mt-6 flex flex-col gap-3 rounded-2xl bg-secondary p-4 sm:p-5"
           >
-            <QuestionProgress number={view.number} total={view.total} />
+            {view.state === "question" ? (
+              <QuestionProgress number={view.number} total={view.total} />
+            ) : (
+              <p className="text-[0.9375rem] font-semibold text-pine">Question from staff</p>
+            )}
             <label
               htmlFor="ownership-answer"
               className="mt-1 font-serif text-[1.5rem] font-semibold leading-snug text-foreground"

@@ -18,6 +18,7 @@ export type MatchingView =
 export type OwnershipStage =
   | "loading"
   | "question"
+  | "followup"
   | "retry"
   | "staff_review"
   | "answers_received"
@@ -247,6 +248,15 @@ function ownershipSteps(
           state: "active",
           label: "Ownership questions",
           detail: "Answer the questions below in your own words.",
+        },
+        decisionUpcoming,
+      ];
+    case "followup":
+      return [
+        {
+          state: "active",
+          label: "Ownership questions",
+          detail: "Staff have one more question for you.",
         },
         decisionUpcoming,
       ];
@@ -605,7 +615,10 @@ export function LostConfirmation({
   // (while questions or review are open) and then goes away. The decision
   // itself is shown by the ownership card.
   const ownershipActive =
-    ownership === "question" || ownership === "staff_review" || ownership === "answers_received";
+    ownership === "question" ||
+    ownership === "followup" ||
+    ownership === "staff_review" ||
+    ownership === "answers_received";
   const decided = ownership === "approved" || ownership === "rejected";
   const showFullResult = Boolean(result && Icon) && !ownershipActive && !decided;
 
