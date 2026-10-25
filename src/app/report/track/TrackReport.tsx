@@ -12,7 +12,6 @@ import { OwnershipVerification } from "@/app/report/track/OwnershipVerification"
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { CheckIcon, ShieldIcon } from "@/components/icons";
 import {
-  Eyebrow,
   LoadingRow,
   Notice,
   PageHeading,
@@ -42,12 +41,11 @@ function TrackingLinkCard({ url }: { url: string }) {
     <section
       id="private-link"
       aria-labelledby="tracking-link-title"
-      className="mt-4 scroll-mt-6 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6"
+      className="scroll-mt-6 rounded-[1.75rem] bg-secondary p-5 sm:p-6"
     >
-      <Eyebrow tone="clay">Keep this safe</Eyebrow>
       <h2
         id="tracking-link-title"
-        className="mt-3 font-serif text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-[1.75rem]"
+        className="font-serif text-[2rem] font-semibold leading-tight tracking-[-0.01em] text-foreground"
       >
         Your private tracking link
       </h2>
@@ -55,7 +53,8 @@ function TrackingLinkCard({ url }: { url: string }) {
         Save this link to come back to your report later, even after closing
         your browser. Bookmark this page or copy the link somewhere safe.
       </p>
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+      <span aria-hidden className="perforation mt-5 block text-foreground/20" />
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <label htmlFor="tracking-link" className="sr-only">
           Private tracking link
         </label>
@@ -66,16 +65,16 @@ function TrackingLinkCard({ url }: { url: string }) {
           readOnly
           value={url}
           onFocus={(event) => event.currentTarget.select()}
-          className="h-11 w-full min-w-0 flex-1 rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="min-h-12 w-full min-w-0 flex-1 truncate rounded-full border border-foreground/30 bg-card px-5 text-[0.9375rem] text-foreground outline-none focus-visible:border-forest focus-visible:ring-3 focus-visible:ring-forest/35"
         />
         <button
           type="button"
           onClick={() => void copyLink()}
-          className={secondaryButtonClassName}
+          className={`${primaryButtonClassName} shrink-0`}
         >
           {copyState === "copied" ? (
             <>
-              <CheckIcon className="size-4 text-forest" />
+              <CheckIcon className="size-4 text-sage" />
               Copied
             </>
           ) : (
@@ -83,14 +82,14 @@ function TrackingLinkCard({ url }: { url: string }) {
           )}
         </button>
       </div>
-      <p aria-live="polite" className="mt-2 min-h-5 text-sm text-forest">
+      <p aria-live="polite" className="mt-2 min-h-5 text-sm font-medium text-forest">
         {copyState === "copied"
           ? "Link copied."
           : copyState === "failed"
             ? "Copying is not available here. The link is selected so you can copy it."
             : ""}
       </p>
-      <p className="mt-1 flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
+      <p className="mt-1 flex items-start gap-2 text-[0.9375rem] leading-relaxed text-foreground/80">
         <ShieldIcon className="mt-0.5 size-4 shrink-0 text-forest" />
         Keep it private: anyone with this link can see your report’s progress.
       </p>
@@ -103,8 +102,8 @@ const TRACK_EYEBROW = "Private tracking page";
 function StatusLoading() {
   return (
     <div aria-busy="true">
-      <PageHeading eyebrow={TRACK_EYEBROW} title="Track your report" />
-      <div className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6">
+      <PageHeading context={TRACK_EYEBROW} title="Track your report" />
+      <div className="edge-torn mt-8 max-w-xl bg-card px-5 pt-6 sm:px-7">
         <LoadingRow>Loading your report status…</LoadingRow>
       </div>
     </div>
@@ -190,7 +189,7 @@ export default function TrackReport() {
     matching.outcome === "possible_match";
 
   return (
-    <PageShell>
+    <PageShell width="wide">
       {/* Always mounted so screen readers announce each status change. */}
       <p role="status" className="sr-only">
         {!linkReady || statusLoading
@@ -207,17 +206,17 @@ export default function TrackReport() {
       ) : !linkWorks ? (
         <>
           <PageHeading
-            eyebrow={TRACK_EYEBROW}
+            context={TRACK_EYEBROW}
             title="This tracking link doesn’t work"
             intro="Check that you opened the full link you saved when you reported your item."
           />
-          <Notice tone="error" className="mt-8">
+          <Notice tone="error" className="mt-8 max-w-3xl">
             <span className="font-normal">
               If it still doesn’t work, please contact your organization’s
               lost-and-found staff.
             </span>
           </Notice>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Link href="/report/lost" className={primaryButtonClassName}>
               Report a lost item
             </Link>
@@ -228,7 +227,7 @@ export default function TrackReport() {
         </>
       ) : matching ? (
         <LostConfirmation
-          eyebrow={TRACK_EYEBROW}
+          context={TRACK_EYEBROW}
           title="Track your report"
           intro={
             <>
@@ -245,6 +244,7 @@ export default function TrackReport() {
             </>
           }
           ownership={showVerification ? ownershipStage : null}
+          aside={linkUrl ? <TrackingLinkCard url={linkUrl} /> : null}
           view={matching}
           isContinuing={isContinuing}
           canRetry={canRetry}
@@ -259,7 +259,6 @@ export default function TrackReport() {
               onStageChange={setOwnershipStage}
             />
           ) : null}
-          {linkUrl ? <TrackingLinkCard url={linkUrl} /> : null}
         </LostConfirmation>
       ) : (
         <StatusLoading />

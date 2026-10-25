@@ -10,9 +10,9 @@ import {
 } from "@/components/icons";
 import { focusRingClassName } from "@/components/ui";
 
-// The staff workspace frame: a labelled sidebar on a green-grey frame and one
-// white work sheet per section. On tablets and phones the sidebar folds into a
-// top bar with a scrolling row of section links. Navigation keeps the same
+// The staff workspace frame: a labelled sidebar on the cream ground and one
+// work sheet per section. On tablets and phones the sidebar folds into a top
+// bar with the section links below it. Navigation keeps the same
 // /admin?section=… links as before.
 
 export type AdminSectionKey = "matches" | "claims" | "reports" | "monitoring";
@@ -41,14 +41,14 @@ function Badge({ item }: { item: AdminNavItem }) {
   if (item.alert) {
     return (
       <span className="ml-auto flex items-center gap-1.5">
-        <span aria-hidden className="size-2 rounded-full bg-destructive" />
+        <span aria-hidden className="size-2.5 rounded-full bg-destructive" />
         <span className="sr-only">{item.alert}</span>
       </span>
     );
   }
   if (item.count && item.count.value > 0) {
     return (
-      <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium tabular-nums text-primary-foreground">
+      <span className="ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-2 text-xs font-semibold tabular-nums text-cream">
         {item.count.value}
         <span className="sr-only"> {item.count.label}</span>
       </span>
@@ -61,14 +61,60 @@ function Brand() {
   return (
     <Link
       href="/admin"
-      className={`flex items-center gap-2.5 rounded-lg px-1.5 py-1 ${focusRingClassName}`}
+      className={`flex w-fit items-center gap-3 rounded-xl py-1 pr-2 ${focusRingClassName}`}
     >
-      <KeyholeMark className="size-8" />
-      <span className="flex min-w-0 flex-col leading-tight">
-        <span className="text-[15px] font-semibold text-foreground">Amanah</span>
-        <span className="text-xs text-muted-foreground">Staff workspace</span>
+      <KeyholeMark className="size-9" />
+      <span className="flex min-w-0 flex-col gap-1 leading-none">
+        <span className="font-serif text-xl font-semibold tracking-[0.16em] text-foreground">
+          AMANAH
+        </span>
+        <span className="text-[0.8125rem] font-medium text-muted-foreground">Staff workspace</span>
       </span>
     </Link>
+  );
+}
+
+function NavLinks({ nav, active, layout }: { nav: AdminNavItem[]; active: AdminSectionKey | null; layout: "side" | "top" }) {
+  return (
+    <ul
+      className={
+        layout === "side"
+          ? "flex flex-col gap-1"
+          : "grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap"
+      }
+    >
+      {nav.map((item) => {
+        const Icon = ICONS[item.key];
+        const current = item.key === active;
+        return (
+          <li key={item.key} className="min-w-0">
+            <Link
+              href={sectionHref(item.key)}
+              aria-current={current ? "page" : undefined}
+              className={`flex min-h-11 cursor-pointer items-center gap-2.5 px-3.5 py-1.5 text-[0.9375rem] leading-tight transition-colors duration-150 ${
+                layout === "side" ? "rounded-full" : "rounded-2xl sm:rounded-full"
+              } ${focusRingClassName} ${
+                current
+                  ? "bg-secondary font-semibold text-foreground"
+                  : "text-foreground/70 hover:bg-secondary/70 hover:text-foreground"
+              }`}
+            >
+              <Icon className={`size-[1.125rem] shrink-0 ${current ? "text-forest" : ""}`} />
+              <span className="min-w-0">{item.label}</span>
+              <Badge item={item} />
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function LocalAdminTag() {
+  return (
+    <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground">
+      Local admin
+    </span>
   );
 }
 
@@ -87,134 +133,75 @@ export function AdminShell({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const activeLabel = nav.find((item) => item.key === active)?.label;
-
   return (
-    <div className="flex min-h-dvh flex-1 flex-col lg:grid lg:grid-cols-[228px_minmax(0,1fr)]">
+    <div className="flex min-h-dvh flex-1 flex-col bg-background lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       <a
         href="#main"
-        className="sr-only rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-20"
+        className="sr-only rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-20"
       >
         Skip to content
       </a>
 
       {/* Sidebar (desktop). */}
-      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-7 lg:px-3 lg:py-4">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-8 lg:px-4 lg:py-6">
         <Brand />
         <nav aria-label="Workspace sections">
-          <ul className="flex flex-col gap-0.5">
-            {nav.map((item) => {
-              const Icon = ICONS[item.key];
-              const current = item.key === active;
-              return (
-                <li key={item.key}>
-                  <Link
-                    href={sectionHref(item.key)}
-                    aria-current={current ? "page" : undefined}
-                    className={`flex h-9 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-sm transition-colors duration-150 ${focusRingClassName} ${
-                      current
-                        ? "bg-frame-active font-medium text-foreground"
-                        : "text-muted-foreground hover:bg-frame-active/60 hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    {item.label}
-                    <Badge item={item} />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <NavLinks nav={nav} active={active} layout="side" />
         </nav>
-        <div className="mt-auto flex flex-col gap-3 px-1.5 text-xs leading-relaxed text-muted-foreground">
+        <div className="mt-auto flex flex-col gap-4 px-1 text-[0.8125rem] leading-relaxed text-muted-foreground">
           <p>AI suggestions are never a decision. Staff decide every claim.</p>
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/"
-              className={`-ml-1 inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground transition-colors hover:text-forest ${focusRingClassName}`}
+              className={`-ml-1.5 inline-flex min-h-11 items-center gap-1.5 rounded-full px-1.5 font-semibold text-foreground transition-colors hover:text-forest ${focusRingClassName}`}
             >
-              <ArrowLeftIcon className="size-3.5" />
+              <ArrowLeftIcon className="size-4" />
               Back to home
             </Link>
-            <span className="rounded-md bg-frame-active px-2 py-0.5 font-medium text-foreground">
-              Local admin
-            </span>
+            <LocalAdminTag />
           </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar and section links (tablet and phone). */}
-        <header className="flex h-14 items-center justify-between gap-3 px-3 sm:px-5 lg:hidden">
-          <Brand />
-          <div className="flex items-center gap-2 text-xs">
-            <Link
-              href="/"
-              className={`hidden items-center gap-1 rounded-md px-1.5 py-1 font-medium text-foreground hover:text-forest sm:inline-flex ${focusRingClassName}`}
-            >
-              <ArrowLeftIcon className="size-3.5" />
-              Back to home
-            </Link>
-            <span className="rounded-md bg-frame-active px-2 py-0.5 font-medium text-foreground">
-              Local admin
-            </span>
+        <header className="flex flex-col gap-3 px-3 pb-3 pt-3 sm:px-5 lg:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <Brand />
+            <div className="flex items-center gap-1">
+              <Link
+                href="/"
+                className={`hidden min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-foreground hover:text-forest sm:inline-flex ${focusRingClassName}`}
+              >
+                <ArrowLeftIcon className="size-4" />
+                Back to home
+              </Link>
+              <LocalAdminTag />
+            </div>
           </div>
+          <nav aria-label="Workspace sections">
+            <NavLinks nav={nav} active={active} layout="top" />
+          </nav>
         </header>
-        <nav aria-label="Workspace sections" className="overflow-x-auto px-1 sm:px-3 lg:hidden">
-          <ul className="flex min-w-max gap-1">
-            {nav.map((item) => {
-              const Icon = ICONS[item.key];
-              const current = item.key === active;
-              return (
-                <li key={item.key}>
-                  <Link
-                    href={sectionHref(item.key)}
-                    aria-current={current ? "page" : undefined}
-                    className={`flex h-11 cursor-pointer items-center gap-2 border-b-2 px-3 text-sm transition-colors duration-150 ${focusRingClassName} ${
-                      current
-                        ? "border-forest font-medium text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    {item.label}
-                    <Badge item={item} />
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        {/* Breadcrumb (desktop): names the workspace and the open section. */}
-        <div className="hidden h-12 items-center px-6 text-sm text-muted-foreground lg:flex">
-          <span>Staff workspace</span>
-          {activeLabel ? (
-            <>
-              <span aria-hidden className="px-2">/</span>
-              <span className="text-foreground">{activeLabel}</span>
-            </>
-          ) : null}
-        </div>
 
         <main
           id="main"
-          className="min-w-0 flex-1 border-t border-border bg-background lg:mb-2 lg:mr-2 lg:rounded-2xl lg:border"
+          className="min-w-0 flex-1 rounded-t-[1.75rem] border border-b-0 border-border bg-card lg:my-3 lg:mr-3 lg:rounded-[1.75rem] lg:border-b"
         >
-          <div className="flex flex-col gap-4 px-4 pb-5 pt-5 sm:px-6 sm:pt-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-4 px-4 pb-6 pt-6 sm:px-7 sm:pt-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <h1 className="text-[1.375rem] font-semibold leading-tight tracking-tight text-foreground">
+              <h1 className="font-serif text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.015em] text-foreground sm:text-[2.6rem]">
                 {title}
               </h1>
               {subline ? (
-                <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-2 max-w-3xl text-[0.9375rem] leading-relaxed text-foreground/75">
                   {subline}
                 </p>
               ) : null}
             </div>
-            {actions ? <div className="shrink-0">{actions}</div> : null}
+            {actions ? <div className="min-w-0 shrink-0">{actions}</div> : null}
           </div>
-          <div className="px-4 pb-10 sm:px-6">{children}</div>
+          <div className="px-4 pb-12 sm:px-7">{children}</div>
         </main>
       </div>
     </div>

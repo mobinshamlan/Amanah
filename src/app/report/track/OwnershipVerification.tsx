@@ -8,7 +8,6 @@ import {
 } from "@/app/report/track/actions";
 import { CheckIcon, ClockIcon, XIcon } from "@/components/icons";
 import {
-  Eyebrow,
   FieldError,
   LoadingRow,
   Notice,
@@ -57,7 +56,7 @@ function settledMessage(view: OwnerVerificationView): SettledCopy | null {
       return view.decision === "approved"
         ? {
             title: "Approved for ownership follow-up",
-            body: "Staff approved your claim for ownership follow-up. Please contact your organization’s lost-and-found staff for next steps. The item is handed over only after their checks.",
+            body: "Approval does not hand over the item automatically. Please contact your organization’s lost-and-found staff to arrange the next step.",
             tone: "positive",
           }
         : {
@@ -83,41 +82,46 @@ function stageOf(
 }
 
 const CARD_TONE: Record<OutcomeTone, string> = {
-  positive: "border-forest/30 bg-accent",
-  negative: "border-destructive/40 bg-background",
-  neutral: "border-border bg-card",
+  positive: "bg-ok-soft",
+  negative: "bg-bad-soft",
+  neutral: "border border-border bg-card",
 };
 
 const ICON_TONE: Record<OutcomeTone, string> = {
-  positive: "text-forest",
-  negative: "text-destructive",
-  neutral: "text-forest",
+  positive: "bg-forest text-primary-foreground",
+  negative: "bg-destructive text-primary-foreground",
+  neutral: "bg-accent text-forest",
 };
 
 const TITLE_TONE: Record<OutcomeTone, string> = {
-  positive: "text-forest",
-  negative: "text-destructive",
+  positive: "text-ok-ink",
+  negative: "text-bad-ink",
   neutral: "text-foreground",
 };
 
 function OutcomeIcon({ tone }: { tone: OutcomeTone }) {
-  const className = `mt-1 size-5 shrink-0 ${ICON_TONE[tone]}`;
-  if (tone === "positive") return <CheckIcon className={className} />;
-  if (tone === "negative") return <XIcon className={className} />;
-  return <ClockIcon className={className} />;
+  const Icon = tone === "positive" ? CheckIcon : tone === "negative" ? XIcon : ClockIcon;
+  return (
+    <span
+      aria-hidden
+      className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full ${ICON_TONE[tone]}`}
+    >
+      <Icon className="size-5" />
+    </span>
+  );
 }
 
 function QuestionProgress({ number, total }: { number: number; total: number }) {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-pine">
+      <p className="text-[0.9375rem] font-semibold text-pine">
         Question {number} of {total}
       </p>
       <div aria-hidden className="flex gap-1.5">
         {Array.from({ length: total }, (_, index) => (
           <span
             key={index}
-            className={`h-1 flex-1 rounded-full ${
+            className={`h-1.5 flex-1 rounded-full ${
               index < number - 1
                 ? "bg-forest"
                 : index === number - 1
@@ -247,21 +251,21 @@ export function OwnershipVerification({
     <section
       aria-labelledby="verification-title"
       aria-busy={loading}
-      className={`mt-4 rounded-2xl border p-5 shadow-card motion-safe:animate-rise sm:p-6 ${CARD_TONE[tone]}`}
+      className={`mt-4 rounded-[1.75rem] p-5 motion-safe:animate-rise sm:p-7 ${CARD_TONE[tone]}`}
     >
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      <Eyebrow>Ownership review</Eyebrow>
+      <p className="text-[0.9375rem] font-medium text-forest">Ownership review</p>
       {settled ? (
-        <div className="mt-3 flex items-start gap-3">
+        <div className="mt-3 flex items-start gap-3.5">
           <OutcomeIcon tone={tone} />
           <div className="min-w-0 flex-1">
             <h2
               ref={headingRef}
               id="verification-title"
               tabIndex={-1}
-              className={`font-serif text-2xl font-semibold leading-tight tracking-tight outline-none sm:text-[1.75rem] ${TITLE_TONE[tone]}`}
+              className={`font-serif text-[2rem] font-semibold leading-tight tracking-[-0.01em] outline-none ${TITLE_TONE[tone]}`}
             >
               {settled.title}
             </h2>
@@ -275,7 +279,7 @@ export function OwnershipVerification({
           ref={headingRef}
           id="verification-title"
           tabIndex={-1}
-          className="mt-3 font-serif text-2xl font-semibold leading-tight tracking-tight text-foreground outline-none sm:text-[1.75rem]"
+          className="mt-2 font-serif text-[2rem] font-semibold leading-tight tracking-[-0.01em] text-foreground outline-none"
         >
           {loading
             ? "Preparing your questions"
@@ -300,12 +304,12 @@ export function OwnershipVerification({
             onSubmit={handleSubmit}
             noValidate
             aria-busy={saving}
-            className="mt-5 flex flex-col gap-3 border-t border-border pt-5"
+            className="mt-6 flex flex-col gap-3 rounded-2xl bg-secondary p-4 sm:p-5"
           >
             <QuestionProgress number={view.number} total={view.total} />
             <label
               htmlFor="ownership-answer"
-              className="mt-1 text-base font-medium leading-snug text-foreground"
+              className="mt-1 font-serif text-[1.5rem] font-semibold leading-snug text-foreground"
             >
               {view.question}
             </label>
@@ -318,7 +322,7 @@ export function OwnershipVerification({
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
               disabled={saving}
-              className={textareaClassName}
+              className={textareaClassName.replace("bg-background", "bg-card")}
               aria-invalid={Boolean(answerError)}
               aria-describedby={
                 answerError
@@ -333,7 +337,7 @@ export function OwnershipVerification({
             ) : null}
             <p
               id="ownership-answer-help"
-              className="text-sm leading-relaxed text-muted-foreground"
+              className="text-[0.9375rem] leading-relaxed text-foreground/75"
             >
               You can’t change an answer after submitting it. Staff review
               every answer; answering does not confirm ownership on its own.

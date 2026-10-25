@@ -13,26 +13,21 @@ import {
 } from "@/app/report/SubmissionConfirmation";
 import { trackingHref } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { ArrowRightIcon, KeyholeMark } from "@/components/icons";
+import { ArrowRightIcon, KeyholeGlyph, KeyholeMark } from "@/components/icons";
 import {
-  Eyebrow,
   FieldError,
   Notice,
   PageShell,
   Spinner,
+  fieldClassName,
+  primaryButtonLargeClassName,
+  textareaClassName,
 } from "@/components/ui";
 
-// Report-form controls follow Amanah's 44px form standard and use a clear
-// forest focus ring.
-const inputClassName =
-  "h-11 w-full rounded-lg border border-foreground/50 bg-background px-3 text-base text-foreground outline-none transition-[border-color,box-shadow] duration-150 hover:border-foreground/75 focus-visible:border-forest focus-visible:ring-3 focus-visible:ring-forest/40 disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/15";
-
-const descriptionClassName = `${inputClassName} h-auto min-h-36 resize-y py-3 leading-relaxed`;
-
-const submitClassName = `inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg bg-primary px-6 text-base font-semibold text-primary-foreground transition-[background-color,transform] duration-150 hover:bg-pine active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto outline-none focus-visible:ring-3 focus-visible:ring-forest focus-visible:ring-offset-2 focus-visible:ring-offset-card`;
+const descriptionClassName = `${textareaClassName} min-h-40`;
 
 const legendClassName =
-  "mb-5 font-serif text-[1.6rem] font-semibold leading-tight tracking-tight text-foreground";
+  "font-serif text-[1.75rem] font-semibold leading-tight tracking-[-0.01em] text-foreground";
 
 function storageKey(reportType: ReportType) {
   return `amanah:submission:${reportType}`;
@@ -70,12 +65,12 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-1">
         <label htmlFor={name} className="text-base font-semibold leading-snug text-foreground">
           {label}
         </label>
-        <p id={`${name}-hint`} className="text-sm leading-relaxed text-muted-foreground">
+        <p id={`${name}-hint`} className="text-[0.9375rem] leading-relaxed text-muted-foreground">
           {hint}
         </p>
       </div>
@@ -267,7 +262,7 @@ export default function ReportForm({
           />
         ) : (
           <LostConfirmation
-            eyebrow="Report saved"
+            context="Report saved"
             saved
             title="Lost report saved"
             intro="Your report is saved."
@@ -280,7 +275,7 @@ export default function ReportForm({
           >
             {credential ? null : (
               <Notice className="mt-4">
-                <span className="font-normal text-muted-foreground">
+                <span className="font-normal">
                   A private tracking link could not be created for this report,
                   so its progress cannot be followed later. Your report is still
                   saved.
@@ -290,79 +285,83 @@ export default function ReportForm({
           </LostConfirmation>
         )
       ) : (
-        <>
-          <header className="mt-6 max-w-3xl motion-safe:animate-enter sm:mt-10">
-            <div className="flex items-center gap-2.5">
+        // Phones read title, form, then guidance; wide screens put the
+        // guidance under the title, beside the form.
+        <div className="mt-6 grid items-start gap-10 sm:mt-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:gap-y-12">
+          <header className="flex flex-col motion-safe:animate-rise lg:col-start-1 lg:row-start-1">
+            <p className="flex items-center gap-2.5 text-[0.9375rem] font-medium text-forest">
               <KeyholeMark className="size-7" />
-              <Eyebrow>{eyebrow}</Eyebrow>
-            </div>
-            <h1 className="mt-4 text-balance font-serif text-[2.6rem] font-semibold leading-[1.04] tracking-tight text-foreground sm:text-[3.5rem]">
+              {eyebrow}
+            </p>
+            <h1 className="mt-5 max-w-[12ch] text-balance font-serif text-[2.75rem] font-semibold leading-[1.0] tracking-[-0.02em] text-foreground sm:text-6xl lg:text-[4.25rem]">
               {title}
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="mt-5 max-w-[46ch] text-pretty text-base leading-relaxed text-foreground/80 sm:text-lg">
               {intro}
             </p>
           </header>
 
-          <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)] lg:gap-8">
-            <form
-              onSubmit={handleSubmit}
-              aria-busy={isSubmitting}
-              aria-label={title}
-              className="rounded-2xl border border-border bg-card p-5 shadow-card motion-safe:animate-enter motion-safe:[animation-delay:90ms] sm:p-8"
-              noValidate
-            >
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                All fields are required.
-              </p>
+          <form
+            onSubmit={handleSubmit}
+            aria-busy={isSubmitting}
+            aria-label={title}
+            className="rounded-[1.75rem] border border-border bg-card p-5 motion-safe:animate-rise motion-safe:[animation-delay:80ms] sm:p-10 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+            noValidate
+          >
+            <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
+              All fields are required.
+            </p>
 
-              <fieldset className="mt-6">
-                <legend className={legendClassName}>What it is</legend>
-                <div className="flex flex-col gap-6">
-                  <Field
+            <fieldset className="mt-6">
+              <legend className={legendClassName}>What it is</legend>
+              <div className="mt-5 flex flex-col gap-7">
+                <Field
+                  name="itemName"
+                  label="Item name"
+                  hint="A short name, for example “Black backpack”."
+                  error={errors.itemName}
+                >
+                  <input
+                    ref={itemNameRef}
+                    id="itemName"
                     name="itemName"
-                    label="Item name"
-                    hint="A short name, for example “Black backpack”."
-                    error={errors.itemName}
-                  >
-                    <input
-                      ref={itemNameRef}
-                      id="itemName"
-                      name="itemName"
-                      type="text"
-                      value={itemName}
-                      onChange={(event) => setItemName(event.target.value)}
-                      disabled={isSubmitting}
-                      className={inputClassName}
-                      aria-invalid={Boolean(errors.itemName)}
-                      aria-describedby={describedBy("itemName", errors)}
-                    />
-                  </Field>
+                    type="text"
+                    value={itemName}
+                    onChange={(event) => setItemName(event.target.value)}
+                    disabled={isSubmitting}
+                    className={fieldClassName}
+                    aria-invalid={Boolean(errors.itemName)}
+                    aria-describedby={describedBy("itemName", errors)}
+                  />
+                </Field>
 
-                  <Field
+                <Field
+                  name="description"
+                  label="Description"
+                  hint="Colour, brand, size, contents, or anything distinctive."
+                  error={errors.description}
+                >
+                  <textarea
+                    ref={descriptionRef}
+                    id="description"
                     name="description"
-                    label="Description"
-                    hint="Colour, brand, size, contents, or anything distinctive."
-                    error={errors.description}
-                  >
-                    <textarea
-                      ref={descriptionRef}
-                      id="description"
-                      name="description"
-                      rows={4}
-                      value={description}
-                      onChange={(event) => setDescription(event.target.value)}
-                      disabled={isSubmitting}
-                      className={descriptionClassName}
-                      aria-invalid={Boolean(errors.description)}
-                      aria-describedby={describedBy("description", errors)}
-                    />
-                  </Field>
-                </div>
-              </fieldset>
+                    rows={4}
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    disabled={isSubmitting}
+                    className={descriptionClassName}
+                    aria-invalid={Boolean(errors.description)}
+                    aria-describedby={describedBy("description", errors)}
+                  />
+                </Field>
+              </div>
+            </fieldset>
 
-              <fieldset className="mt-10">
-                <legend className={legendClassName}>Where</legend>
+            <span aria-hidden className="perforation my-9 block text-foreground/20" />
+
+            <fieldset>
+              <legend className={legendClassName}>Where</legend>
+              <div className="mt-5">
                 <Field
                   name="location"
                   label={locationLabel}
@@ -377,72 +376,86 @@ export default function ReportForm({
                     value={location}
                     onChange={(event) => setLocation(event.target.value)}
                     disabled={isSubmitting}
-                    className={inputClassName}
+                    className={fieldClassName}
                     aria-invalid={Boolean(errors.location)}
                     aria-describedby={describedBy("location", errors)}
                   />
                 </Field>
-              </fieldset>
-
-              {formError ? (
-                <Notice tone="error" role="alert" className="mt-8">
-                  {formError}
-                </Notice>
-              ) : null}
-
-              <div className="mt-10">
-                <button type="submit" disabled={isSubmitting} className={submitClassName}>
-                  {isSubmitting ? (
-                    <>
-                      <Spinner />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      Submit report
-                      <ArrowRightIcon className="size-5" />
-                    </>
-                  )}
-                </button>
               </div>
-            </form>
+            </fieldset>
 
-            {nextSteps ? (
-              <aside
-                aria-labelledby="next-steps-title"
-                className="rounded-2xl border border-border bg-muted/60 p-5 motion-safe:animate-enter motion-safe:[animation-delay:90ms] sm:p-6"
+            {formError ? (
+              <Notice tone="error" role="alert" className="mt-8">
+                {formError}
+              </Notice>
+            ) : null}
+
+            {reportType === "found" ? (
+              <Notice className="mt-8">
+                After submitting this report, please drop off the item with your
+                organization’s lost-and-found staff.
+              </Notice>
+            ) : null}
+
+            <div className="mt-10">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={primaryButtonLargeClassName}
               >
-                <Eyebrow tone="clay">
-                  <span id="next-steps-title">After you submit</span>
-                </Eyebrow>
-                <ol className="mt-4 flex flex-col gap-4">
-                  {nextSteps.map((step, index) => (
-                    <li key={step} className="flex gap-3 text-base leading-relaxed text-foreground">
-                      <span
-                        aria-hidden
-                        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-sage/30 text-xs font-semibold tabular-nums text-pine"
-                      >
-                        {index + 1}
-                      </span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              </aside>
-            ) : (
-              <aside className="rounded-2xl border border-border bg-muted/60 p-5 motion-safe:animate-enter motion-safe:[animation-delay:90ms] sm:p-6">
-                <Eyebrow tone="forest">Handled with care</Eyebrow>
-                <h2 className="mt-3 max-w-[16ch] font-serif text-3xl font-semibold leading-tight tracking-tight text-foreground">
-                  Every found item is an amanah.
-                </h2>
-                <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-                  Your report stays private and helps staff return the item safely.
-                </p>
-              </aside>
-            )}
+                {isSubmitting ? (
+                  <>
+                    <Spinner />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    Submit report
+                    <ArrowRightIcon className="size-5" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
 
-          </div>
-        </>
+          {nextSteps ? (
+            <aside
+              aria-labelledby="next-steps-title"
+              className="edge-torn bg-secondary px-5 pt-7 motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-8 sm:pt-8 lg:col-start-1 lg:row-start-2"
+            >
+              <h2
+                id="next-steps-title"
+                className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground"
+              >
+                After you submit
+              </h2>
+              <ol className="mt-5 flex flex-col gap-4">
+                {nextSteps.map((step) => (
+                  <li key={step} className="flex gap-3 text-base leading-relaxed text-foreground">
+                    <KeyholeGlyph className="mt-1 size-4 shrink-0 text-forest" />
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </aside>
+          ) : (
+            <aside
+              aria-labelledby="care-title"
+              className="relative isolate px-6 py-8 pl-9 text-cream motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-9 sm:pl-12 lg:col-start-1 lg:row-start-2"
+            >
+              <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-forest" />
+              <h2
+                id="care-title"
+                className="max-w-[16ch] font-serif text-[2rem] font-semibold leading-[1.05] tracking-[-0.01em] text-cream"
+              >
+                Every found item is an amanah.
+              </h2>
+              <p className="mt-3 max-w-[40ch] text-base leading-relaxed text-cream/90">
+                Your report stays private and helps staff return the item safely.
+              </p>
+            </aside>
+          )}
+        </div>
       )}
     </PageShell>
   );

@@ -9,7 +9,7 @@ import {
 import {
   Notice,
   Spinner,
-  fieldClassName,
+  textareaClassName,
   primaryButtonClassName,
   rejectButtonClassName,
   secondaryButtonClassName,
@@ -51,7 +51,7 @@ export function RetryAssessmentButton({ verificationId }: { verificationId: stri
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col items-start gap-2">
       <button
         type="button"
         onClick={handleRetry}
@@ -99,10 +99,12 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
     });
   }
 
+  // Buttons sit side by side only when this panel itself has room; in the
+  // narrow decision column they stack at full width.
   if (!choice) {
     return (
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="@container flex flex-col gap-3">
+        <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap">
           <button
             type="button"
             onClick={() => setChoice("approved")}
@@ -118,7 +120,7 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
             {DECISION_CHOICES.rejected.action}
           </button>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">
+        <p className="text-sm leading-relaxed text-foreground/70">
           Approval does not return the item automatically. Either decision can
           be reset to pending review later.
         </p>
@@ -127,8 +129,8 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
   }
 
   return (
-    <fieldset className="flex flex-col gap-3" disabled={isPending}>
-      <legend className="text-sm font-medium text-foreground">
+    <fieldset className="@container flex min-w-0 flex-col gap-3" disabled={isPending}>
+      <legend className="text-base font-semibold text-foreground">
         {DECISION_CHOICES[choice].action}
       </legend>
       <label htmlFor={noteId} className="text-sm font-medium text-foreground">
@@ -140,9 +142,9 @@ export function OwnershipDecisionForm({ verificationId }: { verificationId: stri
         maxLength={1000}
         value={note}
         onChange={(event) => setNote(event.target.value)}
-        className={`${fieldClassName} h-auto py-2`}
+        className={textareaClassName}
       />
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap">
         <button
           type="button"
           onClick={handleConfirm}
@@ -199,7 +201,7 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`${secondaryButtonClassName} sm:self-start`}
+        className={`${secondaryButtonClassName} self-start`}
       >
         Reset to pending review
       </button>
@@ -207,8 +209,8 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
   }
 
   return (
-    <fieldset className="flex flex-col gap-3" disabled={isPending}>
-      <legend className="text-sm font-medium text-foreground">
+    <fieldset className="@container flex min-w-0 flex-col gap-3" disabled={isPending}>
+      <legend className="text-base font-semibold text-foreground">
         Reset decision to pending review
       </legend>
       <label htmlFor={reasonId} className="text-sm font-medium text-foreground">
@@ -220,13 +222,13 @@ export function ResetDecisionForm({ verificationId }: { verificationId: string }
         maxLength={1000}
         value={reason}
         onChange={(event) => setReason(event.target.value)}
-        className={`${fieldClassName} h-auto py-2`}
+        className={textareaClassName}
       />
-      <p className="text-sm leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-foreground/70">
         The claim goes back to pending review and the owner no longer sees the
         decision. The current decision stays in the history.
       </p>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap">
         <button type="button" onClick={handleReset} className={primaryButtonClassName}>
           {isPending ? <Busy label="Resetting…" /> : "Confirm reset"}
         </button>

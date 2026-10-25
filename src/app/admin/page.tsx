@@ -52,8 +52,9 @@ const MATCH_COLUMNS = `
   found:reports!report_matches_found_report_fkey(item_name, description, location)
 `;
 
+// Status chips may wrap, so a long label never pushes past its panel.
 const chipClassName =
-  "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium";
+  "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.8125rem] font-semibold leading-tight";
 
 function DetailList({
   title,
@@ -68,8 +69,8 @@ function DetailList({
 }) {
   const warning = tone === "warning" && items.length > 0;
   return (
-    <div className={`rounded-lg border p-3 ${warning ? "border-bad-ink/30 bg-bad-soft/50" : "border-border bg-background"}`}>
-      <h4 className={`text-sm font-medium ${warning ? "text-bad-ink" : "text-foreground"}`}>{title}</h4>
+    <div className={`rounded-2xl p-4 ${warning ? "bg-bad-soft" : "bg-card"}`}>
+      <h4 className={`text-sm font-semibold ${warning ? "text-bad-ink" : "text-foreground"}`}>{title}</h4>
       {items.length === 0 ? (
         <p className="mt-1 text-sm text-muted-foreground">{emptyText}</p>
       ) : (
@@ -91,11 +92,11 @@ function MatchedReportDetails({
   report: MatchedReport | null;
 }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-background p-3">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+    <div className="flex min-w-0 flex-col gap-1 rounded-2xl bg-card p-4">
+      <p className="text-[0.8125rem] font-semibold text-muted-foreground">{label}</p>
       {report ? (
         <>
-          <h3 className="text-[15px] font-semibold leading-snug text-foreground">{report.item_name}</h3>
+          <h3 className="font-serif text-xl font-semibold leading-snug text-foreground">{report.item_name}</h3>
           <p className="text-sm leading-relaxed text-foreground">{report.description}</p>
           <p className="text-sm leading-relaxed text-muted-foreground">Location: {report.location}</p>
         </>
@@ -132,7 +133,7 @@ function byScoreThenNewest(a: ReportMatch, b: ReportMatch) {
 }
 
 const SUMMARY_TOGGLE_CLASS =
-  "-ml-1.5 inline-flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-1.5 py-1 text-sm font-medium text-foreground outline-none transition-colors duration-150 hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden";
+  "-ml-2 inline-flex min-h-11 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-left text-[0.9375rem] font-semibold text-foreground outline-none transition-colors duration-150 hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden";
 
 function Chevron({ className }: { className: string }) {
   return (
@@ -142,7 +143,7 @@ function Chevron({ className }: { className: string }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
-      className={`size-4 transition-transform duration-150 ${className}`}
+      className={`size-4 shrink-0 transition-transform duration-150 ${className}`}
     >
       <path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -186,15 +187,15 @@ function ItemNames({ match }: { match: ReportMatch | undefined }) {
   return (
     <dl className="grid min-w-0 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,auto)_auto_minmax(0,auto)] sm:justify-start">
       <div className="min-w-0">
-        <dt className="text-xs font-medium text-muted-foreground">Lost</dt>
-        <dd className="text-[15px] font-semibold leading-snug text-foreground">
+        <dt className="text-[0.8125rem] font-semibold text-clay-ink">Lost</dt>
+        <dd className="font-serif text-[1.375rem] font-semibold leading-tight text-foreground">
           {match?.lost?.item_name ?? "Report unavailable"}
         </dd>
       </div>
-      <ArrowRightIcon className="hidden size-4 self-end text-muted-foreground sm:mb-0.5 sm:block" />
+      <ArrowRightIcon className="hidden size-5 self-end text-muted-foreground sm:mb-1 sm:block" />
       <div className="min-w-0">
-        <dt className="text-xs font-medium text-muted-foreground">Found</dt>
-        <dd className="text-[15px] font-semibold leading-snug text-foreground">
+        <dt className="text-[0.8125rem] font-semibold text-forest">Found</dt>
+        <dd className="font-serif text-[1.375rem] font-semibold leading-tight text-foreground">
           {match?.found?.item_name ?? "Report unavailable"}
         </dd>
       </div>
@@ -229,7 +230,7 @@ function Disclosure({
         {label}
         <Chevron className={open} />
       </summary>
-      <div className="mt-2 flex flex-col gap-3">{children}</div>
+      <div className="mt-2 flex min-w-0 flex-col gap-3">{children}</div>
     </details>
   );
 }
@@ -238,11 +239,11 @@ function Disclosure({
 function ScoreFigure({ score }: { score: number | null }) {
   return (
     <div className="flex items-baseline gap-1.5 sm:flex-col sm:items-end sm:gap-0">
-      <span className="text-[1.75rem] font-normal leading-none tabular-nums text-foreground">
+      <span className="text-[2.25rem] font-semibold leading-none tracking-[-0.03em] tabular-nums text-foreground">
         {score ?? "—"}
         {score !== null ? <span className="text-sm text-muted-foreground">/100</span> : null}
       </span>
-      <span className="text-xs text-muted-foreground">
+      <span className="text-[0.8125rem] text-muted-foreground">
         {score === null ? "Not scored" : "AI similarity"}
       </span>
     </div>
@@ -266,11 +267,11 @@ function MatchCard({
     match.missing_information.length > 0;
 
   return (
-    <li className="rounded-lg border border-border bg-background transition-colors duration-150 hover:border-input">
-      <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6">
+    <li className="min-w-0 rounded-[1.5rem] bg-background">
+      <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:p-5">
         <div className="flex min-w-0 flex-col gap-2.5">
           <ItemNames match={match} />
-          <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="line-clamp-2 text-[0.9375rem] leading-relaxed text-foreground/75">
             {match.explanation}
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -285,13 +286,13 @@ function MatchCard({
         <ScoreFigure score={match.ai_similarity_score} />
       </div>
 
-      <details className="group/card border-t border-border px-4 py-2">
+      <details className="group/card border-t border-border/80 px-4 py-1.5 sm:px-5">
         <summary className={SUMMARY_TOGGLE_CLASS}>
           <span className="group-open/card:hidden">View details</span>
           <span className="hidden group-open/card:inline">Hide details</span>
           <Chevron className="group-open/card:rotate-180" />
         </summary>
-        <div className="mb-2 mt-2 flex flex-col gap-3">
+        <div className="mb-3 mt-2 flex min-w-0 flex-col gap-3">
           <OwnershipReview
             verification={verification}
             verifiedElsewhere={verifiedElsewhere}
@@ -474,10 +475,10 @@ function OwnershipReview({
   return (
     <section
       aria-label="Ownership review"
-      className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:p-4"
+      className="flex min-w-0 flex-col gap-3 rounded-2xl bg-secondary p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-foreground">Ownership review</h4>
+        <h4 className="text-base font-semibold text-foreground">Ownership review</h4>
         {verification && showStatus ? <DecisionPill verification={verification} /> : null}
       </div>
 
@@ -496,22 +497,22 @@ function OwnershipReview({
           {verification.questions.map((question, index) => {
             const answer = answers.find((item) => item.question_number === index + 1);
             return (
-              <li key={index} className="flex flex-col gap-2 rounded-md bg-background p-3">
-                <p className="text-sm leading-relaxed text-foreground">
-                  <span className="mr-1.5 text-xs font-medium text-muted-foreground">
+              <li key={index} className="flex min-w-0 flex-col gap-2.5 rounded-xl bg-card p-3.5">
+                <p className="text-[0.9375rem] leading-relaxed text-foreground">
+                  <span className="block text-[0.8125rem] font-semibold text-muted-foreground">
                     Question {index + 1}
                   </span>
-                  <span className="font-medium">{question}</span>
+                  <span className="font-semibold">{question}</span>
                 </p>
                 <div className="border-l-2 border-forest pl-3">
-                  <p className="text-xs font-medium text-forest">Owner&apos;s answer</p>
+                  <p className="text-[0.8125rem] font-semibold text-forest">Owner&apos;s answer</p>
                   {answer ? (
-                    <p className="mt-0.5 text-sm leading-relaxed text-foreground">{answer.answer}</p>
+                    <p className="mt-0.5 break-words text-[0.9375rem] leading-relaxed text-foreground">{answer.answer}</p>
                   ) : (
                     <p className="mt-0.5 text-sm text-muted-foreground">Awaiting answer</p>
                   )}
                 </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
+                <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
                   Expected (private): {verification.expected_details[index]}
                 </p>
               </li>
@@ -533,7 +534,7 @@ function OwnershipReview({
                 {assessment.explanation}
               </p>
               {compact ? null : (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[0.8125rem] text-muted-foreground">
                   {new Date(assessment.created_at).toLocaleString()} · {assessment.model}.
                   The assessment never approves or rejects a claim. Staff decide.
                 </p>
@@ -560,7 +561,7 @@ function OwnershipReview({
       {verification && compact ? (
         <a
           href={`/admin?section=claims#verification-${verification.id}`}
-          className={`-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm font-medium text-foreground underline-offset-4 transition-colors duration-150 hover:text-forest hover:underline ${focusRingClassName}`}
+          className={`-ml-1.5 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-1.5 text-[0.9375rem] font-semibold text-foreground underline-offset-4 transition-colors duration-150 hover:text-forest hover:underline ${focusRingClassName}`}
         >
           Go to staff decision
           <ArrowRightIcon className="size-4" />
@@ -591,13 +592,13 @@ function VerificationCard({
   return (
     <li
       id={`verification-${verification.id}`}
-      className={`scroll-mt-6 rounded-lg border bg-background ${
-        readyForDecision ? "border-clay/60" : "border-border"
+      className={`min-w-0 scroll-mt-6 overflow-hidden rounded-[1.5rem] bg-background ${
+        readyForDecision ? "ring-2 ring-clay/60" : ""
       }`}
     >
-      <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
+      <div className="flex flex-col gap-3 p-4 sm:p-5 lg:flex-row lg:items-start lg:justify-between lg:gap-6">
         <ItemNames match={verifiedMatch} />
-        <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:justify-end">
           <StatusPill>{answersStatus(verification)}</StatusPill>
           {verifiedMatch ? <SimilarityBadge score={verifiedMatch.ai_similarity_score} /> : null}
           {assessmentMissing(verification) ? (
@@ -606,9 +607,10 @@ function VerificationCard({
         </div>
       </div>
 
-      {/* Evidence on the left, the decision beside it. */}
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
-        <div className="flex min-w-0 flex-col gap-2 p-4">
+      {/* Evidence first, the decision beside it on wide screens. The decision
+          column is narrow, so its controls lay out by the column's width. */}
+      <div className="grid border-t border-border/80 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+        <div className="flex min-w-0 flex-col gap-1 p-4 sm:px-5">
           <Disclosure
             group="review"
             label="Questions, answers, and AI assessment"
@@ -619,7 +621,7 @@ function VerificationCard({
               showStatus={false}
               assessmentAction={<RetryAssessmentButton verificationId={verification.id} />}
             />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               Questions prepared {new Date(verification.created_at).toLocaleString()} ·{" "}
               {verification.model}
             </p>
@@ -646,11 +648,11 @@ function VerificationCard({
                 {otherMatches.map((match) => (
                   <li
                     key={match.id}
-                    className="flex flex-col gap-1 rounded-lg border border-border bg-background p-3 text-sm leading-relaxed"
+                    className="flex min-w-0 flex-col gap-1 rounded-2xl bg-card p-4 text-sm leading-relaxed"
                   >
                     <div className="flex flex-wrap items-center gap-1.5">
                       <SimilarityBadge score={match.ai_similarity_score} />
-                      <span className="text-xs font-medium text-muted-foreground">
+                      <span className="text-[0.8125rem] font-medium text-muted-foreground">
                         {match.ai_decision === "match"
                           ? "AI: possible match"
                           : "AI: not enough information"}
@@ -671,19 +673,23 @@ function VerificationCard({
 
         <section
           aria-label="Staff decision"
-          className={`flex flex-col gap-3 border-t border-border p-4 lg:border-l lg:border-t-0 ${
-            decision?.decision === "approved" ? "bg-ok-soft/40" : "bg-muted/60"
+          className={`flex min-w-0 flex-col gap-4 p-4 sm:p-5 ${
+            decision?.decision === "approved"
+              ? "bg-ok-soft/60"
+              : decision?.decision === "rejected"
+                ? "bg-bad-soft/60"
+                : "bg-secondary"
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold text-foreground">Staff decision</h4>
+            <h4 className="font-serif text-[1.5rem] font-semibold leading-tight text-foreground">Staff decision</h4>
             <span
               className={`${chipClassName} ${
                 decision?.decision === "approved"
                   ? "bg-ok-soft text-ok-ink"
                   : decision?.decision === "rejected"
                     ? "bg-bad-soft text-bad-ink"
-                    : "bg-background text-foreground"
+                    : "bg-wait-soft text-wait-ink"
               }`}
             >
               {decision ? DECISION_LABELS[decision.decision] : "Pending review"}
@@ -713,7 +719,7 @@ function VerificationCard({
           )}
 
           {history.length > 0 ? (
-            <details className="group/history border-t border-border pt-2">
+            <details className="group/history border-t border-foreground/10 pt-1">
               <summary className={SUMMARY_TOGGLE_CLASS}>
                 Decision history ({history.length})
                 <Chevron className="group-open/history:rotate-180" />
@@ -780,16 +786,16 @@ function countLabel(count: number, one: string, many: string) {
 function ReportFilter({ filter }: { filter: Filter }) {
   return (
     <nav aria-label="Filter reports">
-      <ul className="inline-flex rounded-lg bg-muted p-1">
+      <ul className="inline-flex rounded-full bg-secondary p-1">
         {(["all", "lost", "found"] as const).map((value) => (
           <li key={value}>
             <Link
               href={value === "all" ? "/admin?section=reports" : `/admin?section=reports&type=${value}`}
               aria-current={filter === value ? "page" : undefined}
-              className={`inline-flex h-8 cursor-pointer items-center rounded-md px-3.5 text-sm transition-colors duration-150 ${focusRingClassName} ${
+              className={`inline-flex min-h-10 min-w-16 cursor-pointer items-center justify-center rounded-full px-4 text-[0.9375rem] transition-colors duration-150 ${focusRingClassName} ${
                 filter === value
-                  ? "bg-background font-medium text-foreground ring-1 ring-border"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-ink font-semibold text-cream"
+                  : "text-foreground/75 hover:bg-card hover:text-foreground"
               }`}
             >
               {FILTER_LABELS[value]}
@@ -805,15 +811,15 @@ function ReportFilter({ filter }: { filter: Filter }) {
 function CountStrip({ items }: { items: { label: string; value: number; attention?: boolean }[] }) {
   return (
     // Hairlines come from the 1px gaps; the last cell takes the rest of its row.
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3 lg:grid-cols-5">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[1.5rem] bg-border/70 sm:grid-cols-3 lg:grid-cols-5">
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex flex-col gap-1 bg-background p-4 last:col-span-2 lg:last:col-span-1"
+          className="flex flex-col justify-between gap-2 bg-background p-4 last:col-span-2 sm:p-5 lg:last:col-span-1"
         >
-          <dt className="text-xs font-medium text-muted-foreground">{item.label}</dt>
+          <dt className="text-[0.8125rem] font-semibold leading-snug text-muted-foreground">{item.label}</dt>
           <dd
-            className={`text-2xl font-normal leading-none tabular-nums ${
+            className={`text-[2rem] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
               item.attention && item.value > 0 ? "text-clay-ink" : "text-foreground"
             }`}
           >
@@ -827,8 +833,8 @@ function CountStrip({ items }: { items: { label: string; value: number; attentio
 
 function SidePanel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <section className="flex min-w-0 flex-col gap-3 rounded-[1.5rem] bg-background p-5">
+      <h2 className="font-serif text-[1.5rem] font-semibold leading-tight text-foreground">{title}</h2>
       {children}
     </section>
   );
@@ -836,7 +842,7 @@ function SidePanel({ title, children }: { title: string; children: ReactNode }) 
 
 function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <p className="rounded-lg border border-dashed border-input px-4 py-6 text-sm leading-relaxed text-muted-foreground">
+    <p className="rounded-[1.5rem] border border-dashed border-foreground/20 px-5 py-8 text-[0.9375rem] leading-relaxed text-foreground/70">
       {children}
     </p>
   );
@@ -854,7 +860,7 @@ function GroupDetails({
   children: ReactNode;
 }) {
   return (
-    <details className={`${group === "reviewed" ? "group/reviewed" : "group/uncertain"} rounded-lg border border-border px-4 py-2`}>
+    <details className={`${group === "reviewed" ? "group/reviewed" : "group/uncertain"} rounded-[1.5rem] bg-secondary/70 px-4 py-1.5 sm:px-5`}>
       <summary className={SUMMARY_TOGGLE_CLASS}>
         {title}
         <Chevron className={group === "reviewed" ? "group-open/reviewed:rotate-180" : "group-open/uncertain:rotate-180"} />
@@ -862,7 +868,7 @@ function GroupDetails({
       {description ? (
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
       ) : null}
-      <ul className="mb-2 mt-3 flex flex-col gap-3">{children}</ul>
+      <ul className="mb-4 mt-3 flex flex-col gap-3">{children}</ul>
     </details>
   );
 }
@@ -880,18 +886,18 @@ function ReportsList({ reports }: { reports: Report[] }) {
   return (
     <>
       {/* Phone: two-line rows. */}
-      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border md:hidden">
+      <ul className="flex flex-col gap-2 md:hidden">
         {reports.map((report) => (
-          <li key={report.id} className="flex flex-col gap-1.5 p-4">
+          <li key={report.id} className="flex min-w-0 flex-col gap-1.5 rounded-2xl bg-background p-4">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="text-[15px] font-semibold leading-snug text-foreground">{report.item_name}</h3>
+              <h3 className="min-w-0 break-words font-serif text-xl font-semibold leading-snug text-foreground">{report.item_name}</h3>
               <ReportTypeTag type={report.report_type} />
             </div>
-            <p className="text-sm leading-relaxed text-foreground">{report.description}</p>
+            <p className="break-words text-[0.9375rem] leading-relaxed text-foreground">{report.description}</p>
             <p className="text-sm leading-relaxed text-muted-foreground">
               Location: {report.location}
             </p>
-            <p className="text-xs tabular-nums text-muted-foreground">
+            <p className="text-[0.8125rem] tabular-nums text-muted-foreground">
               {new Date(report.created_at).toLocaleString()}
             </p>
           </li>
@@ -904,23 +910,23 @@ function ReportsList({ reports }: { reports: Report[] }) {
         role="region"
         aria-label="Saved reports"
         tabIndex={0}
-        className={`hidden overflow-x-auto rounded-lg border border-border md:block ${focusRingClassName}`}
+        className={`hidden overflow-x-auto rounded-[1.5rem] bg-background md:block ${focusRingClassName}`}
       >
         <table className="w-full text-left text-sm">
           <caption className="sr-only">Saved reports, newest first</caption>
           <thead className="text-muted-foreground">
             <tr className="border-b border-border">
-              <th scope="col" className="px-4 py-2.5 font-medium">Item</th>
-              <th scope="col" className="px-4 py-2.5 font-medium">Type</th>
-              <th scope="col" className="px-4 py-2.5 font-medium">Description</th>
-              <th scope="col" className="px-4 py-2.5 font-medium">Location</th>
-              <th scope="col" className="px-4 py-2.5 text-right font-medium">Saved</th>
+              <th scope="col" className="px-5 py-3.5 font-semibold">Item</th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Type</th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Description</th>
+              <th scope="col" className="px-4 py-3.5 font-semibold">Location</th>
+              <th scope="col" className="px-5 py-3.5 text-right font-semibold">Saved</th>
             </tr>
           </thead>
           <tbody>
             {reports.map((report) => (
-              <tr key={report.id} className="border-b border-border align-top last:border-b-0 hover:bg-muted/50">
-                <th scope="row" className="w-[18%] px-4 py-3 font-semibold text-foreground">
+              <tr key={report.id} className="border-b border-border/80 align-top last:border-b-0 hover:bg-secondary/60">
+                <th scope="row" className="w-[18%] px-5 py-3.5 font-serif text-lg font-semibold leading-snug text-foreground">
                   {report.item_name}
                 </th>
                 <td className="px-4 py-3">
@@ -928,7 +934,7 @@ function ReportsList({ reports }: { reports: Report[] }) {
                 </td>
                 <td className="w-[40%] px-4 py-3 leading-relaxed text-foreground">{report.description}</td>
                 <td className="px-4 py-3 leading-relaxed text-muted-foreground">{report.location}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-muted-foreground">
+                <td className="whitespace-nowrap px-5 py-3 text-right tabular-nums text-muted-foreground">
                   {new Date(report.created_at).toLocaleString()}
                 </td>
               </tr>
@@ -1000,6 +1006,9 @@ export default async function AdminReportsPage({
                 decision:
                   (currentDecision(verification)?.decision as "approved" | "rejected" | undefined) ??
                   null,
+                similarityScore:
+                  matches.find((match) => match.id === verification.report_match_id)
+                    ?.ai_similarity_score ?? null,
               }))
             : null,
       });
@@ -1167,8 +1176,8 @@ export default async function AdminReportsPage({
             ) : (
               <>
                 <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
-                  <h2 id="needs-review-heading" className="text-sm font-semibold text-foreground">
-                    Needs review <span className="font-normal tabular-nums text-muted-foreground">{needsReviewMatches.length}</span>
+                  <h2 id="needs-review-heading" className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground">
+                    Needs review <span className="font-sans text-lg font-medium tabular-nums text-muted-foreground">{needsReviewMatches.length}</span>
                   </h2>
                   {needsReviewMatches.length === 0 ? (
                     <EmptyState>No suggestions need review. Check new reports when you are ready.</EmptyState>
@@ -1277,7 +1286,7 @@ export default async function AdminReportsPage({
                   { label: "Decided", value: claimCounts.decided },
                 ]}
               />
-              <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              <p className="max-w-3xl text-[0.9375rem] leading-relaxed text-foreground/75">
                 Owners never see the found report or the expected answers. The AI
                 assessment is a recommendation; staff make the final decision.
               </p>

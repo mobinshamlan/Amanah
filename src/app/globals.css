@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 /*
-  Regular (not inline) theme: utilities read these as CSS variables, so the
-  staff workspace can re-theme its own subtree (.admin-theme below) while the
-  public pages keep exactly these values.
+  Amanah design tokens. One palette and one set of faces for the public site
+  and the staff workspace. See docs/design-guidelines.md.
 */
 @theme {
+  /* Brand */
   --color-cream: #f4f3ee;
   --color-charcoal: #101d22;
   --color-ink: #0c191e;
@@ -15,6 +15,7 @@
   --color-clay: #c87742;
   --color-clay-ink: #9a5326;
 
+  /* Roles */
   --color-background: #f4f3ee;
   --color-foreground: #101d22;
   --color-card: #fbfaf7;
@@ -32,68 +33,28 @@
   --color-input: #dad8ce;
   --color-ring: #426d58;
 
-  --font-sans: var(--font-dm-sans);
-  --font-serif: var(--font-cormorant);
-  --font-arabic: var(--font-amiri);
-  --font-heading: var(--font-cormorant);
-
-  --shadow-card: 0 1px 2px rgb(16 29 34 / 0.05), 0 6px 20px rgb(16 29 34 / 0.04);
-  --shadow-card-hover:
-    0 2px 4px rgb(16 29 34 / 0.05), 0 14px 32px rgb(66 109 88 / 0.14);
-
-  /* Staff workspace: the tinted frame and soft status pairs. */
-  --color-frame: #eef2ef;
-  --color-frame-active: #dde5e0;
+  /* Decision and status pairs (staff workspace, tracking outcomes) */
   --color-ok-soft: #e3f1e8;
   --color-ok-ink: #1d4a35;
   --color-bad-soft: #fdecea;
   --color-bad-ink: #8a2323;
   --color-wait-soft: #fbf0e6;
   --color-wait-ink: #7a3f17;
-  --font-plex: var(--font-plex-sans);
-}
 
-/*
-  Staff workspace theme. A white work sheet in a green-grey frame taken from
-  Amanah's forest, one grotesk (IBM Plex Sans), flat surfaces, and colour kept
-  for status and data. Applied by src/app/admin/layout.tsx.
-*/
-/* Behind the admin frame (overscroll, short pages) the page shows the frame tint. */
-body:has(.admin-theme) {
-  background: var(--color-frame);
-}
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-arabic: var(--font-amiri), serif;
+  --font-heading: var(--font-cormorant), ui-serif, Georgia, serif;
 
-.admin-theme {
-  --color-background: #ffffff;
-  --color-foreground: #131916;
-  --color-card: #ffffff;
-  --color-card-foreground: #131916;
-  --color-primary: #131916;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #f3f6f4;
-  --color-secondary-foreground: #131916;
-  --color-muted: #f3f6f4;
-  --color-muted-foreground: #586059;
-  --color-accent: #e6efe9;
-  --color-accent-foreground: #131916;
-  --color-border: #e1e6e3;
-  --color-input: #c9d0cc;
-  --color-ring: #426d58;
-  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
-  --shadow-card: none;
-  --shadow-card-hover: none;
-  font-family: var(--font-sans);
-  color: var(--color-foreground);
-}
+  /* Only for things that float (tooltips, the hero tags). Surfaces at rest are flat. */
+  --shadow-float: 0 18px 40px -18px rgb(12 25 30 / 0.55);
 
-@theme {
   --animate-orbit: amanah-orbit 1.6s linear infinite;
   --animate-breathe: amanah-breathe 2.4s ease-in-out infinite;
-  --animate-rise: amanah-rise 0.45s ease-out both;
-  --animate-enter: amanah-enter 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-  --animate-seal: amanah-seal 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-rise: amanah-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pop: amanah-pop 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  --animate-grow: amanah-grow 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  --animate-swing: amanah-swing 1.1s cubic-bezier(0.3, 0.9, 0.3, 1) both;
 
   @keyframes amanah-orbit {
     to {
@@ -113,11 +74,10 @@ body:has(.admin-theme) {
     }
   }
 
-  /* Page entrance: content rises into place once, on load. */
-  @keyframes amanah-enter {
+  @keyframes amanah-rise {
     from {
       opacity: 0;
-      transform: translateY(18px);
+      transform: translateY(16px);
     }
     to {
       opacity: 1;
@@ -125,10 +85,9 @@ body:has(.admin-theme) {
     }
   }
 
-  /* The keyhole settles onto the seam between the two choices. */
-  @keyframes amanah-seal {
+  @keyframes amanah-pop {
     from {
-      opacity: 0;
+      opacity: 0.4;
       transform: scale(0.8);
     }
     to {
@@ -137,27 +96,31 @@ body:has(.admin-theme) {
     }
   }
 
-  @keyframes amanah-rise {
+  /* The progress line draws itself once, up to its current step. */
+  @keyframes amanah-grow {
     from {
-      opacity: 0;
-      transform: translateY(6px);
+      scale: 0 1;
     }
-    to {
+  }
+
+  /* A tag settles on its string: a small swing that comes to rest. */
+  @keyframes amanah-swing {
+    0% {
+      opacity: 0;
+      transform: rotate(-5deg) translateY(-10px);
+    }
+    45% {
+      opacity: 1;
+      transform: rotate(1.6deg);
+    }
+    75% {
+      transform: rotate(-0.6deg);
+    }
+    100% {
       opacity: 1;
       transform: none;
     }
   }
-
-}
-
-:root {
-  --cream: #f4f3ee;
-  --charcoal: #101d22;
-  --sage: #8fae9a;
-  --forest: #426d58;
-  --background: #f4f3ee;
-  --foreground: #101d22;
-  --radius: 0.75rem;
 }
 
 @layer base {
@@ -166,14 +129,16 @@ body:has(.admin-theme) {
   }
 
   html {
-    font-family: var(--font-dm-sans, ui-sans-serif), system-ui, sans-serif;
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
     background: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-dm-sans, ui-sans-serif), system-ui, sans-serif;
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   ::selection {
@@ -199,9 +164,76 @@ body:has(.admin-theme) {
   --tw-ring-offset-color: #0c191e;
 }
 
+/*
+  Stationery shapes. Amanah's pieces are the things of a lost-property desk: a
+  tag tied to an item, a slip with a torn edge, a perforated stub. Each shape
+  is a fill, never an outline. Shapes sit on a decorative layer behind the
+  content so focus rings on the content are never clipped.
+*/
+
+/* A luggage tag: two cut corners on the eyelet side. */
+.shape-tag {
+  clip-path: polygon(
+    var(--tag-cut, 1.75rem) 0,
+    100% 0,
+    100% 100%,
+    var(--tag-cut, 1.75rem) 100%,
+    0 calc(100% - var(--tag-cut, 1.75rem)),
+    0 var(--tag-cut, 1.75rem)
+  );
+}
+
+/* A slip torn from a pad: a zigzag along its bottom edge. */
+.edge-torn {
+  --tooth: 0.75rem;
+  padding-bottom: calc(var(--tooth) + 1.5rem);
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg)
+    50% / calc(2 * var(--tooth)) 100%;
+}
+
+/* A perforation: round dots where a stub tears off. */
+.perforation {
+  height: 0.375rem;
+  background: radial-gradient(circle, currentColor 0.17rem, #0000 0.19rem) 0 50% / 0.875rem 0.375rem;
+  background-repeat: space no-repeat;
+}
+
+/* Dot leaders between a row's label and its value, as on a printed slip. */
+.leader {
+  flex: 1 1 1.5rem;
+  min-width: 1.5rem;
+  align-self: end;
+  margin-bottom: 0.4em;
+  height: 0.25rem;
+  background: radial-gradient(circle, currentColor 0.09rem, #0000 0.11rem) 0 50% / 0.5rem 0.25rem
+    repeat-x;
+  opacity: 0.45;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
+  }
+
+  /* Sections rise into place once as they enter the view, where supported. */
+  @keyframes amanah-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: amanah-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 55%;
+    }
   }
 }
 
@@ -212,5 +244,6 @@ body:has(.admin-theme) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

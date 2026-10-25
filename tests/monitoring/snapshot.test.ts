@@ -5,6 +5,8 @@ import {
   dailySeries,
   localDayKey,
   RECENT_CHECKS_SHOWN,
+  summarizeMatchReview,
+  type ClaimSummaryInput,
   TREND_DAYS,
   toMatchingRun,
   type MatchingRun,
@@ -286,5 +288,91 @@ describe("privacy", () => {
       }),
       run({ source: "auto", durationMs: 900, requests: 1, checked: 3, matched: 0, uncertain: 1, noMatch: 2, remaining: 0 }),
     );
+  });
+});
+
+describe("staff-reviewed match rate", () => {
+  const claim = (
+    decision: ClaimSummaryInput["decision"],
+    similarityScore?: number | null,
+  ): ClaimSummaryInput => ({ questionCount: 1, answerCount: 1, assessed: true, decision, similarityScore });
+
+  it("shows no rate, not 0%, when nothing is decided", () => {
+    const review = summarizeMatchReview([claim(null, 90), claim(null, 50)]);
+    assert.equal(review.rate, null);
+    assert.equal(review.reviewed, 0);
+    assert.ok(review.bands.every((band) => band.rate === null && band.reviewed === 0));
+    assert.equal(summarizeMatchReview([]).rate, null);
+  });
+
+  it("is approved over approved plus rejected, as a rounded percent", () => {
+    const review = summarizeMatchReview([
+      claim("approved", 90),
+      claim("approved", 90),
+      claim("rejected", 90),
+    ]);
+    assert.equal(review.approved, 2);
+    assert.equal(review.rejected, 1);
+    assert.equal(review.reviewed, 3);
+    assert.equal(review.rate, 67);
+    assert.equal(summarizeMatchReview([claim("rejected", 80)]).rate, 0);
+    assert.equal(summarizeMatchReview([claim("approved", 80)]).rate, 100);
+  });
+
+  it("leaves out pending claims, including ones reset to pending", () => {
+    // A reset claim arrives with decision null, the same as a never-decided one.
+    const review = summarizeMatchReview([claim("approved", 90), claim(null, 90), claim(null, 40)]);
+    assert.equal(review.reviewed, 1);
+    assert.equal(review.rate, 100);
+  });
+
+  it("groups by score at the band edges", () => {
+    const review = summarizeMatchReview([
+      claim("approved", 100),
+      claim("rejected", 85),
+      claim("approved", 84),
+      claim("approved", 70),
+      claim("rejected", 69),
+      claim("rejected", 0),
+    ]);
+    const [high, mid, low] = review.bands;
+    assert.deepEqual([high.key, high.approved, high.rejected, high.rate], ["85-100", 1, 1, 50]);
+    assert.deepEqual([mid.key, mid.approved, mid.rejected, mid.rate], ["70-84", 2, 0, 100]);
+    assert.deepEqual([low.key, low.approved, low.rejected, low.rate], ["below-70", 0, 2, 0]);
+  });
+
+  it("counts unscored decisions in the total but in no band", () => {
+    const review = summarizeMatchReview([
+      claim("approved", null),
+      claim("rejected"),
+      claim("approved", 90),
+    ]);
+    assert.equal(review.reviewed, 3);
+    assert.equal(review.unscored, 2);
+    assert.equal(review.bands.reduce((sum, band) => sum + band.reviewed, 0), 1);
+    assert.equal(review.bands[0].reviewed, 1);
+  });
+
+  it("flags small samples and marks empty bands with no data", () => {
+    const small = summarizeMatchReview([claim("approved", 90)]);
+    assert.equal(small.smallSample, true);
+    assert.equal(small.bands[1].rate, null);
+    assert.equal(small.bands[1].reviewed, 0);
+    const many = summarizeMatchReview(Array.from({ length: 10 }, () => claim("approved", 90)));
+    assert.equal(many.smallSample, false);
+    assert.equal(many.bands[0].smallSample, false);
+  });
+
+  it("is on the snapshot, and null when ownership data is unavailable", () => {
+    const withClaims = buildMonitoringSnapshot(input({ claims: [claim("approved", 90)] }));
+    assert.equal(withClaims.matchReview?.rate, 100);
+    assert.equal(buildMonitoringSnapshot(input({ claims: null })).matchReview, null);
+  });
+
+  it("holds counts only, never report details", () => {
+    const review = summarizeMatchReview([claim("approved", 90)]);
+    assert.deepEqual(Object.keys(review).sort(), [
+      "approved", "bands", "rate", "rejected", "reviewed", "smallSample", "unscored",
+    ]);
   });
 });

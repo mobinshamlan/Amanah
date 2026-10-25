@@ -45,11 +45,11 @@ function CountList({
   summary: MatchingRunSummary;
 }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm @lg:grid-cols-4">
       {rows.map((row) => (
         <div key={row.key} className="flex flex-col">
           <dt className="text-muted-foreground">{row.label}</dt>
-          <dd className="font-medium text-foreground">{summary[row.key]}</dd>
+          <dd className="text-lg font-semibold tabular-nums text-foreground">{summary[row.key]}</dd>
         </div>
       ))}
     </dl>
@@ -82,7 +82,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex min-w-0 flex-col gap-4">
       {/* Stacked: button above its help text, for narrow side panels. */}
       <div className={`flex flex-col gap-3 ${stacked ? "items-stretch" : "sm:flex-row sm:items-center"}`}>
         <button
@@ -119,7 +119,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
       {summary ? (
         <div
           role="status"
-          className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3"
+          className="flex flex-col gap-3 rounded-2xl bg-background px-4 py-4"
         >
           {summary.failure ? (
             <p className="text-sm font-medium leading-snug text-foreground">
@@ -145,7 +145,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
           )}
           <CountList rows={MAIN_ROWS} summary={summary} />
           <details className="group">
-            <summary className="-ml-2 inline-flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground outline-none transition-colors hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
+            <summary className="-ml-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-foreground outline-none transition-colors hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
               <span className="group-open:hidden">Show run details</span>
               <span className="hidden group-open:inline">Hide run details</span>
             </summary>

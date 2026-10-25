@@ -2,17 +2,19 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AlertIcon, ArrowRightIcon, CheckIcon, ClockIcon, InfoIcon } from "@/components/icons";
 import { Notice, focusRingClassName } from "@/components/ui";
-import { RunMatching } from "@/app/admin/RunMatching";
 import { DailyBars, type BarCategory } from "@/app/admin/DailyBars";
 import type { RunFailure } from "@/utils/monitoring/runLog";
 import {
+  MIN_RELIABLE_REVIEWS,
   MIN_TREND_DAYS,
   TREND_DAYS,
   type ComparisonSeriesKey,
   type DailySeries,
   type MatchingHealth,
   type MatchingRun,
+  type MatchReview,
   type MonitoringSnapshot,
+  type ReviewRate,
   type ReportSeriesKey,
 } from "@/utils/monitoring/snapshot";
 
@@ -50,9 +52,12 @@ const COMPARISON_CATEGORIES: BarCategory<ComparisonSeriesKey>[] = [
   { key: "no_match", label: "No match", swatch: "bg-sage" },
 ];
 
-const cardLinkClassName = `-ml-1 inline-flex w-fit items-center gap-1 rounded-md px-1 py-0.5 text-sm font-medium text-foreground underline-offset-4 transition-colors hover:text-forest hover:underline ${focusRingClassName}`;
+const cardLinkClassName = `-ml-1.5 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-1.5 text-[0.9375rem] font-semibold text-foreground underline-offset-4 transition-colors hover:text-forest hover:underline ${focusRingClassName}`;
 
-const cardTitleClassName = "text-base font-semibold leading-tight text-foreground";
+const cardTitleClassName = "font-serif text-[1.5rem] font-semibold leading-tight text-foreground";
+
+// Panels on the work sheet: a step of tone, no outline.
+const panelClassName = "flex min-w-0 flex-col gap-3 rounded-[1.5rem] bg-background p-4 sm:p-5";
 
 function plural(count: number, one: string, many: string) {
   return `${count} ${count === 1 ? one : many}`;
@@ -126,7 +131,7 @@ function healthMessage(snapshot: MonitoringSnapshot): { tone: Tone; title: strin
     never_run: () => ({
       tone: "neutral",
       title: "No checks have run yet",
-      body: `${remaining} Use Check for matches to start.`,
+      body: `${remaining} Run Check for matches from Possible matches to start.`,
     }),
     no_recorded_checks: () => ({
       tone: "neutral",
@@ -181,12 +186,12 @@ function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
   return (
     <section
       aria-labelledby="monitoring-health"
-      className={`grid gap-5 rounded-lg border p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:gap-10 ${
+      className={`rounded-[1.5rem] p-4 sm:p-6 ${
         state.tone === "ok"
-          ? "border-forest/30 bg-accent"
+          ? "bg-ok-soft"
           : state.tone === "problem"
-            ? "border-destructive/40 bg-card"
-            : "border-border bg-card"
+            ? "bg-bad-soft"
+            : "bg-background"
       }`}
     >
       <div className="flex min-w-0 flex-col gap-4">
@@ -206,11 +211,11 @@ function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
           <div className="min-w-0">
             <h3
               id="monitoring-health"
-              className="text-lg font-semibold leading-snug text-foreground"
+              className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground"
             >
               {state.title}
             </h3>
-            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-foreground">{state.body}</p>
+            <p className="mt-1.5 max-w-2xl text-[0.9375rem] leading-relaxed text-foreground">{state.body}</p>
           </div>
         </div>
         <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm sm:pl-12">
@@ -219,15 +224,12 @@ function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
             ["Model", snapshot.model],
             ["Run history", historyFact(snapshot)],
           ].map(([label, value]) => (
-            <div key={label} className="flex gap-1.5">
+            <div key={label} className="flex min-w-0 flex-wrap gap-x-1.5">
               <dt className="text-muted-foreground">{label}:</dt>
               <dd className="font-medium text-foreground">{value}</dd>
             </div>
           ))}
         </dl>
-      </div>
-      <div className="flex min-w-0 flex-col gap-2 rounded-lg bg-background/70 p-4">
-        <RunMatching stacked />
       </div>
     </section>
   );
@@ -247,10 +249,10 @@ function MetricCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-4">
-      <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
+    <div className="flex min-w-0 flex-col gap-2 rounded-[1.5rem] bg-background p-4 sm:p-5">
+      <dt className="text-sm font-semibold text-muted-foreground">{label}</dt>
       <dd
-        className={`text-[1.75rem] font-normal leading-none tabular-nums lining-nums ${
+        className={`text-[2.25rem] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
           attention ? "text-destructive" : "text-foreground"
         }`}
       >
@@ -286,7 +288,7 @@ function Metrics({
           aria-valuemin={0}
           aria-valuemax={pairs.total}
           aria-valuenow={pairs.checked}
-          className="h-2 overflow-hidden rounded-full bg-muted"
+          className="h-2 overflow-hidden rounded-full bg-secondary"
         >
           <div className="h-full rounded-full bg-forest" style={{ width: `${checkedShare}%` }} />
         </div>
@@ -363,7 +365,7 @@ function ChartCard<K extends string>({
   footnote: string;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+    <section className={panelClassName}>
       <div>
         <h3 className={cardTitleClassName}>{title}</h3>
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
@@ -372,7 +374,7 @@ function ChartCard<K extends string>({
       {series.total > 0 ? (
         <DailyBars title={title} series={series} categories={categories} unit={unit} />
       ) : (
-        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed border-foreground/20 px-4 py-8 text-center text-sm text-muted-foreground">
           Nothing to chart for this period.
         </p>
       )}
@@ -398,7 +400,7 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
     body = <Notice>Run history could not be read, so failures and early stops cannot be shown.</Notice>;
   } else if (recentRuns.length === 0) {
     body = (
-      <p className="rounded-lg border border-dashed border-border px-4 py-6 text-sm leading-relaxed text-muted-foreground">
+      <p className="rounded-2xl border border-dashed border-foreground/20 px-4 py-6 text-sm leading-relaxed text-muted-foreground">
         {snapshot.health === "never_run" || snapshot.health === "nothing_to_check"
           ? "No checks have run yet."
           : "No checks recorded since run history began. Comparisons from before then are counted in the pair totals and the comparison chart."}
@@ -421,7 +423,7 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
         {/* Phone: one block per check. */}
         <ol className="flex flex-col gap-2 md:hidden">
           {recentRuns.map((run, index) => (
-            <li key={`${run.finishedAt}-${index}`} className="rounded-lg bg-background p-3">
+            <li key={`${run.finishedAt}-${index}`} className="rounded-2xl bg-card p-4">
               <p className={`text-sm font-semibold ${run.failure ? "text-destructive" : "text-foreground"}`}>
                 {runResult(run)}
               </p>
@@ -445,7 +447,7 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
           role="region"
           aria-label="Recent checks table"
           tabIndex={0}
-          className={`hidden overflow-x-auto rounded-md md:block ${focusRingClassName}`}
+          className={`hidden overflow-x-auto rounded-xl md:block ${focusRingClassName}`}
         >
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Recent matching checks, newest first</caption>
@@ -492,7 +494,7 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
   }
 
   return (
-    <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5">
+    <section className={panelClassName}>
       <h3 className={cardTitleClassName}>Recent checks</h3>
       {body}
       {snapshot.lastSuccessfulRunAt && snapshot.health === "last_run_failed" ? (
@@ -508,8 +510,8 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
 function Claims({ snapshot }: { snapshot: MonitoringSnapshot }) {
   const { claims } = snapshot;
   return (
-    <section className="flex min-w-0 flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+    <section className={panelClassName}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className={cardTitleClassName}>Ownership claims</h3>
         <Link href="/admin?section=claims" className={cardLinkClassName}>
           Open claims
@@ -545,6 +547,102 @@ function Claims({ snapshot }: { snapshot: MonitoringSnapshot }) {
   );
 }
 
+function rateText(rate: ReviewRate) {
+  return rate.rate === null ? "No reviewed claims yet" : `${rate.rate}%`;
+}
+
+function MatchReviewPanel({ review }: { review: MatchReview | null }) {
+  return (
+    <section aria-labelledby="match-review-title" className={panelClassName}>
+      <div>
+        <h3 id="match-review-title" className={cardTitleClassName}>
+          Staff-reviewed match rate
+        </h3>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          How often staff approved an AI-suggested match once they decided on its
+          ownership claim. An AI accuracy signal based on staff decisions.
+        </p>
+      </div>
+      {!review ? (
+        <Notice>Ownership data is not available. Check that its migration is applied.</Notice>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+            <p
+              className={`font-semibold leading-none tracking-[-0.03em] tabular-nums ${
+                review.rate === null ? "text-[1.5rem] text-muted-foreground" : "text-[2.75rem] text-foreground"
+              }`}
+            >
+              {rateText(review)}
+            </p>
+            {review.reviewed > 0 ? (
+              <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                {[
+                  ["Approved", review.approved],
+                  ["Rejected", review.rejected],
+                  ["Reviewed", review.reviewed],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex gap-1.5">
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="font-semibold tabular-nums text-foreground">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </div>
+          {review.reviewed > 0 && review.smallSample ? (
+            <p className="text-sm font-medium text-wait-ink">
+              Small sample: only {plural(review.reviewed, "decision", "decisions")} so far. Do not
+              read a trend into this yet.
+            </p>
+          ) : null}
+
+          <div>
+            <h4 className="text-base font-semibold text-foreground">By AI similarity score</h4>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+              Bands group the AI&apos;s similarity scores. They are not calibrated confidence
+              levels.
+            </p>
+          </div>
+          <ul className="grid gap-3 md:grid-cols-3">
+            {review.bands.map((band) => (
+              <li key={band.key} className="flex min-w-0 flex-col gap-1.5 rounded-2xl bg-card p-4">
+                <p className="text-sm font-semibold text-foreground">Score {band.label}</p>
+                <p
+                  className={`font-semibold leading-none tracking-[-0.03em] tabular-nums ${
+                    band.rate === null ? "text-base text-muted-foreground" : "text-[2rem] text-foreground"
+                  }`}
+                >
+                  {band.rate === null ? "No reviewed claims" : `${band.rate}%`}
+                </p>
+                <p className="text-sm leading-snug text-muted-foreground">
+                  {band.reviewed === 0
+                    ? "No data in this band."
+                    : `${band.approved} approved, ${band.rejected} rejected · ${plural(band.reviewed, "decision", "decisions")}`}
+                </p>
+                {band.reviewed > 0 && band.smallSample ? (
+                  <p className="text-sm font-medium text-wait-ink">
+                    Small sample (under {MIN_RELIABLE_REVIEWS}). Not a trend.
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Counts only claims with a current approved or rejected decision. Pending claims, claims
+            reset to pending
+            {review.unscored > 0
+              ? `, and ${plural(review.unscored, "decided claim", "decided claims")} with no similarity score (in the total, not in a band)`
+              : ", and unscored claims"}{" "}
+            are left out of the bands. This is not independently verified ground-truth accuracy:
+            staff decisions can be wrong, and rejected claims may still be the right item.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 export function MonitoringPanel({
   snapshot,
   reviewNeeded,
@@ -557,6 +655,7 @@ export function MonitoringPanel({
     <div className="flex flex-col gap-5">
       <HealthSummary snapshot={snapshot} />
       <Metrics snapshot={snapshot} reviewNeeded={reviewNeeded} />
+      <MatchReviewPanel review={snapshot.matchReview} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <ChartCard

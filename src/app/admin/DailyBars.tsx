@@ -146,7 +146,7 @@ export function DailyBars<K extends string>({
             {active !== null ? (
               <div
                 role="presentation"
-                className="pointer-events-none absolute bottom-full z-10 mb-2 w-max max-w-56 -translate-x-1/2 rounded-lg bg-primary px-3 py-2 text-xs leading-relaxed text-primary-foreground shadow-card"
+                className="pointer-events-none absolute bottom-full z-10 mb-2 w-max max-w-56 -translate-x-1/2 rounded-xl bg-primary px-3 py-2 text-[0.8125rem] leading-relaxed text-primary-foreground shadow-float"
                 style={{
                   left: `${((active + 0.5) / series.points.length) * 100}%`,
                 }}
@@ -185,7 +185,7 @@ export function DailyBars<K extends string>({
       </div>
 
       <details className="group/table">
-        <summary className="-ml-2 inline-flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground outline-none transition-colors hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
+        <summary className="-ml-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-foreground outline-none transition-colors hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 [&::-webkit-details-marker]:hidden">
           <span className="group-open/table:hidden">Show as table</span>
           <span className="hidden group-open/table:inline">Hide table</span>
         </summary>

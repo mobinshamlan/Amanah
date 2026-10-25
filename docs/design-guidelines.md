@@ -1,204 +1,108 @@
 # Amanah design guidelines
 
-Visual rules transferred from the established Amanah design. Use this when building or changing UI. **Do not introduce different colors, fonts, or UI styles without approval.**
+The reference for any UI change in Amanah: the public site (`/`, `/report/*`) and the local staff workspace (`/admin`). Both are one product with one palette, one set of faces, and one set of shapes. Tokens live in `src/app/globals.css`; shared controls live in `src/components/ui.tsx` and `src/components/site-header.tsx`.
 
-This document describes design only. It does not require copying old screens, components, or architecture.
+## Identity (do not change)
 
-## Source of truth
+- **Name and mark.** The keyhole (`KeyholeGlyph`, `KeyholeMark` in `src/components/icons.tsx`) and the bilingual wordmark **AMANAH | أمانة** (`Wordmark`): Latin in the serif with wide tracking, Arabic in Amiri, a thin sage divider between them.
+- **Meaning.** "Every lost item is an amanah." / «كل مفقود أمانة». *amanah* (n.): something entrusted to you, to keep safe and to return. Every surface should feel like that trust is being kept: private, calm, careful.
+- **Palette.** Exact values below. No new hues, gradients, or dark mode.
 
-- **Documented** items come from the previous project’s design guide.
-- **Inferred** items come from that project’s theme, layout, and representative screens (homepage, report forms, shared controls).
-- Where those disagree, the conflict is listed. Do not invent a winner.
+## The idea: lost-property stationery
 
-The current homepage, report forms, and local admin dashboard should match this guide.
+Amanah's shapes come from a lost-property desk, and each one has a meaning:
 
----
-
-## Principles (documented)
-
-- **Minimal.** One clear job per screen. No marketing sections, extra navigation, or decoration that does not help the user.
-- **Premium and warm.** Cream surfaces, charcoal type, restrained green accents, an elegant serif for headings.
-- **Calm and private.** Soft borders and light shadows. Motion is small and only answers a user action.
-- **Responsive.** Phone first, then enlarge.
-
----
-
-## Colors (documented)
-
-Defined once as CSS variables / Tailwind tokens. Prefer semantic class names (`bg-background`, `text-foreground`, `bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`). Use brand names (`text-forest`, `bg-sage/25`) only for the accents below. Do not put raw hex values in components.
-
-| Name | Hex | Token | Use |
-| --- | --- | --- | --- |
-| Charcoal | `#101D22` | `foreground`, `primary` | Text, primary buttons |
-| Cream | `#F4F3EE` | `background` | Page background; text on dark fills |
-| Sage | `#8FAE9A` | `sage` | Soft accent fills and dividers (**decoration only**) |
-| Forest | `#426D58` | `forest`, `ring` | Focus rings, hover cues, icons, trust cues |
-
-Supporting neutrals:
-
-| Token | Hex | Use |
+| Piece | Class | Use |
 | --- | --- | --- |
-| `card`, `popover` | `#FBFAF7` | Card and dialog surfaces |
-| `muted-foreground` | `#55656A` | Secondary text |
-| `border`, `input` | `#DAD8CE` | Borders and dividers |
-| `secondary`, `muted` | `#E9E8E0` | Quiet fills |
-| `accent` | `#E1EAE4` | Light sage hover fill |
+| **Tag**: a luggage tag with two cut corners, its eyelet punched as the keyhole | `.shape-tag` on a decorative layer | The two ways in on the homepage; one emphatic panel per screen (found-item guidance, hand-in step) |
+| **Slip**: a sheet torn from a pad, zigzag bottom edge | `.edge-torn` | Ordered information: how it works, "After you submit", a report's progress |
+| **Perforation**: a row of round dots | `.perforation` (block element) | Divides parts of one piece (form sections, slip header, footer) |
+| **Leader dots** | `.leader` (via `SlipRow`) | Joins a row's label to its value on a slip |
 
 Rules:
+- Shapes are **fills, never outlines**. Put `.shape-tag` on an `aria-hidden` layer *behind* the content (`absolute inset-0 -z-10`, parent `relative isolate`) so focus rings on the content are never clipped.
+- Use at most one tag and one slip per screen. Decorative use dilutes the meaning.
+- Never put real report details on decorative or public pieces.
 
-- **Sage is decoration only.** Contrast on cream is too low for text or essential icons.
-- Text pairs measured against WCAG AA: charcoal on cream, muted on cream, forest on cream, cream on forest.
-- Do not add purple, bright, or gradient colors.
-- **Documented:** there is no dark mode yet.
-- **Conflict:** shared control styles also include `dark:` variants. Do not enable a dark theme unless that conflict is resolved.
+## Colour
 
-Selection highlight (inferred from global CSS): a translucent sage wash with charcoal text.
+Semantic tokens first (`bg-background`, `text-foreground`, `bg-card`, `bg-secondary`, `text-muted-foreground`, `border-border`, `bg-primary`). Brand names for accents and fields. No raw hex in components.
 
----
-
-## Fonts (documented)
-
-| Font | Utility | Use |
+| Token | Hex | Role |
 | --- | --- | --- |
-| Cormorant Garamond | `font-serif` (also `font-heading`) | Headings, card titles, the wordmark |
-| DM Sans | `font-sans` (default) | Body, buttons, all interface text |
-| Amiri | `font-arabic` | Arabic text only |
+| `ink` | `#0C191E` | Homepage stage, footer, inverted slip row, active filter |
+| `charcoal` / `foreground` / `primary` | `#101D22` | Text, primary buttons |
+| `cream` / `background` | `#F4F3EE` | Page ground; text on ink and forest |
+| `card` | `#FBFAF7` | Paper: forms, slips, the staff work sheet |
+| `secondary` / `muted` | `#E9E8E0` | Quiet fills: notices, nav active pill, panels |
+| `accent` | `#E1EAE4` | Current step, possible-match result, tag hover |
+| `forest` / `ring` | `#426D58` | Trust cues, focus rings, icons, the privacy field |
+| `pine` | `#214C43` | Primary button hover, emphasis text |
+| `sage` | `#8FAE9A` | Decoration only: dividers, eyelet ring, Arabic on ink |
+| `clay` / `clay-ink` | `#C87742` / `#9A5326` | Lost-item cue, "ready for decision" ring, attention counts |
+| `muted-foreground` | `#55656A` | Secondary text |
+| `border` / `input` | `#DAD8CE` | Table rules, sheet edges |
+| `destructive` | `#8A2F2F` | Errors, reject actions |
+| `ok-soft` / `ok-ink` | `#E3F1E8` / `#1D4A35` | Approved decisions, healthy monitoring |
+| `bad-soft` / `bad-ink` | `#FDECEA` / `#8A2323` | Rejected decisions, failures |
+| `wait-soft` / `wait-ink` | `#FBF0E6` / `#7A3F17` | Pending review, "needs attention" |
 
-- Cormorant reads small: use larger sizes than a sans-serif heading.
-- Homepage heading (documented): `text-[2.75rem]` on mobile, `sm:text-6xl`, `font-semibold`, `tracking-tight`, tight line height.
-- Card titles (documented): `text-[1.65rem]`, `sm:text-[1.9rem]`.
-- Body and secondary text: `text-base` to `text-lg`, `leading-relaxed`, `text-muted-foreground`.
-- Use `text-balance` on short centered text.
+- Sage never carries text on cream or forest.
+- Running text is full `foreground` (or `foreground/75–90` for intros). Grey (`muted-foreground`) is for secondary notes only.
+- Approval is green and rejection is red, every time, on both the owner's page and the staff workspace.
+- Surfaces are separated by a step of tone, not by shadows. `shadow-float` is only for things that truly float (chart tooltips).
 
-### Arabic / RTL (documented)
+## Type
 
-- Arabic text must use `lang="ar"` and `dir="rtl"`.
-- Set Arabic in `font-arabic`.
-- **Inferred:** the wordmark pair is Latin `AMANAH` (serif, wide letter-spacing, charcoal) beside Arabic `أمانة` (forest), separated by a thin sage divider.
+| Face | Utility | Use |
+| --- | --- | --- |
+| Cormorant Garamond | `font-serif` | Page titles, section headings, card titles, item names, the wordmark |
+| DM Sans | `font-sans` (default) | Body, labels, buttons, **all numbers** |
+| Amiri | `font-arabic` | Arabic only, with `lang="ar" dir="rtl"` |
 
----
+- Cormorant draws old-style figures (`1` reads as `I`, `0` as `O`). **Set every count, score and statistic in DM Sans** with `tabular-nums`.
+- Scale: hero `text-[3.25rem]` → `lg:text-[6.25rem]`; page title `text-[2.75rem]` → `sm:text-6xl`; section `text-[2.6rem]` → `sm:text-6xl`; card title `1.5–2rem`; body `text-base`/`text-lg`; small `0.9375rem`; minimum `0.8125rem` (13px). Chart ticks may be 11–12px.
+- Display tracking `-0.02em`, leading `~1.0`. Body leading relaxed, measure 40–60ch (`max-w-[46ch]`).
+- Headlines fit in two lines at every width. Use `text-balance` on headings and `text-pretty` on paragraphs.
+- No small uppercase labels and no 01/02/03 numbering. Put the context in a sentence-case line (`PageHeading` `context`) or in the heading itself. Order lives in `<ol>` and position.
 
-## Shape, borders, elevation (documented)
+## Shape and controls
 
-- Base radius `--radius: 0.75rem`. Cards `rounded-2xl`, icon tiles `rounded-xl`, pills and circular controls `rounded-full`.
-- Borders are 1px `border-border`.
-- Shadows: `shadow-card` at rest; `shadow-card-hover` on hover (faint forest tint). Do not add new shadows.
+- **Buttons:** one shape, a full pill (`rounded-full`), at least 44px tall (`min-h-11`); the main public form action is 48px (`primaryButtonLargeClassName`). Use `primaryButtonClassName`, `secondaryButtonClassName` and `rejectButtonClassName` from `ui.tsx`. Buttons are full width on phones and natural width from `sm`. **Labels may wrap and a button never exceeds its container** (`max-w-full min-w-0`, no `whitespace-nowrap`).
+- **Fields:** `fieldClassName` / `textareaClassName`. 48px, `rounded-xl`, `border-foreground/45`, forest focus ring, `aria-invalid` turns the border destructive. Visible label, hint under it, error under the field (`FieldError`, charcoal copy with a destructive icon), linked with `aria-describedby`.
+- **Radii:** panels `rounded-[1.5rem]`–`rounded-[1.75rem]`, inner blocks `rounded-2xl`, fields `rounded-xl`, pills and chips `rounded-full`. Tags and slips are square-edged shapes.
+- **Never combine conflicting utilities** (for example `min-h-11 min-h-12`, or `bg-background bg-card`). Tailwind gives no reliable winner. Use a variant export or a prop (`Notice surface=…`).
 
-**Inferred shadow tokens:**
+## Layout
 
-- Rest: `0 1px 2px rgb(16 29 34 / 0.05), 0 6px 20px rgb(16 29 34 / 0.04)`
-- Hover: `0 2px 4px rgb(16 29 34 / 0.05), 0 14px 32px rgb(66 109 88 / 0.14)`
+- Frame: `max-w-[1440px]`, gutters `px-4 sm:px-8 xl:px-12`, the same in header, content and footer.
+- Phone first. `sm` (640) is the type break; `lg` (1024) is the two-column break.
+- **Public pages:** `PageShell` (header, back link, content, `SiteFooter`). Homepage sections alternate whole fields: ink (stage) → cream (slip) → forest (privacy) → ink (footer). Section padding is `py-20 sm:py-28 lg:py-32+`.
+- **Report forms:** at `lg`, the title and guidance sit in the left column (5 of 12) and the form sheet in the right (7 of 12, `lg:grid-rows-[auto_1fr]`). The DOM order is title → form → guidance, which is also the phone order.
+- **Tracking and confirmation:** `LostConfirmation` is a container (`@container`). At `@4xl` it sets the progress slip beside the result and next steps; narrower containers stack them.
+- **Staff workspace (`AdminShell`):** a cream ground, a 16rem sidebar (wordmark, labelled section links as pills, workspace note, "Local admin"), and one paper work sheet per section with a serif title. Below `lg`: a top bar plus section links (a 2×2 grid on phones, a row from `sm`). Show one section at a time with the existing `/admin?section=…` links.
+- **Narrow panels lay out by their own width.** Controls inside a side column (the staff decision panel, Run matching) use container queries (`@container`, `@md:flex-row`), not viewport breakpoints. The decision column sits beside the evidence only from `xl`.
+- No content may extend past the viewport at 390px. Wide tables scroll inside a focusable, labelled region (`role="region" tabIndex={0}`); everything else wraps (`min-w-0`, `break-words`).
 
-**Inferred:** inner controls often use `rounded-lg` (smaller than cards).
+## Motion
 
----
+- Small, meaningful, once: tags swing onto their string (`animate-swing`), page content rises (`animate-rise`), homepage sections reveal on scroll (`.reveal`, CSS scroll-driven; content is visible where unsupported).
+- Feedback on every control: colour changes on hover, a 1px press, the arrow nudges, a tag tilts by 1°.
+- Transform and opacity only, 150–300ms for feedback.
+- `prefers-reduced-motion` removes travel and animation globally (`globals.css`). Content never depends on motion to appear.
 
-## Layout and spacing
+## Accessibility
 
-- Shared desktop frame: `max-w-[1440px]`, with the wordmark and page content aligned to the same left edge. The frame may sit centered in the viewport; individual content should not be centered within it by default.
-- Header and page frame share the same width and horizontal gutters.
-- Report pages use a wider desktop composition: page title first, then the form as the main column and guidance as a secondary column. On phones, show the form first and guidance after it.
-- Local admin uses section navigation and displays one work area at a time: possible matches, ownership claims, or saved reports.
-- Horizontal padding: `px-5` on mobile, `sm:px-8` from the `sm` breakpoint (640px).
-- Generous whitespace. Group related items; separate groups clearly.
+- WCAG AA contrast. Visible focus on every control: `focusRingClassName` (forest ring), or a sage ring on ink.
+- Touch targets at least 44px, with at least 8px between them.
+- Real `<button>` and `<a>`, labelled navigation landmarks, a skip link on every layout, `aria-current` on the active section or filter.
+- Live status lines (`role="status"`) stay mounted; move focus to the new heading when content is replaced in place.
+- Decorative icons and shapes are `aria-hidden`. Colour is never the only signal: chips carry text and icons, charts carry legends, labels and a table view.
+- Every screen has loading, empty, error and success states.
 
-**Amanah homepage direction:** keep the ink brand stage and make the next action obvious. Align the headline and supporting copy to the shared frame; keep both report choices left-aligned, equal in weight, and joined by the keyhole mark.
+## Privacy in the interface
 
-**Report pages:** back link, serif page title and muted intro, then guidance beside the form at desktop widths. Keep the form readable and comfortable; use the saved 44px field and submit-button height. Vertical padding around `pt-6 pb-16` / `sm:pt-10 sm:pb-24`.
-
----
-
-## Buttons (documented + inferred)
-
-**Documented:** primary action is charcoal fill with cream text (`bg-primary text-primary-foreground`). Focus uses a forest ring. Never remove visible focus styles.
-
-**Inferred variants from shared button styles:**
-
-- Default / primary: charcoal fill, cream text, slightly transparent charcoal on hover.
-- Outline: cream/background fill, `border-border`, muted hover fill.
-- Secondary: quiet beige fill.
-- Ghost: no border, muted hover fill.
-- Link: charcoal text, underline on hover.
-- Disabled: `opacity-50`, not clickable.
-
-**Conflict — control height:**
-
-- Shared default button height is compact (`h-8`, `text-sm`).
-- Report forms override the submit button to **44px (`h-11`)**, `text-base`, full width on mobile and auto width from `sm` up (touch-friendly).
-
-Until decided, keep compact buttons for dense chrome and 44px-tall buttons for primary form actions.
-
----
-
-## Forms (mostly inferred; documented as undecided)
-
-**Documented:** forms were “not yet decided” in the original design guide; propose in the same style and get approval.
-
-**Inferred from the implemented report forms** (overrides the default compact inputs):
-
-- Visible labels above fields, `text-base`, stacked with `gap-2`.
-- Fields `h-11`, `px-3`, `text-base`, `rounded-lg`, `bg-background`.
-- Borders stronger than the default input token: `border-foreground/50`, slightly darker on hover.
-- Focus: forest border and forest ring (`ring-3 ring-ring/50`).
-- Errors: message under the field, `text-sm font-medium text-foreground`, with a small destructive-colored icon. Invalid fields use `aria-invalid`.
-- Disabled: reduced opacity; keep entered text.
-- Primary submit uses the 44px treatment above.
-
-**Conflict:** default shared inputs are `h-8` with `border-input` (`#DAD8CE`). Report forms are taller with darker borders. Do not mix both on one form.
-
----
-
-## Interactive cards (documented)
-
-Model for large clickable surfaces:
-
-- Rest: `bg-card`, 1px `border-border`, `shadow-card`.
-- Hover: lift 2px, forest-tinted border, `shadow-card-hover`; icon tile turns forest; trailing control turns charcoal.
-- Keyboard focus: forest border and forest focus ring.
-- Pressed: return to rest position.
-- Responsive: compact horizontal row on mobile; taller stacked card from `sm` up.
-- Equal visual weight for actions at the same level.
-
-**Inferred:** two-column grid from `sm` (`gap-3` / `sm:gap-5`); icon tile `bg-sage/25 text-forest` at rest.
-
----
-
-## Responsive behavior (documented)
-
-- Design mobile first.
-- Layout and type size up at `sm` (640px).
-- Keep tap targets usable on a phone (see form-height conflict above).
-
----
-
-## Accessibility (documented)
-
-- Every control needs a visible focus state and a clear name.
-- WCAG AA contrast or better.
-- Honor `prefers-reduced-motion` (shorten animation and transition).
-- Use real buttons and links, not clickable `div`s.
-- Include loading, empty, error, and success states on new screens.
-- Mark decorative icons `aria-hidden`.
-
-**Inferred:** one simple line-icon style; do not mix icon families on a screen. Do not add an icon library unless asked.
-
----
-
-## Privacy in the interface (documented)
-
-- Never show found-item photos or details in any public or browsable view.
-- Never present an automated match as confirmed ownership.
-- Use fictional data in demos and examples.
-
----
-
-## Conflicts and open decisions
-
-1. **Form and button height.** Compact shared controls (`h-8`) vs 44px report-form controls. Which is the default for new screens?
-2. **Form borders.** Token `border-input` (`#DAD8CE`) vs stronger `border-foreground/50` on report fields.
-3. **Dark mode.** Guide forbids it; some control styles still contain `dark:` classes. Keep light-only until approved.
-4. **Error color.** Forms use charcoal error copy plus a destructive icon, not red body text. Confirm for all future errors.
-5. **Applying this palette to the current app.** Homepage, forms, and admin still use teal/zinc starter styles. Restyling is a separate task.
-6. **Staff/admin chrome.** Use the shared wordmark and 1440px frame, with a small muted “Local admin” label. Keep review work in one section at a time.
-
-When a conflict blocks a UI change, ask before choosing.
+- Never show found-item details in any public or browsable view. Lost reporters never see a list of found items.
+- An AI suggestion is never presented as confirmed ownership; staff decide every claim, and approval means "ownership follow-up", not an automatic return.
+- Describe only what the product actually does. No invented notifications, hand-in locations, timelines or guarantees.
+- Monitoring shows counts and times only. Demos and screenshots use fictional data.

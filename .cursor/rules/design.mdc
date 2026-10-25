@@ -6,16 +6,13 @@ alwaysApply: false
 
 # Amanah UI design
 
-When adding or changing UI, follow `docs/design-guidelines.md`.
+When adding or changing UI, follow `docs/design-guidelines.md`. In short:
 
-- Cream background, charcoal text, forest for focus/trust, sage for decoration only.
-- Serif headings, sans-serif UI text. Arabic uses `font-arabic` with `lang="ar"` and `dir="rtl"`.
-- Semantic color tokens; no raw hex in components; no new palette, gradients, or dark mode without approval.
-- Phone first; `sm` (640px) is the main layout break. Use a wide shared page frame (`max-w-[1440px]`) on desktop, with content aligned to its left edge. Keep individual reading blocks narrow only when their content benefits from it.
-- Report forms use a two-column desktop composition: the form is the main column and guidance is secondary. On phones, show the form first and guidance after it. Keep both columns aligned to the page frame; do not center a narrow form card in a wide viewport.
-- The local admin shows one work area at a time (matches, ownership claims, or reports) with labeled section navigation. Do not stack every review queue into one long page.
-- Visible focus rings (forest). Real buttons and links. Loading, empty, error, and success states on new screens.
-
-If the guidelines list a conflict, ask before inventing a new default. Do not copy old screens or components.
-
-Applied defaults for this codebase: report forms and primary form actions use 44px (`h-11`) controls with stronger field borders; keep the light-only palette.
+- One product: the public site and the staff workspace share tokens (`src/app/globals.css`) and controls (`src/components/ui.tsx`, `site-header.tsx`). Keep the exact palette, the keyhole mark and the AMANAH | أمانة wordmark.
+- Shapes come from a lost-property desk: tag (`.shape-tag`, on an aria-hidden layer behind the content), torn slip (`.edge-torn`), perforation (`.perforation`). Use them as fills, sparingly, never on real report data in public views.
+- Cormorant for headings and item names, DM Sans for body text and every number, Amiri for Arabic (`lang="ar" dir="rtl"`). No uppercase eyebrow labels and no 01/02 numbering.
+- Pill buttons at least 44px tall that may wrap and never exceed their container; 48px fields with a forest focus ring. Don't stack conflicting Tailwind utilities.
+- Surfaces separate by tone, not shadow. Green means approved, red (`destructive`, `bad-*`) means rejected.
+- Phone first. Narrow panels use container queries (`@container`, `@md:`). Nothing may extend past a 390px viewport.
+- Motion is small and once, and it is removed under reduced motion. Every screen has loading, empty, error and success states.
+- Describe only real capabilities. Staff decide every claim.

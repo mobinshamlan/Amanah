@@ -33,9 +33,77 @@ export type ClaimSummaryInput = {
   questionCount: number;
   answerCount: number;
   assessed: boolean;
-  // Current staff decision; null means pending review.
+  // Current staff decision; null means pending review (including a reset).
   decision: "approved" | "rejected" | null;
+  // AI similarity score (0-100) of the suggestion the claim was made for;
+  // null or missing when that suggestion was never scored.
+  similarityScore?: number | null;
 };
+
+// Bands group similarity scores. They are not calibrated confidence levels.
+export const SCORE_BANDS = [
+  { key: "85-100", label: "85–100", min: 85 },
+  { key: "70-84", label: "70–84", min: 70 },
+  { key: "below-70", label: "Below 70", min: -Infinity },
+] as const;
+export type ScoreBandKey = (typeof SCORE_BANDS)[number]["key"];
+
+// A band or total with fewer decisions than this is flagged as a small sample.
+export const MIN_RELIABLE_REVIEWS = 10;
+
+export type ReviewRate = {
+  approved: number;
+  rejected: number;
+  reviewed: number;
+  // Whole percent approved; null when nothing has been decided.
+  rate: number | null;
+  smallSample: boolean;
+};
+
+export type MatchReview = ReviewRate & {
+  bands: (ReviewRate & { key: ScoreBandKey; label: string })[];
+  // Reviewed claims whose suggestion has no score; in the total, not in a band.
+  unscored: number;
+};
+
+function reviewRate(approved: number, rejected: number): ReviewRate {
+  const reviewed = approved + rejected;
+  return {
+    approved,
+    rejected,
+    reviewed,
+    rate: reviewed > 0 ? Math.round((approved / reviewed) * 100) : null,
+    smallSample: reviewed < MIN_RELIABLE_REVIEWS,
+  };
+}
+
+/**
+ * Staff approval rate of AI-suggested matches, overall and by similarity band.
+ * Only claims with a current approved or rejected decision count; pending
+ * claims and claims reset to pending are excluded. Unscored claims count in
+ * the total but not in any band. A staff-decision signal, not ground truth.
+ */
+export function summarizeMatchReview(claims: ClaimSummaryInput[]): MatchReview {
+  const decided = claims.filter((claim) => claim.decision !== null);
+  const count = (items: ClaimSummaryInput[]) =>
+    reviewRate(
+      items.filter((claim) => claim.decision === "approved").length,
+      items.filter((claim) => claim.decision === "rejected").length,
+    );
+  const scored = decided.filter(
+    (claim): claim is ClaimSummaryInput & { similarityScore: number } =>
+      typeof claim.similarityScore === "number" && Number.isFinite(claim.similarityScore),
+  );
+  const bands = SCORE_BANDS.map((band, index) => {
+    const above = index === 0 ? Infinity : SCORE_BANDS[index - 1].min;
+    return {
+      key: band.key,
+      label: band.label,
+      ...count(scored.filter((claim) => claim.similarityScore >= band.min && claim.similarityScore < above)),
+    };
+  });
+  return { ...count(decided), bands, unscored: decided.length - scored.length };
+}
 
 export type RunHistoryInput = {
   // Newest first; at most the latest few hundred.
@@ -140,6 +208,8 @@ export type MonitoringSnapshot = {
     approved: number;
     rejected: number;
   } | null;
+  // Staff-reviewed match rate; null when ownership data is not available.
+  matchReview: MatchReview | null;
 };
 
 function newest(times: string[]) {
@@ -301,6 +371,7 @@ export function buildMonitoringSnapshot(input: MonitoringInput): MonitoringSnaps
           rejected: claims.filter((claim) => claim.decision === "rejected").length,
         }
       : null,
+    matchReview: claims ? summarizeMatchReview(claims) : null,
   };
 }
 
