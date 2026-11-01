@@ -20,7 +20,7 @@ function phaseFor(failure: MatchingFailure | null, remaining: number): MatchingP
   if (failure === "config") {
     return "unavailable";
   }
-  if (failure === "quota") {
+  if (failure === "quota" || failure === "usage_limit") {
     return "rate_limited";
   }
   if (failure) {

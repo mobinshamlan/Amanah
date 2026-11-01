@@ -25,6 +25,7 @@ import {
 
 const FAILURE_LABELS: Record<RunFailure, string> = {
   quota: "Gemini rate limit",
+  usage_limit: "App usage limit",
   timeout: "Gemini timed out",
   api: "Gemini error",
   invalid_response: "AI answer failed validation",

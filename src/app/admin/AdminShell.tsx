@@ -6,6 +6,7 @@ import {
   ListIcon,
   PairIcon,
   PulseIcon,
+  SearchIcon,
   ShieldIcon,
 } from "@/components/icons";
 import { focusRingClassName } from "@/components/ui";
@@ -15,7 +16,7 @@ import { focusRingClassName } from "@/components/ui";
 // bar with the section links below it. Navigation keeps the same
 // /admin?section=… links as before.
 
-export type AdminSectionKey = "matches" | "claims" | "reports" | "monitoring";
+export type AdminSectionKey = "matches" | "candidates" | "claims" | "reports" | "monitoring";
 
 export type AdminNavItem = {
   key: AdminSectionKey;
@@ -28,6 +29,7 @@ export type AdminNavItem = {
 
 const ICONS: Record<AdminSectionKey, (props: { className?: string }) => ReactNode> = {
   matches: PairIcon,
+  candidates: SearchIcon,
   claims: ShieldIcon,
   reports: ListIcon,
   monitoring: PulseIcon,

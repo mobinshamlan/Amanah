@@ -36,8 +36,8 @@ export function statusMessage(
         return "Report saved. Thank you for reporting this item. Finishing up…";
       case "rate_limited":
         return waiting
-          ? "Report saved. Thank you for reporting this item. Automatic processing is paused because the service is busy and will continue in about a minute."
-          : "Report saved. Thank you for reporting this item. Automatic processing did not finish because the service is busy. You can try again in a few minutes.";
+          ? "Report saved. Thank you for reporting this item. Automatic processing is paused because Amanah is busy. Please keep this page open, or try again later."
+          : "Report saved. Thank you for reporting this item. Automatic processing did not finish because Amanah is busy. Please try again later.";
       case "complete":
         return "Report saved. Thank you for reporting this item.";
       case "stalled":
@@ -61,8 +61,8 @@ export function statusMessage(
       return "Report saved. Checking for possible matches…";
     case "rate_limited":
       return waiting
-        ? "Your report is saved. Checking is paused because the matching service is busy and will continue in about a minute if this page stays open. This is not a “no match” result."
-        : "Your report is saved, but checking for possible matches did not finish because the matching service is busy. This is not a “no match” result. You can try again in a few minutes.";
+        ? "Your report is saved. Checking is paused because Amanah is busy. Please keep this page open, or try again later. This is not a “no match” result."
+        : "Your report is saved, but checking for possible matches did not finish because Amanah is busy. This is not a “no match” result. Please try again later.";
     case "complete":
       return "outcome" in view && view.outcome === "uncertain"
         ? "No possible match yet. Your report is saved. We could not tell from the details whether a found item matches, so staff may review it."
@@ -174,7 +174,7 @@ function matchingStep(view: MatchingView, waiting: boolean): Step {
         state: "paused",
         label: "Matching",
         detail:
-          "The matching service is busy. Checking continues in about a minute if this page stays open.",
+          "Amanah is busy. Please keep this page open, or try again later.",
       };
     }
     return {
@@ -374,7 +374,7 @@ export const STAFF_CONTACT_NOTE =
 function foundNote(view: MatchingView, waiting: boolean, canRetry: boolean) {
   if (waiting) {
     return view.phase === "rate_limited"
-      ? "Finishing up. Automatic processing is paused because the service is busy and will continue in about a minute if this page stays open."
+      ? "Finishing up. Automatic processing is paused because Amanah is busy. Please keep this page open, or try again later."
       : "Finishing up. Please keep this page open for a moment.";
   }
   switch (view.phase) {
@@ -384,7 +384,7 @@ function foundNote(view: MatchingView, waiting: boolean, canRetry: boolean) {
     case "stalled":
       return "Some automatic processing is taking longer than expected. Your report is still saved. Refresh the page to continue.";
     case "rate_limited":
-      return "Some automatic processing did not finish because the service is busy. Your report is still saved. You can try again in a few minutes.";
+      return "Some automatic processing did not finish because Amanah is busy. Your report is still saved. Please try again later.";
     default:
       return canRetry
         ? "Some automatic processing did not finish. Your report is still saved. You can try again."
@@ -522,8 +522,8 @@ function lostResult(view: MatchingView, canRetry: boolean): LostResult {
         tone: "notice",
         title: "Matching needs attention",
         body: [
-          `Your report is still saved, but checking did not finish because the matching service is busy. ${NOT_NO_MATCH}`,
-          "You can try again in a few minutes.",
+          `Your report is still saved, but checking did not finish because Amanah is busy. ${NOT_NO_MATCH}`,
+          "Please try again later.",
         ],
       };
     case "unavailable":

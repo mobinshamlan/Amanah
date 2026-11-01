@@ -1,8 +1,10 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { currentIpKey } from "@/utils/limits/clientIp";
+import { consumeReportSubmission, usageBusyMessage } from "@/utils/limits/usageLimit";
+import { runWithUsageScope } from "@/utils/limits/usageScope";
 import {
   validateReportFields,
   type FieldErrors,
@@ -90,9 +92,22 @@ export async function submitReport(
     };
   }
 
-  // Public roles can insert but not read reports, so the server picks the id.
+  // The server key inserts the row. After the usage-limit migration, anonymous
+  // clients can no longer insert reports directly and skip this check.
+  const submission = await consumeReportSubmission(await currentIpKey());
+  if (submission === "blocked") {
+    return { ok: false, message: usageBusyMessage() };
+  }
+
   const reportId = randomUUID();
-  const supabase = await createClient();
+  const supabase = tryCreateAdminClient();
+  if (!supabase) {
+    console.error("Report insert unavailable: admin client not configured");
+    return {
+      ok: false,
+      message: "Could not save your report. Please try again.",
+    };
+  }
 
   const { error } = await supabase.from("reports").insert({
     id: reportId,
@@ -112,14 +127,8 @@ export async function submitReport(
 
   const saved = { ok: true, message: "Report saved." };
 
-  const admin = tryCreateAdminClient();
-  if (!admin) {
-    console.error("Automatic matching unavailable: admin client not configured");
-    return saved;
-  }
-
   const credential = createSubmissionCredential();
-  const { error: credentialError } = await admin.from("report_submissions").insert({
+  const { error: credentialError } = await supabase.from("report_submissions").insert({
     report_id: reportId,
     token_hash: hashSubmissionCredential(credential),
   });
@@ -146,6 +155,7 @@ export async function continueMatching(
     return { ok: false };
   }
 
+  const ipKey = await currentIpKey();
   const supabase = tryCreateAdminClient();
   if (!supabase) {
     return { ok: true, status: { phase: "unavailable" } };
@@ -226,13 +236,15 @@ export async function continueMatching(
       if (!process.env.GEMINI_API_KEY?.trim()) {
         failure = "config";
       } else {
-        const summary = await runNewReportMatching({
-          supabase,
-          side: reportType,
-          pairs,
-          checkedKeys,
-          loadMs,
-        });
+        const summary = await runWithUsageScope({ ipKey, reportId: report.id }, () =>
+          runNewReportMatching({
+            supabase,
+            side: reportType,
+            pairs,
+            checkedKeys,
+            loadMs,
+          }),
+        );
         remaining = summary.remaining;
         failure = summary.failure;
       }

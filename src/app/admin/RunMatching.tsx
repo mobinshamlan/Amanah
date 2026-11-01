@@ -12,6 +12,7 @@ import { Notice, Spinner, primaryButtonClassName } from "@/components/ui";
 const FAILURE_MESSAGES: Record<MatchingFailure, string> = {
   quota:
     "Gemini's free-tier limit was reached. Quota errors are not retried. Wait a minute, or until the daily quota resets, then run again.",
+  usage_limit: "Amanah is busy right now because today's usage limit was reached. Please try again later.",
   timeout: "Gemini did not answer within 20 seconds.",
   api: "Gemini was unavailable or returned an error, including after one retry for temporary server errors.",
   invalid_response: "Gemini returned a result that did not pass validation.",

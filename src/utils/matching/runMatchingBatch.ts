@@ -22,7 +22,8 @@ export type MatchingFailure =
   | "api"
   | "invalid_response"
   | "config"
-  | "save";
+  | "save"
+  | "usage_limit";
 
 export type ComparisonDetails = {
   decision: "match" | "no_match" | "insufficient_information";

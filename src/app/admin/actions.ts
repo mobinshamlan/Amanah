@@ -29,6 +29,15 @@ import {
   isLocalAdminEnabled,
 } from "@/utils/supabase/admin";
 import { getGeminiModel } from "@/utils/gemini/compareReports";
+import { currentIpKey } from "@/utils/limits/clientIp";
+import { runWithUsageScope } from "@/utils/limits/usageScope";
+import {
+  CANDIDATE_NOTE_MAX,
+  candidateNote,
+  manualCandidateInsert,
+  staffReviewGate,
+  type CandidateReport,
+} from "@/utils/matching/candidates";
 import { loadFailureRow, recordMatchingRun } from "@/utils/monitoring/runLog";
 
 export type RunMatchingResult =
@@ -94,19 +103,21 @@ export async function runMatching(): Promise<RunMatchingResult> {
       return { ok: false, message: "Could not load reports. Nothing was checked." };
     }
 
-    const summary = await runMatchingPairs({
-      supabase,
-      pairs: buildPairs(
-        (lostResult.data ?? []) as MatchReport[],
-        (foundResult.data ?? []) as MatchReport[],
-      ),
-      checkedKeys: checkedKeysFrom([
-        ...(savedResult.data ?? []),
-        ...(checksResult.data ?? []),
-      ]),
-      source: "admin",
-      loadMs,
-    });
+    const summary = await runWithUsageScope({ ipKey: await currentIpKey(), reportId: null }, () =>
+      runMatchingPairs({
+        supabase,
+        pairs: buildPairs(
+          (lostResult.data ?? []) as MatchReport[],
+          (foundResult.data ?? []) as MatchReport[],
+        ),
+        checkedKeys: checkedKeysFrom([
+          ...(savedResult.data ?? []),
+          ...(checksResult.data ?? []),
+        ]),
+        source: "admin",
+        loadMs,
+      }),
+    );
 
     revalidatePath("/admin");
     return { ok: true, summary };
@@ -121,7 +132,7 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ASSESSMENT_RETRY_MESSAGES: Record<string, string> = {
-  busy: "Gemini is busy (rate limit). The answers are saved. Try again in a few minutes.",
+  busy: "Amanah is busy right now. The answers are saved. Please try again later.",
   failed: "The AI assessment did not finish. The answers are saved. You can try again.",
   unavailable:
     "The AI assessment is not available. Check GEMINI_API_KEY and that the ownership migration is applied.",
@@ -142,7 +153,9 @@ export async function retryOwnershipAssessment(
   if (!deps) {
     return { ok: false, message: ASSESSMENT_RETRY_MESSAGES.unavailable };
   }
-  const result = await retryAssessment(deps, verificationId);
+  const result = await runWithUsageScope({ ipKey: await currentIpKey(), reportId: null }, () =>
+    retryAssessment(deps, verificationId),
+  );
   revalidatePath("/admin");
   if (result === "saved" || result === "already_assessed") {
     return { ok: true };
@@ -258,4 +271,156 @@ export async function askOwnershipFollowup(
         ? `Write a question of up to ${FOLLOWUP_QUESTION_MAX} characters.`
         : FOLLOWUP_MESSAGES[result],
   };
+}
+
+function candidateGate() {
+  const gate = staffReviewGate(isLocalAdminEnabled());
+  if (!gate.ok) {
+    return gate;
+  }
+  const admin = tryCreateAdminClient();
+  if (!admin) {
+    return { ok: false as const, message: "Admin is not configured." };
+  }
+  return { ok: true as const, admin };
+}
+
+function isUuid(value: unknown) {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
+function missingCandidateTable(code: string | undefined) {
+  return code === "PGRST205" || code === "42P01";
+}
+
+/**
+ * Records a staff look at one saved pair. Worth ownership review does not start
+ * questions or approve a handover. Dismissed means it is not the same item.
+ * The saved AI decision is left unchanged.
+ */
+export async function reviewCandidate(
+  lostReportId: string,
+  foundReportId: string,
+  action: string,
+  note: string,
+): Promise<OwnershipActionResult> {
+  const checked = candidateGate();
+  if (!checked.ok) {
+    return checked;
+  }
+  if (!isUuid(lostReportId) || !isUuid(foundReportId) || lostReportId === foundReportId) {
+    return { ok: false, message: "That pair is not in the candidate list." };
+  }
+  if (action !== "ownership_review" && action !== "dismissed") {
+    return { ok: false, message: "Choose ownership review or not the same item." };
+  }
+  const parsedNote = candidateNote(note);
+  if (!parsedNote.ok) {
+    return { ok: false, message: `Keep the note under ${CANDIDATE_NOTE_MAX} characters.` };
+  }
+
+  const existing = await checked.admin
+    .from("report_matches")
+    .select("id")
+    .eq("lost_report_id", lostReportId)
+    .eq("found_report_id", foundReportId)
+    .maybeSingle();
+  if (existing.error) {
+    console.error("Candidate: lookup failed", existing.error.code);
+    return { ok: false, message: "The review could not be saved. Please try again." };
+  }
+  if (!existing.data) {
+    return { ok: false, message: "That pair is not in the candidate list." };
+  }
+
+  const inserted = await checked.admin.from("report_candidate_reviews").insert({
+    lost_report_id: lostReportId,
+    found_report_id: foundReportId,
+    action,
+    note: parsedNote.note,
+  });
+  if (inserted.error) {
+    console.error("Candidate: review failed", inserted.error.code);
+    if (missingCandidateTable(inserted.error.code)) {
+      return {
+        ok: false,
+        message: "Candidate reviews are not set up yet. Apply the report_candidate_reviews migration locally, then refresh.",
+      };
+    }
+    return { ok: false, message: "The review could not be saved. Please try again." };
+  }
+
+  console.info(`Candidate: ${action} saved`);
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/**
+ * Staff add a lost report and a found report as a candidate. No AI call.
+ * The row is stored as not enough information, not as a confirmed match.
+ */
+export async function createCandidate(
+  lostReportId: string,
+  foundReportId: string,
+  note: string,
+): Promise<OwnershipActionResult> {
+  const checked = candidateGate();
+  if (!checked.ok) {
+    return checked;
+  }
+  if (!isUuid(lostReportId) || !isUuid(foundReportId) || lostReportId === foundReportId) {
+    return { ok: false, message: "Choose one lost report and one found report." };
+  }
+  const parsedNote = candidateNote(note);
+  if (!parsedNote.ok) {
+    return { ok: false, message: `Keep the note under ${CANDIDATE_NOTE_MAX} characters.` };
+  }
+
+  const loaded = await checked.admin
+    .from("reports")
+    .select("id, report_type, item_name, description, location")
+    .in("id", [lostReportId, foundReportId]);
+  if (loaded.error) {
+    console.error("Candidate: reports failed", loaded.error.code);
+    return { ok: false, message: "The candidate could not be saved. Please try again." };
+  }
+  const rows = (loaded.data ?? []) as {
+    id: string;
+    report_type: string;
+    item_name: string;
+    description: string;
+    location: string;
+  }[];
+  const lost = rows.find((row) => row.id === lostReportId && row.report_type === "lost");
+  const found = rows.find((row) => row.id === foundReportId && row.report_type === "found");
+  if (!lost || !found) {
+    return { ok: false, message: "Choose one lost report and one found report." };
+  }
+
+  const lostReport: CandidateReport = {
+    item_name: lost.item_name,
+    description: lost.description,
+    location: lost.location,
+  };
+  const foundReport: CandidateReport = {
+    item_name: found.item_name,
+    description: found.description,
+    location: found.location,
+  };
+  const inserted = await checked.admin.from("report_matches").insert({
+    lost_report_id: lostReportId,
+    found_report_id: foundReportId,
+    ...manualCandidateInsert(lostReport, foundReport, parsedNote.note),
+  });
+  if (inserted.error) {
+    console.error("Candidate: create failed", inserted.error.code);
+    if (inserted.error.code === "23505") {
+      return { ok: false, message: "This pair is already saved." };
+    }
+    return { ok: false, message: "The candidate could not be saved. Please try again." };
+  }
+
+  console.info("Candidate: manual pair saved");
+  revalidatePath("/admin");
+  return { ok: true };
 }

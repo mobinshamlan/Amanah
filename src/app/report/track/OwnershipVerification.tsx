@@ -26,7 +26,7 @@ const OWNER_ANSWER_MAX = 1000;
 const NOT_NO_MATCH = "This is not a “no match” result.";
 
 const RETRY_MESSAGES: Record<RetryReason, string> = {
-  busy: `We could not prepare your verification questions because the service is busy. Your report and the possible match are saved. ${NOT_NO_MATCH} Please try again in a few minutes.`,
+  busy: `We could not prepare your verification questions because Amanah is busy. Your report and the possible match are saved. ${NOT_NO_MATCH} Please try again later.`,
   failed: `We could not prepare your verification questions right now. Your report and the possible match are saved. ${NOT_NO_MATCH}`,
   unavailable: `Verification questions are not available right now. Your report and the possible match are saved, and staff can still review it. ${NOT_NO_MATCH}`,
 };

@@ -3,6 +3,8 @@ import {
   GeminiConfigError,
   type ReportComparisonInput,
 } from "@/utils/gemini/compareReports";
+import { GeminiUsageLimitError } from "@/utils/limits/usageLimit";
+import { currentUsageScope, runWithUsageScope } from "@/utils/limits/usageScope";
 import {
   OWNER_ANSWER_MAX,
   type AnsweredQuestion,
@@ -158,7 +160,7 @@ function failureReason(error: unknown): RetryReason {
   if (error instanceof OwnershipStoreError && error.isMissingTable) {
     return "unavailable";
   }
-  if (error instanceof GeminiApiError && error.isQuota) {
+  if (error instanceof GeminiUsageLimitError || (error instanceof GeminiApiError && error.isQuota)) {
     return "busy";
   }
   return "failed";
@@ -243,7 +245,11 @@ export async function getOwnerVerification(
 
     let parsed: ParsedOwnershipQuestions;
     try {
-      parsed = await ai.generateQuestions(match.lost, match.found);
+      const usage = currentUsageScope();
+      parsed = await runWithUsageScope(
+        { ipKey: usage?.ipKey ?? "unknown", reportId: lostReportId },
+        () => ai.generateQuestions(match.lost, match.found),
+      );
     } catch (error) {
       logger.error("Ownership: question generation failed:", errorKind(error));
       return { ok: true, view: { state: "retry", reason: failureReason(error) } };
@@ -295,7 +301,11 @@ export async function assessVerification(
       expectedDetail: record.expectedDetails[index],
       answer: record.answers.find((item) => item.questionNumber === index + 1)?.answer ?? "",
     }));
-    const result = await ai.assessAnswers(reports.lost, reports.found, answers);
+    const usage = currentUsageScope();
+    const result = await runWithUsageScope(
+      { ipKey: usage?.ipKey ?? "unknown", reportId: record.lostReportId },
+      () => ai.assessAnswers(reports.lost, reports.found, answers),
+    );
     const outcome = await store.insertAssessment({
       verificationId: record.id,
       assessment: result.assessment,

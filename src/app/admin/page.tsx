@@ -23,6 +23,8 @@ import {
   RetryAssessmentButton,
 } from "@/app/admin/OwnershipControls";
 import { latestDecision } from "@/utils/ownership/supabaseStore";
+import { CandidatesPanel } from "@/app/admin/Candidates";
+import { buildCandidateQueues, type CandidateReview } from "@/utils/matching/candidates";
 
 
 export const dynamic = "force-dynamic";
@@ -864,7 +866,13 @@ function parseFilter(value: string | string[] | undefined): Filter {
 
 function parseSection(value: string | string[] | undefined): AdminSectionKey | null {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (raw === "matches" || raw === "claims" || raw === "reports" || raw === "monitoring") {
+  if (
+    raw === "matches" ||
+    raw === "candidates" ||
+    raw === "claims" ||
+    raw === "reports" ||
+    raw === "monitoring"
+  ) {
     return raw;
   }
   return null;
@@ -1061,6 +1069,8 @@ export default async function AdminReportsPage({
 
   let reports: Report[] = [];
   let matches: ReportMatch[] = [];
+  let candidateReviews: CandidateReview[] = [];
+  let candidateReviewsState: "ok" | "not_set_up" | "error" = "ok";
   let loadError = false;
   let matchesError = false;
   let missingConfig = false;
@@ -1084,6 +1094,18 @@ export default async function AdminReportsPage({
       matchesError = true;
     } else {
       matches = (matchesResult.data ?? []) as unknown as ReportMatch[];
+    }
+
+    const candidateReviewsResult = await supabase
+      .from("report_candidate_reviews")
+      .select("lost_report_id, found_report_id, action, note, created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (candidateReviewsResult.error) {
+      const code = candidateReviewsResult.error.code;
+      candidateReviewsState = code === "PGRST205" || code === "42P01" ? "not_set_up" : "error";
+    } else {
+      candidateReviews = (candidateReviewsResult.data ?? []) as CandidateReview[];
     }
 
     const verificationsResult = await supabase
@@ -1184,7 +1206,7 @@ export default async function AdminReportsPage({
       .select("id, report_type, item_name, description, location, created_at")
       .order("created_at", { ascending: false });
 
-    if (filter !== "all") {
+    if (requestedSection === "reports" && filter !== "all") {
       query = query.eq("report_type", filter);
     }
 
@@ -1262,6 +1284,9 @@ export default async function AdminReportsPage({
         ? "Matching is not configured"
         : null;
 
+  const candidateQueues = buildCandidateQueues(matches, candidateReviews);
+  const unmarkedCandidates = candidateQueues.open.filter((item) => item.review?.action !== "ownership_review");
+
   const nav: AdminNavItem[] = [
     {
       key: "matches",
@@ -1269,6 +1294,16 @@ export default async function AdminReportsPage({
       count: matchesError
         ? null
         : { value: needsReviewMatches.length, label: needsReviewMatches.length === 1 ? "suggestion needs review" : "suggestions need review" },
+    },
+    {
+      key: "candidates",
+      label: "Potential candidates",
+      count: matchesError
+        ? null
+        : {
+            value: unmarkedCandidates.length,
+            label: unmarkedCandidates.length === 1 ? "candidate to review" : "candidates to review",
+          },
     },
     {
       key: "claims",
@@ -1287,6 +1322,12 @@ export default async function AdminReportsPage({
       subline: matchesError
         ? "AI suggestions help you spot reports that may describe the same item."
         : `AI suggestions help you spot reports that may describe the same item. ${countLabel(needsReviewMatches.length, "suggestion needs", "suggestions need")} review.`,
+    },
+    candidates: {
+      title: "Potential candidates",
+      subline: matchesError
+        ? "Plausible pairs that are not confirmed matches."
+        : `Plausible pairs that are not confirmed matches. ${countLabel(unmarkedCandidates.length, "candidate needs", "candidates need")} a look. A low score can still appear here.`,
     },
     claims: {
       title: "Ownership claims",
@@ -1379,7 +1420,7 @@ export default async function AdminReportsPage({
                   <GroupDetails
                     group="uncertain"
                     title={`AI: not enough information (${uncertainMatches.length})`}
-                    description="The reports might describe the same item, but the details are too common or too thin to say."
+                    description="The reports might describe the same item, but the details are too common or too thin to say. Pairs with the same item type and a real shared clue are under Potential candidates."
                   >
                     {uncertainMatches.map((match) => (
                       <MatchCard
@@ -1486,6 +1527,26 @@ export default async function AdminReportsPage({
             </>
           )}
         </div>
+      ) : null}
+
+      {section === "candidates" ? (
+        matchesError ? (
+          <Notice tone="error" role="alert">
+            Could not load potential candidates. Please try again.
+          </Notice>
+        ) : (
+          <CandidatesPanel
+            open={candidateQueues.open}
+            dismissed={candidateQueues.dismissed}
+            lostReports={reports
+              .filter((report) => report.report_type === "lost")
+              .map((report) => ({ id: report.id, item_name: report.item_name }))}
+            foundReports={reports
+              .filter((report) => report.report_type === "found")
+              .map((report) => ({ id: report.id, item_name: report.item_name }))}
+            reviewsState={candidateReviewsState}
+          />
+        )
       ) : null}
 
       {section === "reports" ? (

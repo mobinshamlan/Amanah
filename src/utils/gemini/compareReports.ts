@@ -1,4 +1,5 @@
 import { GoogleGenAI, type GoogleGenAIRequestOptions } from "@google/genai";
+import { assertGeminiUsageAllowed } from "@/utils/limits/usageLimit";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
@@ -341,6 +342,8 @@ export async function requestJson({
   requestOptions: GoogleGenAIRequestOptions;
   onAttempt?: (attempt: GeminiAttempt) => void;
 }): Promise<unknown> {
+  // Every Gemini call pays the durable app, IP, and report limits first.
+  await assertGeminiUsageAllowed();
   const apiKey = requireGeminiApiKey();
   const client = new GoogleGenAI({
     apiKey,
