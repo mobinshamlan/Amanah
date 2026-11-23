@@ -48,7 +48,7 @@ const en = {
     noMatch: {
       title: "No match so far",
       intro:
-        "We compared your report with every found item reported so far and nothing looks like it. Each new found-item report is compared with yours, so come back to this link from time to time.",
+        "We compared your report with every found item reported so far. Open this link again to check your report's status.",
     },
     uncertain: {
       title: "No confirmed match so far",
@@ -73,13 +73,12 @@ const en = {
       intro: "A found-item report resembles your description. We are preparing a few questions about your item.",
     },
     question: {
-      title: "Answer a few questions about your item",
-      intro:
-        "There is a possible match. Answer from memory, in your own words. Staff review your answers and decide.",
+      title: "Answer a question about your item",
+      intro: "A found-item report looks like yours. Your answer helps staff check it.",
     },
     followup: {
       title: "Staff have a question for you",
-      intro: "One more question helps them review your claim.",
+      intro: "Your answer goes straight to the staff reviewing your claim.",
     },
     staff_review: {
       title: "Your claim is with staff",
@@ -92,11 +91,10 @@ const en = {
     },
     approved: {
       title: "Staff approved your claim",
-      intro:
-        "Approval does not mean the item has been handed over. Contact your organization's lost-and-found staff to arrange the next step.",
+      intro: "Approval does not mean the item has been handed over. Contact lost-and-found staff to arrange pickup.",
     },
     rejected: {
-      title: "Staff could not confirm the item is yours",
+      title: "Staff couldn't confirm ownership",
       intro: "If you think there was a mistake, contact your organization's lost-and-found staff.",
     },
     retry: {
@@ -113,17 +111,25 @@ const en = {
   /* The saved-link moment, right after a lost report is submitted. */
   saved: {
     context: "Your report is saved",
-    title: "Save your private link",
-    intro:
-      "This link is the only way back to your report. There are no accounts or messages, so keep it before you close this page.",
+    title: "Your report is saved",
+    intro: "Its details stay private, and its status is further down.",
+  },
+
+  /* The case tag: the report's status and its four stages, on a paper tag. */
+  tag: {
+    title: "Your report",
+    progress: "Report progress",
+    approvedNote: "Not handed over yet",
   },
 
   /* The private link card. */
   link: {
     title: "Your private link",
     body: "Keep it to come back to your report any time.",
-    focalTitle: "Here is your link",
-    focalBody: "Copy it, send it to yourself, or bookmark this page. It opens your report any time.",
+    focalTitle: "Keep this link",
+    focalBody:
+      "It is the only way back to your report: there are no accounts or messages. Copy it before you close this page.",
+    moreWays: "More ways to save",
     label: "Private tracking link",
     copy: "Copy link",
     copied: "Copied",
@@ -192,7 +198,7 @@ const en = {
 
   /* Someone opened /report/track without a link. */
   noLink: {
-    title: "Open your private link to follow your report",
+    title: "Open your private link",
     intro:
       "When you reported a lost item, you got a private link for it. Open that exact link from wherever you saved it.",
     places: ["Your browser's bookmarks", "A message you sent yourself", "Your browser history (search for “Amanah”)"],
@@ -211,13 +217,13 @@ const en = {
   /* The found reporter's confirmation. */
   found: {
     context: "Your report is saved",
-    title: "Thank you, your part is done",
-    intro: "We saved your report of the item you found. Its details are never public; only lost-and-found staff review them.",
-    nextTitle: "Next step: hand in the item",
-    nextBody:
-      "Drop the item off with your organization's lost-and-found staff. They return it to its owner once ownership is confirmed.",
-    finishing: "Finishing up. Keep this page open for a moment.",
-    finishingPaused: "Amanah is busy. Keep this page open, or try again later.",
+    title: "Hand it to the lost-and-found desk",
+    intro: "Thanks — your report is saved. Its details are never public; only lost-and-found staff review them.",
+    nextTitle: "After you drop it off",
+    nextBody: "Staff keep it safe and return it to its owner once they confirm who it belongs to.",
+    finishing: "Your report is already saved. A last background check is finishing; keep this page open a moment.",
+    finishingPaused:
+      "Your report is already saved. A background check is paused because Amanah is busy; keep this page open, or try again later.",
     stalled: "Some automatic processing is taking longer than expected. Your report is saved. Refresh the page to continue.",
     rateLimited: "Some automatic processing did not finish because Amanah is busy. Your report is saved. Try again later.",
     failedRetry: "Some automatic processing did not finish. Your report is saved, and you can try again.",
@@ -234,11 +240,9 @@ const en = {
     loadingRow: "Preparing your questions…",
     questionIntro: "Answer from memory, in your own words. If you are not sure, say so rather than guessing.",
     followupTitle: "A question from staff",
-    followupIntro:
-      "Staff need one more detail to review your claim. Answer from memory, or say that you are not sure.",
+    followupIntro: "Answer from memory, or say that you are not sure.",
     progress: (n: number, total: number) => `Question ${n} of ${total}`,
-    help:
-      "An answer cannot be changed after it is sent. Staff review every answer and decide; an answer alone does not prove ownership.",
+    help: "Answers can't be edited once sent. Staff decide; an answer alone doesn't prove ownership.",
     submit: "Send answer",
     saving: "Sending…",
     errors: {
@@ -259,10 +263,10 @@ const en = {
       },
       approved: {
         title: "Staff approved your claim",
-        body: "Approval does not mean the item has been handed over. Contact your organization's lost-and-found staff to arrange the next step.",
+        body: "Approval does not mean the item has been handed over. Contact lost-and-found staff to arrange pickup.",
       },
       rejected: {
-        title: "Staff could not confirm the item is yours",
+        title: "Staff couldn't confirm ownership",
         body: "If you think there was a mistake, contact your organization's lost-and-found staff.",
       },
     },
@@ -320,7 +324,7 @@ const ar: typeof en = {
     noMatch: {
       title: "ما لقينا تطابق للحين",
       intro:
-        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها، وما في شي يشبهه. كل بلاغ جديد عن غرض ملقى نقارنه ببلاغك، فارجع لهذا الرابط بين فترة وفترة.",
+        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. افتح هذا الرابط مرة ثانية وتشيّك على حالة بلاغك.",
     },
     uncertain: {
       title: "ما تأكد تطابق للحين",
@@ -344,12 +348,12 @@ const ar: typeof en = {
       intro: "في بلاغ عن غرض ملقى يشبه وصفك. نجهّز لك أسئلة بسيطة عن غرضك.",
     },
     question: {
-      title: "جاوب على أسئلة بسيطة عن غرضك",
-      intro: "في احتمال تطابق. جاوب من ذاكرتك وبكلامك، والموظف هو اللي يراجع إجاباتك ويقرر.",
+      title: "جاوب على سؤال عن غرضك",
+      intro: "في بلاغ عن غرض ملقى يشبه غرضك. إجابتك تساعد الموظف يتأكد.",
     },
     followup: {
       title: "الموظف عنده سؤال لك",
-      intro: "سؤال واحد زيادة يساعده يراجع طلبك.",
+      intro: "إجابتك توصل مباشرة للموظف اللي يراجع طلبك.",
     },
     staff_review: {
       title: "طلبك عند الموظف",
@@ -361,10 +365,10 @@ const ar: typeof en = {
     },
     approved: {
       title: "وافق الموظف على طلبك",
-      intro: "الموافقة ما تعني إن الغرض تسلّم. تواصل مع موظفي المفقودات في جهتك لترتيب الاستلام.",
+      intro: "الموافقة ما تعني إن الغرض تسلّم. تواصل مع موظف المفقودات عشان ترتّب الاستلام.",
     },
     rejected: {
-      title: "ما قدر الموظف يتأكد إن الغرض لك",
+      title: "الموظف ما قدر يتأكد من الملكية",
       intro: "لو تشوف إن في خطأ، تواصل مع موظفي المفقودات في جهتك.",
     },
     retry: {
@@ -379,15 +383,22 @@ const ar: typeof en = {
 
   saved: {
     context: "تم حفظ بلاغك",
-    title: "احفظ رابطك الخاص",
-    intro: "هذا الرابط هو طريقك الوحيد لبلاغك. ما عندنا حسابات ولا رسائل، فاحفظه قبل ما تسكّر الصفحة.",
+    title: "تم حفظ بلاغك",
+    intro: "تفاصيله تبقى خاصة، وحالته تلقاها تحت.",
+  },
+
+  tag: {
+    title: "بلاغك",
+    progress: "مراحل البلاغ",
+    approvedNote: "ما تسلّم بعد",
   },
 
   link: {
     title: "رابطك الخاص",
     body: "احفظه لترجع لبلاغك في أي وقت.",
-    focalTitle: "هذا رابطك",
-    focalBody: "انسخه أو أرسله لنفسك أو احفظ الصفحة في الإشارات المرجعية. يفتح بلاغك في أي وقت.",
+    focalTitle: "احفظ هذا الرابط",
+    focalBody: "هو طريقك الوحيد لبلاغك، ما عندنا حسابات ولا رسائل. انسخه قبل ما تسكّر الصفحة.",
+    moreWays: "طرق ثانية للحفظ",
     label: "رابط المتابعة الخاص",
     copy: "انسخ الرابط",
     copied: "تم النسخ",
@@ -453,7 +464,7 @@ const ar: typeof en = {
   },
 
   noLink: {
-    title: "افتح رابطك الخاص لتتابع بلاغك",
+    title: "افتح رابطك الخاص",
     intro: "لما بلّغت عن مفقود، أعطيناك رابطًا خاصًا بالبلاغ. افتح الرابط نفسه من المكان اللي حفظته فيه.",
     places: ["الإشارات المرجعية في متصفحك", "رسالة أرسلتها لنفسك", "سجل المتصفح (ابحث عن «أمانة»)"],
     lostLink: "ضيّعت الرابط؟ ما نقدر نرجّعه، لأنه ما يُخزَّن عندنا. تقدر تبلّغ عن الغرض من جديد.",
@@ -468,12 +479,12 @@ const ar: typeof en = {
 
   found: {
     context: "تم حفظ بلاغك",
-    title: "شكرًا لك، دورك خلص",
-    intro: "حفظنا بلاغك عن الغرض اللي لقيته. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
-    nextTitle: "الخطوة الجاية: سلّم الغرض",
-    nextBody: "سلّم الغرض لموظفي المفقودات في جهتك، وهم يرجّعونه لصاحبه بعد ما يتأكدون من ملكيته.",
-    finishing: "نكمل الحفظ. خلّ الصفحة مفتوحة لحظة.",
-    finishingPaused: "أمانة مشغولة الحين. خلّ الصفحة مفتوحة أو جرّب بعدين.",
+    title: "سلّمه لمكتب المفقودات",
+    intro: "شكرًا لك، بلاغك محفوظ. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
+    nextTitle: "بعد ما تسلّمه",
+    nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون إنه له.",
+    finishing: "بلاغك محفوظ خلاص. نخلّص فحص أخير في الخلفية، خلّ الصفحة مفتوحة لحظة.",
+    finishingPaused: "بلاغك محفوظ خلاص. فحص في الخلفية واقف لأن أمانة مشغولة، خلّ الصفحة مفتوحة أو جرّب بعدين.",
     stalled: "بعض المعالجة الآلية طوّلت. بلاغك محفوظ. حدّث الصفحة ليكمل.",
     rateLimited: "بعض المعالجة الآلية ما اكتملت لأن أمانة مشغولة. بلاغك محفوظ. جرّب بعدين.",
     failedRetry: "بعض المعالجة الآلية ما اكتملت. بلاغك محفوظ، وتقدر تجرّب مرة ثانية.",
@@ -489,9 +500,9 @@ const ar: typeof en = {
     loadingRow: "نجهّز أسئلتك…",
     questionIntro: "جاوب من ذاكرتك وبكلامك. لو ما أنت متأكد قل كذا، أحسن من التخمين.",
     followupTitle: "سؤال من الموظف",
-    followupIntro: "الموظف يحتاج تفصيلة زيادة ليراجع طلبك. جاوب من ذاكرتك، أو قل إنك ما أنت متأكد.",
+    followupIntro: "جاوب من ذاكرتك، أو قل إنك ما أنت متأكد.",
     progress: (n, total) => `السؤال ${n} من ${total}`,
-    help: "ما تقدر تعدّل الإجابة بعد إرسالها. الموظف يراجع كل إجابة ويقرر؛ الإجابة لحالها ما تثبت الملكية.",
+    help: "ما تقدر تعدّل الإجابة بعد إرسالها. القرار للموظف، والإجابة لحالها ما تثبت الملكية.",
     submit: "أرسل الإجابة",
     saving: "جاري الإرسال…",
     errors: {
@@ -512,10 +523,10 @@ const ar: typeof en = {
       },
       approved: {
         title: "وافق الموظف على طلبك",
-        body: "الموافقة ما تعني إن الغرض تسلّم. تواصل مع موظفي المفقودات في جهتك لترتيب الاستلام.",
+        body: "الموافقة ما تعني إن الغرض تسلّم. تواصل مع موظف المفقودات عشان ترتّب الاستلام.",
       },
       rejected: {
-        title: "ما قدر الموظف يتأكد إن الغرض لك",
+        title: "الموظف ما قدر يتأكد من الملكية",
         body: "لو تشوف إن في خطأ، تواصل مع موظفي المفقودات في جهتك.",
       },
     },

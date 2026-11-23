@@ -178,6 +178,7 @@ export function SiteFooter() {
     { href: "/report/lost", label: t.reportLost },
     { href: "/report/found", label: t.reportFound },
     { href: "/report/track", label: t.checkReport },
+    { href: "/demo", label: t.tryDemo },
   ];
 
   return (

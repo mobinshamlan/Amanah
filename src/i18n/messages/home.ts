@@ -18,6 +18,8 @@ const en = {
   trackPrompt: "Already reported?",
   trackLink: "Follow it from the private link you saved",
   actionsLabel: "Report an item",
+  demoLink: "Try the demo",
+  demoHint: "One minute, no typing.",
 
   // What happens after a report
   afterTitle: "What happens after a report?",
@@ -69,6 +71,8 @@ const ar: typeof en = {
   trackPrompt: "عندك بلاغ؟",
   trackLink: "تابعه من الرابط الخاص اللي حفظته",
   actionsLabel: "بلّغ عن غرض",
+  demoLink: "جرّب أمانة",
+  demoHint: "دقيقة وحدة، بدون كتابة.",
 
   afterTitle: "وش يصير بعد البلاغ؟",
   afterIntro: "ثلاث خطوات بهالترتيب، وما ينشر شي في الطريق.",

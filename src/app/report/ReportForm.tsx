@@ -14,15 +14,20 @@ import {
   LostConfirmation,
   statusMessage,
 } from "@/app/report/SubmissionConfirmation";
-import { trackingHref } from "@/app/report/tracking";
+import { rememberJustSaved, trackingHref } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
+import { FillChip } from "@/app/report/form/FillChips";
+import { FormStage } from "@/app/report/form/FormStage";
+import "@/app/report/form/form-stage.css";
 import { KeyholeGlyph, LensIcon, LockIcon, TagIcon } from "@/components/icons";
+import { SiteFooter, SiteHeader } from "@/components/site-header";
 import {
   FieldError,
   Notice,
-  PageShell,
+  ReportKindCue,
   Spinner,
   fieldClassName,
+  frameClassName,
   hintClassName,
   labelClassName,
   primaryButtonLargeClassName,
@@ -31,15 +36,17 @@ import {
 } from "@/components/ui";
 import { formatNumber } from "@/i18n/format";
 import { useLocale, useMessages } from "@/i18n/LocaleProvider";
+import { common } from "@/i18n/messages/common";
 import { report } from "@/i18n/messages/report";
 
 /*
-  The two reporting forms. One component, two kinds: what differs is the
-  question in the headline, the examples in the fields and the shape of the
-  guidance piece. Lost is a slip torn from the desk's pad (the report you
-  leave); found is a tag on deep pine (the tag tied to the item). The
-  difference is carried by the words, the mark and the shape, never by colour
-  alone.
+  The two reporting forms, as the next scene of the homepage: the pine stage
+  continues behind the question, and the form sheet sits on the desk beside
+  it. One component, two kinds: what differs is the question, the examples
+  and the shape of the sheet. Lost is a slip torn from the desk's pad (the
+  report you leave); found is a tag hanging from its eyelet (the tag tied to
+  the item). The difference is carried by the words, the mark and the shape,
+  never by colour alone.
 */
 
 function storageKey(reportType: ReportType) {
@@ -48,9 +55,11 @@ function storageKey(reportType: ReportType) {
 
 const EMPTY: ReportFields = { itemName: "", description: "", location: "" };
 const FIELD_ORDER: ReportFieldName[] = ["itemName", "description", "location"];
+// The description counter shows once this many characters are typed.
+const COUNTER_FROM = DESCRIPTION_MAX - 300;
 
-// Fields take the page direction while empty (an empty dir="auto" field lays
-// its placeholder out left-to-right in Chrome) and follow their text after.
+// Fields take the page direction while empty and follow their text after
+// (dir="auto"); the hint, the example and any error are read with the field.
 function describedBy(name: ReportFieldName, error: string | undefined, extra?: string) {
   return [`${name}-hint`, extra, error ? `${name}-error` : undefined]
     .filter(Boolean)
@@ -62,25 +71,27 @@ function Field({
   label,
   hint,
   error,
+  after,
   children,
 }: {
   name: ReportFieldName;
   label: string;
   hint: string;
   error?: string;
+  // Under the field: the one example chip that fills it.
+  after?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2.5">
-      <div className="flex flex-col gap-0.5">
-        <label htmlFor={name} className={labelClassName}>
-          {label}
-        </label>
-        <p id={`${name}-hint`} className={hintClassName}>
-          {hint}
-        </p>
+    <div className="flex min-w-0 flex-col gap-2">
+      <label htmlFor={name} className={labelClassName}>
+        {label}
+      </label>
+      <div id={`${name}-hint`} className="contents">
+        <p className={hintClassName}>{hint}</p>
+        {children}
       </div>
-      {children}
+      {after}
       {error ? (
         <FieldError id={`${name}-error`}>
           <span className="break-words">{error}</span>
@@ -90,27 +101,9 @@ function Field({
   );
 }
 
-/** The kind's mark: a lens in a dashed ring for lost, a tag on a filled tile for found. */
-function KindMark({ kind }: { kind: ReportType }) {
-  return kind === "lost" ? (
-    <span
-      aria-hidden
-      className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-pine/60 text-pine sm:size-16"
-    >
-      <LensIcon className="size-6 sm:size-8" />
-    </span>
-  ) : (
-    <span
-      aria-hidden
-      className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-pine sm:size-16"
-    >
-      <TagIcon className="size-6 sm:size-8" />
-    </span>
-  );
-}
-
 export default function ReportForm({ reportType }: { reportType: ReportType }) {
   const t = useMessages(report);
+  const c = useMessages(common);
   const k = t.kinds[reportType];
   const { locale } = useLocale();
   const validationMessages = { ...t, locationRequired: k.locationRequired };
@@ -121,6 +114,8 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [canRetrySubmit, setCanRetrySubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // The field a chip just wrote into, for one short animation.
+  const [justFilled, setJustFilled] = useState<ReportFieldName | null>(null);
   const {
     credential,
     matching,
@@ -192,6 +187,31 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
     }
   }
 
+  function fill(name: ReportFieldName, text: string) {
+    updateField(name, text);
+    setJustFilled(null);
+    requestAnimationFrame(() => setJustFilled(name));
+    const input = fieldRefs.current[name];
+    if (input) {
+      input.focus();
+      requestAnimationFrame(() => input.setSelectionRange(text.length, text.length));
+    }
+  }
+
+  function chipFor(name: ReportFieldName, label: string, text: string) {
+    return (
+      <FillChip
+        id={`${name}-fill`}
+        label={t.fillLabel}
+        groupLabel={t.fillGroupLabel(label)}
+        text={text}
+        value={fields[name]}
+        disabled={isSubmitting}
+        onFill={(value) => fill(name, value)}
+      />
+    );
+  }
+
   function resetForm() {
     setErrors({});
     setAttempted(false);
@@ -259,6 +279,7 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
         // The private tracking link follows matching from here, and keeps
         // working after a refresh or when the browser is reopened.
         leavingPage = true;
+        rememberJustSaved(result.credential);
         window.location.assign(trackingHref(result.credential));
       } else if (result.credential) {
         sessionStorage.setItem(storageKey(reportType), result.credential);
@@ -283,6 +304,9 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
 
   const descriptionLength = fields.description.trim().length;
   const overLimit = descriptionLength - DESCRIPTION_MAX;
+  // The counter appears only once the limit is close, so it is a warning and
+  // not a running tally beside every description.
+  const showCounter = descriptionLength >= COUNTER_FROM;
   const counterText =
     overLimit > 0
       ? t.overLimit(formatNumber(overLimit, locale))
@@ -291,238 +315,294 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
   const lost = reportType === "lost";
 
   return (
-    <PageShell width={matching ? "narrow" : "wide"}>
-      {/* Always mounted so screen readers announce each status change. */}
-      <p role="status" className="sr-only">
-        {matching
-          ? statusMessage(reportType, matching, isContinuing)
-          : isSubmitting
-            ? t.savingStatus
-            : ""}
-      </p>
+    <>
+      <SiteHeader tone="pine" />
+      <main id="main" className="flex-1">
+        {/* Always mounted so screen readers announce each status change. */}
+        <p role="status" className="sr-only">
+          {matching
+            ? statusMessage(reportType, matching, isContinuing)
+            : isSubmitting
+              ? t.savingStatus
+              : ""}
+        </p>
 
-      {matching ? (
-        reportType === "found" ? (
-          <FoundConfirmation
-            view={matching}
-            isContinuing={isContinuing}
-            canRetry={canRetry}
-            onRetry={retryChecks}
-            onReportAnother={startAnotherReport}
-            headingRef={confirmationHeadingRef}
-          />
+        {matching ? (
+          reportType === "found" ? (
+            <FoundConfirmation
+              view={matching}
+              isContinuing={isContinuing}
+              canRetry={canRetry}
+              onRetry={retryChecks}
+              onReportAnother={startAnotherReport}
+              headingRef={confirmationHeadingRef}
+            />
+          ) : (
+            <LostConfirmation
+              title={k.savedTitle}
+              intro={k.savedIntro}
+              view={matching}
+              isContinuing={isContinuing}
+              canRetry={canRetry}
+              onRetry={retryChecks}
+              onReportAnother={startAnotherReport}
+              headingRef={confirmationHeadingRef}
+            >
+              {credential ? null : (
+                <Notice>
+                  <span className="font-normal">{t.noTrackingLink}</span>
+                </Notice>
+              )}
+            </LostConfirmation>
+          )
         ) : (
-          <LostConfirmation
-            context={t.savedContext}
-            saved
-            title={k.savedTitle}
-            intro={k.savedIntro}
-            view={matching}
-            isContinuing={isContinuing}
-            canRetry={canRetry}
-            onRetry={retryChecks}
-            onReportAnother={startAnotherReport}
-            headingRef={confirmationHeadingRef}
-          >
-            {credential ? null : (
-              <Notice className="mt-4">
-                <span className="font-normal">{t.noTrackingLink}</span>
-              </Notice>
-            )}
-          </LostConfirmation>
-        )
-      ) : (
-        // Phones read the question, the form, then the guidance; wide screens
-        // put the guidance under the question, beside the form sheet.
-        <div className="mt-4 grid items-start gap-8 sm:mt-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:gap-y-10">
-          <header className="flex min-w-0 flex-col items-start gap-4 motion-safe:animate-rise lg:col-start-1 lg:row-start-1 lg:gap-6">
-            <KindMark kind={reportType} />
-            <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
-              <h1 className="max-w-[14ch] text-title text-foreground">{k.title}</h1>
-              <p className="max-w-[46ch] text-lead text-foreground/85">{k.intro}</p>
-            </div>
-          </header>
+          /*
+            One grid. Row one is the pine band (its background is a grid item
+            that bleeds to the viewport edges); the sheet spans both rows from
+            lg, so its top sits against the band like a sheet on the counter.
+            Phones read the question, the sheet, then what happens after.
+          */
+          <section className="relative isolate overflow-x-clip pb-20 sm:pb-28">
+            <div
+              className={`${frameClassName} grid gap-x-12 gap-y-0 pt-3 sm:pt-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:pt-8`}
+            >
+              <span
+                aria-hidden
+                className="form-band-bg pointer-events-none relative -z-10 col-span-full row-start-1 -mt-3 self-stretch sm:-mt-5 lg:-mt-8"
+              />
+              <FormStage
+                kind={reportType}
+                title={k.title}
+                intro={k.intro}
+                artAlt={k.artAlt}
+                backLabel={c.backHome}
+              />
 
-          <form
-            onSubmit={handleSubmit}
-            aria-busy={isSubmitting}
-            aria-label={k.formLabel}
-            className="min-w-0 rounded-[1.75rem] bg-card p-5 motion-safe:animate-rise motion-safe:[animation-delay:80ms] sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:p-10"
-            noValidate
-          >
-            <p className="text-small text-muted-foreground">{t.required}</p>
-
-            <div className="mt-6 flex flex-col gap-7">
-              <Field
-                name="itemName"
-                label={t.itemNameLabel}
-                hint={t.itemNameHint}
-                error={errors.itemName}
-              >
-                <input
-                  ref={(node) => {
-                    fieldRefs.current.itemName = node;
-                  }}
-                  id="itemName"
-                  name="itemName"
-                  type="text"
-                  dir={fields.itemName ? "auto" : undefined}
-                  value={fields.itemName}
-                  onChange={(event) => updateField("itemName", event.target.value)}
-                  placeholder={k.itemNamePlaceholder}
-                  disabled={isSubmitting}
-                  autoComplete="off"
-                  enterKeyHint="next"
-                  className={fieldClassName}
-                  aria-invalid={Boolean(errors.itemName)}
-                  aria-describedby={describedBy("itemName", errors.itemName)}
-                />
-              </Field>
-
-              <Field
-                name="description"
-                label={k.descriptionLabel}
-                hint={k.descriptionHint}
-                error={errors.description}
-              >
-                <textarea
-                  ref={(node) => {
-                    fieldRefs.current.description = node;
-                  }}
-                  id="description"
-                  name="description"
-                  dir={fields.description ? "auto" : undefined}
-                  rows={5}
-                  value={fields.description}
-                  onChange={(event) => updateField("description", event.target.value)}
-                  placeholder={k.descriptionPlaceholder}
-                  disabled={isSubmitting}
-                  className={`${textareaClassName} min-h-36`}
-                  aria-invalid={Boolean(errors.description)}
-                  aria-describedby={describedBy("description", errors.description, "description-count")}
-                />
-                <p
-                  id="description-count"
-                  data-numeric
-                  className={`-mt-1 text-end text-caption ${
-                    overLimit > 0 ? "font-semibold text-destructive" : "text-muted-foreground"
-                  }`}
-                >
-                  <span className="sr-only">{t.counterLabel}: </span>
-                  <span dir={overLimit > 0 ? undefined : "ltr"}>{counterText}</span>
-                </p>
-              </Field>
-
-              <Field
-                name="location"
-                label={k.locationLabel}
-                hint={k.locationHint}
-                error={errors.location}
-              >
-                <input
-                  ref={(node) => {
-                    fieldRefs.current.location = node;
-                  }}
-                  id="location"
-                  name="location"
-                  type="text"
-                  dir={fields.location ? "auto" : undefined}
-                  value={fields.location}
-                  onChange={(event) => updateField("location", event.target.value)}
-                  placeholder={k.locationPlaceholder}
-                  disabled={isSubmitting}
-                  autoComplete="off"
-                  enterKeyHint="done"
-                  className={fieldClassName}
-                  aria-invalid={Boolean(errors.location)}
-                  aria-describedby={describedBy("location", errors.location)}
-                />
-              </Field>
-            </div>
-
-            <span aria-hidden className="perforation my-8 block text-foreground/20" />
-
-            {formError ? (
-              <Notice tone="error" role="alert" className="mb-6">
-                <p>{formError}</p>
-                {canRetrySubmit ? (
-                  <button
-                    type="button"
-                    onClick={() => void submit()}
-                    className={`${secondaryButtonClassName} mt-3`}
-                  >
-                    {t.retry}
-                  </button>
-                ) : null}
-              </Notice>
-            ) : null}
-
-            <div className="flex flex-col gap-5">
-              <p className="flex items-start gap-2.5 text-small text-foreground/80">
-                <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
-                <span>{lost ? t.privacy : t.privacyFound}</span>
-              </p>
-              <button
-                type="submit"
-                aria-disabled={isSubmitting}
-                className={`${primaryButtonLargeClassName} ${
-                  isSubmitting ? "cursor-progress opacity-80" : ""
+              {/*
+                The form sheet. Its shape is a layer behind the fields: a slip
+                torn along its bottom for lost, a hanging tag with a punched
+                eyelet for found. Focus rings are never clipped.
+              */}
+              <form
+                onSubmit={handleSubmit}
+                aria-busy={isSubmitting}
+                aria-label={k.formLabel}
+                noValidate
+                className={`form-sheet relative isolate -mt-7 min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-12 ${
+                  lost ? "pb-9" : "pt-7"
                 }`}
               >
-                {isSubmitting ? (
-                  <>
-                    <Spinner />
-                    {k.saving}
-                  </>
+                {lost ? (
+                  <span aria-hidden className="edge-torn absolute inset-0 -z-10 bg-card" />
                 ) : (
-                  k.submit
+                  <>
+                    <span aria-hidden className="form-tag absolute inset-0 -z-10 bg-card" />
+                    <span
+                      aria-hidden
+                      className="eyelet absolute left-1/2 top-[1.75rem] size-6 -translate-x-1/2 -translate-y-1/2"
+                    />
+                  </>
                 )}
-              </button>
-            </div>
-          </form>
 
-          {lost ? (
-            <aside
-              aria-labelledby="guide-title"
-              className="edge-torn min-w-0 bg-secondary px-5 pt-7 motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-8 sm:pt-8 lg:col-start-1 lg:row-start-2"
-            >
-              <h2 id="guide-title" className="text-heading text-foreground">
-                {k.guideTitle}
-              </h2>
-              <ul className="mt-4 flex flex-col gap-3">
-                {k.guide.map((line) => (
-                  <li key={line} className="flex gap-3 text-body text-foreground">
-                    <KeyholeGlyph className="mt-1.5 size-4 shrink-0 text-forest" />
-                    <span className="min-w-0 break-words">{line}</span>
-                  </li>
-                ))}
-              </ul>
-              <h3 className="mt-7 text-subheading text-foreground">{k.afterTitle}</h3>
-              <p className="mt-1.5 max-w-[48ch] text-body text-foreground/85">{k.after}</p>
-            </aside>
-          ) : (
-            <aside
-              aria-labelledby="guide-title"
-              className="relative isolate min-w-0 px-6 py-8 ps-9 text-paper motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-9 sm:ps-12 lg:col-start-1 lg:row-start-2"
-            >
-              <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-pine-deep" />
-              <h2 id="guide-title" className="text-heading text-paper">
-                {k.guideTitle}
-              </h2>
-              <ul className="mt-4 flex flex-col gap-3">
-                {k.guide.map((line) => (
-                  <li key={line} className="flex gap-3 text-body text-paper">
-                    <KeyholeGlyph className="mt-1.5 size-4 shrink-0 text-brass-light" />
-                    <span className="min-w-0 break-words">{line}</span>
-                  </li>
-                ))}
-              </ul>
-              <h3 className="mt-7 text-subheading text-paper">{k.afterTitle}</h3>
-              <p className="mt-1.5 max-w-[48ch] text-body text-paper/80">{k.after}</p>
-            </aside>
-          )}
-        </div>
-      )}
-    </PageShell>
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 pt-5 sm:px-8 sm:pt-6 lg:px-10">
+                  <ReportKindCue kind={reportType}>{k.kind}</ReportKindCue>
+                  <p className="text-small text-muted-foreground">{t.required}</p>
+                </div>
+                <span aria-hidden className="perforation mx-5 mt-3 block text-foreground/20 sm:mx-8 lg:mx-10" />
+
+                <div className="flex flex-col gap-6 px-5 pb-6 pt-5 sm:px-8 sm:pb-8 lg:px-10">
+                  <Field
+                    name="itemName"
+                    label={t.itemNameLabel}
+                    hint={t.itemNameHint}
+                    error={errors.itemName}
+                    after={chipFor("itemName", t.itemNameLabel, k.itemNameFill)}
+                  >
+                    <input
+                      ref={(node) => {
+                        fieldRefs.current.itemName = node;
+                      }}
+                      id="itemName"
+                      name="itemName"
+                      type="text"
+                      dir={fields.itemName ? "auto" : undefined}
+                      value={fields.itemName}
+                      onChange={(event) => updateField("itemName", event.target.value)}
+                      onAnimationEnd={() => setJustFilled(null)}
+                      disabled={isSubmitting}
+                      autoComplete="off"
+                      enterKeyHint="next"
+                      className={`${fieldClassName} ${justFilled === "itemName" ? "form-filled" : ""}`}
+                      aria-invalid={Boolean(errors.itemName)}
+                      aria-describedby={describedBy("itemName", errors.itemName)}
+                    />
+                  </Field>
+
+                  <Field
+                    name="description"
+                    label={k.descriptionLabel}
+                    hint={k.descriptionHint}
+                    error={errors.description}
+                    after={chipFor("description", k.descriptionLabel, k.descriptionFill)}
+                  >
+                    <textarea
+                      ref={(node) => {
+                        fieldRefs.current.description = node;
+                      }}
+                      id="description"
+                      name="description"
+                      dir={fields.description ? "auto" : undefined}
+                      rows={4}
+                      value={fields.description}
+                      onChange={(event) => updateField("description", event.target.value)}
+                      onAnimationEnd={() => setJustFilled(null)}
+                      disabled={isSubmitting}
+                      className={`${textareaClassName} min-h-32 ${justFilled === "description" ? "form-filled" : ""}`}
+                      aria-invalid={Boolean(errors.description)}
+                      aria-describedby={describedBy(
+                        "description",
+                        errors.description,
+                        showCounter ? "description-count" : undefined,
+                      )}
+                    />
+                    {showCounter ? (
+                      <p
+                        id="description-count"
+                        data-numeric
+                        className={`-mt-1 text-end text-caption ${
+                          overLimit > 0 ? "font-semibold text-destructive" : "text-muted-foreground"
+                        }`}
+                      >
+                        <span className="sr-only">{t.counterLabel}: </span>
+                        <span dir={overLimit > 0 ? undefined : "ltr"}>{counterText}</span>
+                      </p>
+                    ) : null}
+                  </Field>
+
+                  <Field
+                    name="location"
+                    label={k.locationLabel}
+                    hint={k.locationHint}
+                    error={errors.location}
+                    after={chipFor("location", k.locationLabel, k.locationFill)}
+                  >
+                    <input
+                      ref={(node) => {
+                        fieldRefs.current.location = node;
+                      }}
+                      id="location"
+                      name="location"
+                      type="text"
+                      dir={fields.location ? "auto" : undefined}
+                      value={fields.location}
+                      onChange={(event) => updateField("location", event.target.value)}
+                      onAnimationEnd={() => setJustFilled(null)}
+                      disabled={isSubmitting}
+                      autoComplete="off"
+                      enterKeyHint="done"
+                      className={`${fieldClassName} ${justFilled === "location" ? "form-filled" : ""}`}
+                      aria-invalid={Boolean(errors.location)}
+                      aria-describedby={describedBy("location", errors.location)}
+                    />
+                  </Field>
+
+                  <span aria-hidden className="perforation block text-foreground/20" />
+
+                  {formError ? (
+                    <Notice tone="error" role="alert">
+                      <p>{formError}</p>
+                      {canRetrySubmit ? (
+                        <button
+                          type="button"
+                          onClick={() => void submit()}
+                          className={`${secondaryButtonClassName} mt-3`}
+                        >
+                          {t.retry}
+                        </button>
+                      ) : null}
+                    </Notice>
+                  ) : null}
+
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+                      <button
+                        type="submit"
+                        aria-disabled={isSubmitting}
+                        className={`${primaryButtonLargeClassName} ${
+                          isSubmitting ? "cursor-progress opacity-80" : ""
+                        }`}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Spinner />
+                            {k.saving}
+                          </>
+                        ) : (
+                          <>
+                            {lost ? (
+                              <LensIcon className="size-5 shrink-0" />
+                            ) : (
+                              <TagIcon className="size-5 shrink-0" />
+                            )}
+                            {k.submit}
+                          </>
+                        )}
+                      </button>
+                      {/* Visible while saving; the sr-only status line above announces it. */}
+                      {isSubmitting ? (
+                        <p aria-hidden className="text-small text-muted-foreground">
+                          {t.savingStatus}
+                        </p>
+                      ) : null}
+                    </div>
+                    <p className="flex items-start gap-2.5 text-small text-foreground/80">
+                      <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
+                      <span>{lost ? t.privacy : t.privacyFound}</span>
+                    </p>
+                  </div>
+                </div>
+              </form>
+
+              {/*
+                What happens after you save: three short lines, under the desk
+                on wide screens and right after the save button on phones.
+                Lost reads as a sequence, so it is an ordered list.
+              */}
+              <aside
+                aria-labelledby="after-title"
+                className="min-w-0 pt-8 motion-safe:animate-rise motion-safe:[animation-delay:220ms] lg:col-start-1 lg:row-start-2 lg:pt-32"
+              >
+                <h2 id="after-title" className="text-subheading text-foreground">
+                  {k.afterTitle}
+                </h2>
+                {lost ? (
+                  <ol className="mt-3 flex flex-col gap-2.5">
+                    {k.afterSteps.map((line) => (
+                      <li key={line} className="flex gap-3 text-body text-foreground/90">
+                        <span
+                          aria-hidden
+                          className="mt-[0.55em] size-3 shrink-0 rounded-full border-2 border-dashed border-pine/70"
+                        />
+                        <span className="min-w-0 break-words">{line}</span>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <ul className="mt-3 flex flex-col gap-2.5">
+                    {k.afterSteps.map((line) => (
+                      <li key={line} className="flex gap-3 text-body text-foreground/90">
+                        <KeyholeGlyph className="mt-[0.45em] size-4 shrink-0 text-forest" />
+                        <span className="min-w-0 break-words">{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </aside>
+            </div>
+          </section>
+        )}
+      </main>
+      <SiteFooter />
+    </>
   );
 }

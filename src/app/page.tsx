@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { UmbrellaGlyph } from "@/app/demo/UmbrellaArt";
 import { HeroPicture } from "@/components/home/HeroPicture";
 import "@/components/home/home.css";
 import {
@@ -34,6 +35,10 @@ const SCENES = [
 ] as const;
 
 const PROMISE_ICONS = [EyeOffIcon, LockIcon, UserIcon] as const;
+
+// The third way in, quieter than the two report actions: a tinted paper pill.
+const demoButtonClassName =
+  "inline-flex min-h-11 w-full max-w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-paper/12 px-5 text-base font-semibold text-paper transition-colors hover:bg-paper/20 active:translate-y-px sm:w-auto outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep";
 
 // The outlined pill on pine at the same 48px height as the primary beside it.
 const foundButtonClassName = `${secondaryOnDarkButtonClassName.replace("min-h-11 px-5", "min-h-12 px-7")}`;
@@ -102,6 +107,13 @@ export default async function Home() {
               </p>
               <div className="flex w-full flex-col gap-4 motion-safe:animate-rise motion-safe:[animation-delay:180ms] sm:gap-5">
                 <ReportActions t={t} label={t.actionsLabel} />
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-small text-paper/80">
+                  <Link href="/demo" className={demoButtonClassName}>
+                    <UmbrellaGlyph className="size-5 shrink-0" />
+                    {t.demoLink}
+                  </Link>
+                  <span>{t.demoHint}</span>
+                </p>
                 <p className="flex flex-wrap items-center gap-x-2 text-small text-paper/80">
                   <span>{t.trackPrompt}</span>
                   <Link href="/report/track" className={`${textLinkOnDarkClassName} text-small`}>

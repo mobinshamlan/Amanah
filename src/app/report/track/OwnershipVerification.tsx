@@ -7,15 +7,13 @@ import {
   submitOwnershipAnswer,
   submitOwnershipFollowupAnswer,
 } from "@/app/report/track/actions";
-import { QuestionIcon, ShieldIcon } from "@/components/icons";
+import { LockIcon, QuestionIcon, RefreshIcon, SendIcon } from "@/components/icons";
 import {
   FieldError,
   LoadingRow,
-  Notice,
   Spinner,
   StatusChip,
   primaryButtonClassName,
-  secondaryButtonClassName,
   textareaClassName,
 } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
@@ -54,21 +52,25 @@ const settledTone: Record<Settled, "ok" | "bad" | "wait"> = {
   rejected: "bad",
 };
 
-const settledSurface: Record<Settled, string> = {
-  staff_review: "bg-card",
-  answers_received: "bg-card",
-  approved: "bg-ok-soft",
-  rejected: "bg-bad-soft",
-};
+// The question may be in either language, or mix both. Its first strong
+// letter (Arabic or Latin, not a digit or a mark) names the language, as it
+// does for the text direction; with neither, the page's language stays.
+const FIRST_LETTER = /[A-Za-z\u00C0-\u024F\u0620-\u064A\u066E-\u06D3\u06D5\u06EE\u06EF\u06FA-\u06FC\u06FF\u0750-\u077F\uFB50-\uFDFB\uFE70-\uFEFC]/;
+
+function questionLang(text: string): "ar" | "en" | undefined {
+  const letter = FIRST_LETTER.exec(text)?.[0];
+  if (!letter) return undefined;
+  return /[A-Za-z\u00C0-\u024F]/.test(letter) ? "en" : "ar";
+}
 
 function QuestionProgress({ number, total }: { number: number; total: number }) {
   return (
-    <div aria-hidden className="mt-3 flex max-w-xs gap-1.5">
+    <div aria-hidden className="flex w-24 gap-1.5">
       {Array.from({ length: total }, (_, index) => (
         <span
           key={index}
           className={`h-1.5 flex-1 rounded-full ${
-            index < number - 1 ? "bg-pine-deep" : index === number - 1 ? "bg-forest" : "bg-secondary"
+            index < number - 1 ? "bg-pine-deep" : index === number - 1 ? "bg-brass" : "bg-secondary"
           }`}
         />
       ))}
@@ -81,7 +83,7 @@ function QuestionProgress({ number, total }: { number: number; total: number }) 
  * ever receives the owner-safe view: never the found report or expected answers.
  *
  * `headlineShown`: the tracking page already says the settled state (approved,
- * rejected, waiting) in its main heading, so the card shrinks to a status chip.
+ * rejected, waiting) in its main heading and case tag, so the slip steps aside.
  */
 export function OwnershipVerification({
   credential,
@@ -201,96 +203,90 @@ export function OwnershipVerification({
             ? `${t.verify.settled[settled].title}. ${t.verify.settled[settled].body}`
             : "";
 
-  // The page heading and its live status line already carry a settled state:
-  // show only the chip.
+  // The page heading, its live status line and the case tag already carry a
+  // settled state, so the slip steps aside.
   if (settled && headlineShown) {
-    return (
-      <div className="flex flex-col gap-3">
-        <StatusChip tone={settledTone[settled]} className="w-fit">
-          {settled === "approved"
-            ? t.verify.chip.approved
-            : settled === "rejected"
-              ? t.verify.chip.rejected
-              : t.verify.chip.waiting}
-        </StatusChip>
-      </div>
-    );
+    return null;
   }
 
-  const surface = settled ? settledSurface[settled] : asking ? "bg-card" : "bg-card";
+  const heading = (text: string) => (
+    <h2
+      id="verification-title"
+      ref={headingRef}
+      tabIndex={-1}
+      className="flex items-center gap-2 text-subheading text-foreground outline-none"
+    >
+      <QuestionIcon className="size-5 shrink-0 text-forest" />
+      {text}
+    </h2>
+  );
 
+  // A paper slip torn from the desk's pad; the tear and the shadow sit on a
+  // layer behind the content, so focus rings are never clipped.
   return (
     <section
       aria-labelledby="verification-title"
       aria-busy={loading || saving}
-      className={`rounded-[1.75rem] p-5 motion-safe:animate-rise sm:p-7 ${surface}`}
+      className="relative isolate px-5 pb-10 pt-6 motion-safe:animate-rise sm:px-8 sm:pt-7"
     >
+      <span aria-hidden className="edge-torn absolute inset-0 -z-10 bg-card" />
       <p role="status" className="sr-only">
         {announcement}
       </p>
 
       {loading ? (
         <>
-          <h2 id="verification-title" ref={headingRef} tabIndex={-1} className="text-heading text-foreground outline-none">
-            {t.verify.loadingTitle}
-          </h2>
+          {heading(t.verify.loadingTitle)}
           <div className="mt-4">
             <LoadingRow>{t.verify.loadingRow}</LoadingRow>
           </div>
         </>
       ) : settled && view ? (
-        <div className="flex items-start gap-4">
-          <StatusChip tone={settledTone[settled]} className="mt-1.5 shrink-0">
+        <div className="flex flex-col items-start gap-3">
+          <StatusChip tone={settledTone[settled]}>
             {settled === "approved"
               ? t.verify.chip.approved
               : settled === "rejected"
                 ? t.verify.chip.rejected
                 : t.verify.chip.waiting}
           </StatusChip>
-          <div className="min-w-0 flex-1">
+          <h2
+            id="verification-title"
+            ref={headingRef}
+            tabIndex={-1}
+            className="text-heading text-foreground outline-none"
+          >
+            {t.verify.settled[settled].title}
+          </h2>
+          <p className="text-body text-foreground/85">{t.verify.settled[settled].body}</p>
+        </div>
+      ) : asking && view ? (
+        <>
+          {/* The question leads; where it sits in the set is a caption above it.
+              A staff follow-up has no caption: the page headline already says who asks. */}
+          {view.state === "question" ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <p className="text-small font-semibold text-muted-foreground">
+                {t.verify.progress(view.number, view.total)}
+              </p>
+              <QuestionProgress number={view.number} total={view.total} />
+            </div>
+          ) : null}
+          <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="flex flex-col gap-3">
+            {/* The question and the answer may be in either language. No suggestions: they would hint the answer. */}
             <h2
               id="verification-title"
               ref={headingRef}
               tabIndex={-1}
+              dir="auto"
+              lang={questionLang(view.question)}
               className="text-heading text-foreground outline-none"
             >
-              {t.verify.settled[settled].title}
+              <label htmlFor="ownership-answer">{view.question}</label>
             </h2>
-            <p className="mt-2 text-body text-foreground">{t.verify.settled[settled].body}</p>
-          </div>
-        </div>
-      ) : asking && view ? (
-        <>
-          <div className="flex items-start gap-3">
-            <QuestionIcon className="mt-1 size-6 shrink-0 text-forest" />
-            <div className="min-w-0 flex-1">
-              <h2
-                id="verification-title"
-                ref={headingRef}
-                tabIndex={-1}
-                className="text-heading text-foreground outline-none"
-              >
-                {view.state === "question"
-                  ? t.verify.progress(view.number, view.total)
-                  : t.verify.followupTitle}
-              </h2>
-              {view.state === "question" ? (
-                <QuestionProgress number={view.number} total={view.total} />
-              ) : null}
-              <p className="mt-3 max-w-[58ch] text-body text-foreground/85">
-                {view.state === "followup" ? t.verify.followupIntro : t.verify.questionIntro}
-              </p>
-            </div>
-          </div>
-          <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="mt-6 flex flex-col gap-3">
-            {/* The question and the answer may be in either language. */}
-            <label
-              htmlFor="ownership-answer"
-              dir="auto"
-              className="text-subheading font-semibold text-foreground"
-            >
-              {view.question}
-            </label>
+            <p id="ownership-answer-intro" className="max-w-[58ch] text-small text-foreground/80">
+              {view.state === "followup" ? t.verify.followupIntro : t.verify.questionIntro}
+            </p>
             <textarea
               ref={answerRef}
               id="ownership-answer"
@@ -304,7 +300,9 @@ export function OwnershipVerification({
               className={textareaClassName}
               aria-invalid={Boolean(answerError)}
               aria-describedby={
-                answerError ? "ownership-answer-error ownership-answer-help" : "ownership-answer-help"
+                answerError
+                  ? "ownership-answer-error ownership-answer-intro ownership-answer-help"
+                  : "ownership-answer-intro ownership-answer-help"
               }
             />
             {answerError ? (
@@ -312,9 +310,6 @@ export function OwnershipVerification({
                 {answerError}
               </FieldError>
             ) : null}
-            <p id="ownership-answer-help" className="text-small text-foreground/80">
-              {t.verify.help}
-            </p>
             <button type="submit" disabled={saving} className={`${primaryButtonClassName} mt-1 sm:self-start`}>
               {saving ? (
                 <>
@@ -322,24 +317,24 @@ export function OwnershipVerification({
                   {t.verify.saving}
                 </>
               ) : (
-                t.verify.submit
+                <>
+                  <SendIcon className="size-4" />
+                  {t.verify.submit}
+                </>
               )}
             </button>
+            <p id="ownership-answer-help" className="flex items-start gap-2 text-small text-foreground/80">
+              <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
+              <span>{t.verify.help}</span>
+            </p>
           </form>
-          <p className="mt-5 flex items-start gap-2 text-small font-medium text-foreground">
-            <ShieldIcon className="mt-1 size-4 shrink-0 text-forest" />
-            {t.staffDecide}
-          </p>
         </>
       ) : view?.state === "retry" ? (
         <>
-          <h2 id="verification-title" ref={headingRef} tabIndex={-1} className="text-heading text-foreground outline-none">
-            {t.verify.retry.title}
-          </h2>
-          <Notice tone="warning" className="mt-4">
-            <span className="font-normal">{t.verify.retry[view.reason]}</span>
-          </Notice>
-          <button type="button" onClick={() => void load()} className={`${secondaryButtonClassName} mt-4`}>
+          {heading(t.verify.retry.title)}
+          <p className="mt-3 max-w-[58ch] text-body text-foreground/85">{t.verify.retry[view.reason]}</p>
+          <button type="button" onClick={() => void load()} className={`${primaryButtonClassName} mt-5`}>
+            <RefreshIcon className="size-4" />
             {t.actions.tryAgain}
           </button>
         </>

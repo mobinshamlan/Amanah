@@ -1,0 +1,87 @@
+/*
+  Report-form stage, imported by src/app/report/ReportForm.tsx. Plain CSS
+  (no modules), so every class carries a `form-` prefix. Transform and
+  opacity only; the global reduced-motion rule shortens every animation to
+  its end frame.
+*/
+
+/*
+  The pine band behind the headline: a grid item in the first row whose
+  pseudo-element bleeds to both viewport edges. `100%` is the grid area
+  (the page frame), so the bleed is exactly the gutter on each side.
+*/
+.form-band-bg::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc((100% - 100vw) / 2);
+  background: var(--color-pine-deep);
+}
+
+/* A hanging tag: both top corners cut, a hole punched for the eyelet. */
+.form-tag {
+  --tag-cut: 2rem;
+  --hole-y: 1.75rem;
+  clip-path: polygon(
+    var(--tag-cut) 0,
+    calc(100% - var(--tag-cut)) 0,
+    100% var(--tag-cut),
+    100% 100%,
+    0 100%,
+    0 var(--tag-cut)
+  );
+  mask: radial-gradient(circle at 50% var(--hole-y), #0000 0.55rem, #000 0.6rem);
+}
+
+/* The sheet settles onto the counter; the desk comes to rest just before it. */
+@keyframes form-settle {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes form-desk {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(1.04);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A field that was just filled by a chip gives a small nod. */
+@keyframes form-fill {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.012);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .form-sheet {
+    animation: form-settle 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: 140ms;
+  }
+
+  .form-desk {
+    transform-origin: 50% 70%;
+    animation: form-desk 1s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: 60ms;
+  }
+
+  .form-filled {
+    animation: form-fill 0.35s ease-out;
+  }
+}

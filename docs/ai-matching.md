@@ -75,6 +75,20 @@ The dev server logs one line per pair (Gemini duration, each HTTP attempt's dura
 
 Run history is stored in `matching_runs` (`20261024222909_create_matching_runs.sql`): one aggregate row per bounded batch (`source` admin or auto, finish time, duration, request count, checked / matched / uncertain / no-match / failed / already-saved counts, unchecked pairs left, failure kind, `stopped_for_time`, model). A run that could not load its data is recorded with failure `load` and an unknown unchecked count. RLS is enabled with no public grants; the server role can only read and insert those columns. Recording is best-effort: if the insert fails, matching continues and only the error code is logged. The dashboard loads the newest 200 recorded checks and says so when the 14-day figures may be incomplete.
 
+## Usage limits
+
+Caps live in `src/utils/limits/usageBuckets.ts`. Counters are Postgres rows keyed by UTC hour or day and a hashed IP address (`usage_counters`, taken through the `consume_usage` function in `20261101140000_usage_limits_and_private_report_inserts.sql`). Each use takes one slot from every bucket it touches in one call, or none.
+
+| Limit | Value |
+|---|---|
+| Reports per IP, per UTC hour (`submit_hour`) | 8 |
+| Reports per IP, per UTC day (`submit_day`) | 30 |
+| Gemini requests, whole app, per UTC day (`gemini_app`) | 300 |
+| Gemini requests per IP, per UTC day (`gemini_ip`) | 120 |
+| Gemini requests per report, per UTC day (`gemini_report`) | 40 |
+
+One Gemini HTTP call is one use, including a batch of up to 10 comparisons. A Gemini call with no report in scope is blocked before it reaches Gemini. A blocked or unavailable counter (including a missing migration or admin client) fails closed. A blocked submission saves nothing. A blocked Gemini call is recorded as the `usage_limit` failure, never as `no_match`. In fixture mode these limits always allow requests.
+
 ## Errors
 
 Errors and unchecked pairs are never counted as `no_match`. A run stops at the first failure and keeps suggestions already saved. Quota errors (429) and timeouts are not retried. Temporary server errors (500, 502, 503, 504) get one retry after 2 seconds. Each request times out after 20 seconds, and no new comparison starts after 30 seconds of a run.
@@ -85,7 +99,7 @@ When someone submits a report, the server saves it first and confirms "Report sa
 
 How it runs:
 
-1. `submitReport` creates the report ID on the server and inserts the report with the public, insert-only key. With the server key it then stores a submission credential in `report_submissions`. The credential is 32 random bytes; only its SHA-256 hash is stored. The browser receives the credential once.
+1. `submitReport` creates the report ID on the server and first takes one slot from the per-IP report limits (see "Usage limits"). If that is blocked, nothing is saved and the form says Amanah is busy. Otherwise it inserts the report with the server key and stores a submission credential in `report_submissions`. The credential is 32 random bytes; only its SHA-256 hash is stored. The browser receives the credential once.
 2. The page calls `continueMatching(credential)` repeatedly. Each call is awaited and sends at most one Gemini request, which compares the new report with up to 10 unchecked opposite-type reports. Larger inventories take several calls, one after another, never in parallel. Nothing keeps running after a request finishes.
 3. A 90-second lease (`processing_until`) stops two calls from processing the same report at once. A second call while the lease is held does no work and asks the page to wait 2 seconds.
 4. Progress is the `report_pair_checks` table, so a refresh or retry only continues with unchecked pairs. A found report's page keeps the credential in `sessionStorage`, resumes after a refresh, and removes it once checking is complete. A lost report's page moves to its private tracking link instead (see "Lost-report tracking link"). A page stops after 40 calls.
@@ -136,7 +150,7 @@ Found reporters get a confirmation with drop-off guidance and no matching inform
 ### Automatic matching limitations
 
 - Processing depends on the submitter's open tab or, for a lost report, on its tracking link being opened (see above).
-- Every new report costs one Gemini request per 10 opposite-type reports, rounded up (2 for 13 reports; it was 13 before batching). A batch answer uses about as many output tokens as the separate answers did, so token use does not drop much. Nothing limits how many reports a visitor can submit.
+- Every new report costs one Gemini request per 10 opposite-type reports, rounded up (2 for 13 reports; it was 13 before batching). A batch answer uses about as many output tokens as the separate answers did, so token use does not drop much. Usage limits cap reports per IP and Gemini requests (see "Usage limits"), but one visitor can still spend up to 40 Gemini requests a day on a single report (the bucket is keyed by the report being checked: the new report in automatic matching, the lost report for `/admin` pairs and ownership questions).
 - Batching was verified with controlled tests only. Whether Gemini judges a pair the same way inside a batch as on its own has not been measured with live calls.
 - One invalid result rejects the whole batch, so a repeatedly malformed answer blocks those 10 candidates until a later attempt succeeds.
 - "Could not tell from the details" tells a lost reporter that at least one found report could not be ruled out. Vague existing reports make this the usual result.
