@@ -72,7 +72,7 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
         dir="ltr"
         value={url}
         onFocus={(event) => event.currentTarget.select()}
-        className={`${fieldClassName} min-w-0 truncate text-small`}
+        className={`${fieldClassName} min-w-0 truncate border-foreground/60! text-small`}
       />
     </>
   );
