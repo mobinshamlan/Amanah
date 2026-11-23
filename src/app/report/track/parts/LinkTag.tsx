@@ -115,7 +115,12 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
 
   if (!focal) {
     return (
-      <section id="private-link" aria-labelledby="tracking-link-title" className="flex flex-col gap-3">
+      // Its own paper surface: a long headline can push it up onto the pine band.
+      <section
+        id="private-link"
+        aria-labelledby="tracking-link-title"
+        className="flex flex-col gap-3 rounded-[1.25rem] bg-card p-5 text-foreground sm:p-6"
+      >
         <h2 id="tracking-link-title" className="flex items-center gap-2 text-subheading text-foreground">
           <LinkIcon className="size-5 shrink-0 text-forest" />
           {t.link.title}

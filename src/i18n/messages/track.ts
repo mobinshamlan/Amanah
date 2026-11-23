@@ -48,7 +48,7 @@ const en = {
     noMatch: {
       title: "No match so far",
       intro:
-        "We compared your report with every found item reported so far. Open this link again to check for new reports.",
+        "We compared your report with every found item reported so far. Open this link again to check your report's status.",
     },
     uncertain: {
       title: "No confirmed match so far",
@@ -74,7 +74,7 @@ const en = {
     },
     question: {
       title: "Answer a question about your item",
-      intro: "There is a possible match. Answer from memory, in your own words.",
+      intro: "A found-item report looks like yours. Your answer helps staff check it.",
     },
     followup: {
       title: "Staff have a question for you",
@@ -349,7 +349,7 @@ const ar: typeof en = {
     },
     question: {
       title: "جاوب على سؤال عن غرضك",
-      intro: "في احتمال تطابق. جاوب من ذاكرتك وبكلامك.",
+      intro: "في بلاغ عن غرض ملقى يشبه غرضك. إجابتك تساعد الموظف يتأكد.",
     },
     followup: {
       title: "الموظف عنده سؤال لك",
