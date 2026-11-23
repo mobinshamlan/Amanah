@@ -16,7 +16,7 @@ import {
 } from "@/app/report/SubmissionConfirmation";
 import { trackingHref } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { FillChips } from "@/app/report/form/FillChips";
+import { FillChip } from "@/app/report/form/FillChips";
 import { FormStage } from "@/app/report/form/FormStage";
 import "@/app/report/form/form-stage.css";
 import { KeyholeGlyph, LensIcon, LockIcon, TagIcon } from "@/components/icons";
@@ -70,8 +70,6 @@ function Field({
   name,
   label,
   hint,
-  example,
-  exampleLabel,
   error,
   after,
   children,
@@ -79,10 +77,8 @@ function Field({
   name: ReportFieldName;
   label: string;
   hint: string;
-  // Shown under the field; chips may replace it.
-  example?: string;
-  exampleLabel: string;
   error?: string;
+  // Under the field: the one example chip that fills it.
   after?: ReactNode;
   children: ReactNode;
 }) {
@@ -94,13 +90,6 @@ function Field({
       <div id={`${name}-hint`} className="contents">
         <p className={hintClassName}>{hint}</p>
         {children}
-        {/* The example stays visible while typing, unlike a placeholder. */}
-        {example ? (
-          <p className="text-small text-foreground/75">
-            <span className="font-medium text-forest">{exampleLabel}: </span>
-            <span className="break-words">{example}</span>
-          </p>
-        ) : null}
       </div>
       {after}
       {error ? (
@@ -125,8 +114,8 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [canRetrySubmit, setCanRetrySubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // True for one short animation after a chip writes into the item name.
-  const [justFilled, setJustFilled] = useState(false);
+  // The field a chip just wrote into, for one short animation.
+  const [justFilled, setJustFilled] = useState<ReportFieldName | null>(null);
   const {
     credential,
     matching,
@@ -198,15 +187,29 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
     }
   }
 
-  function fillItemName(item: string) {
-    updateField("itemName", item);
-    setJustFilled(false);
-    requestAnimationFrame(() => setJustFilled(true));
-    const input = fieldRefs.current.itemName;
+  function fill(name: ReportFieldName, text: string) {
+    updateField(name, text);
+    setJustFilled(null);
+    requestAnimationFrame(() => setJustFilled(name));
+    const input = fieldRefs.current[name];
     if (input) {
       input.focus();
-      requestAnimationFrame(() => input.setSelectionRange(item.length, item.length));
+      requestAnimationFrame(() => input.setSelectionRange(text.length, text.length));
     }
+  }
+
+  function chipFor(name: ReportFieldName, label: string, text: string) {
+    return (
+      <FillChip
+        id={`${name}-fill`}
+        label={t.fillLabel}
+        groupLabel={t.fillGroupLabel(label)}
+        text={text}
+        value={fields[name]}
+        disabled={isSubmitting}
+        onFill={(value) => fill(name, value)}
+      />
+    );
   }
 
   function resetForm() {
@@ -416,19 +419,8 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                     name="itemName"
                     label={t.itemNameLabel}
                     hint={t.itemNameHint}
-                    exampleLabel={t.example}
                     error={errors.itemName}
-                    after={
-                      <FillChips
-                        id="itemName-fill"
-                        label={t.fillLabel}
-                        groupLabel={t.fillGroupLabel}
-                        items={t.fillItems}
-                        value={fields.itemName}
-                        disabled={isSubmitting}
-                        onFill={fillItemName}
-                      />
-                    }
+                    after={chipFor("itemName", t.itemNameLabel, k.itemNameFill)}
                   >
                     <input
                       ref={(node) => {
@@ -440,11 +432,11 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                       dir={fields.itemName ? "auto" : undefined}
                       value={fields.itemName}
                       onChange={(event) => updateField("itemName", event.target.value)}
-                      onAnimationEnd={() => setJustFilled(false)}
+                      onAnimationEnd={() => setJustFilled(null)}
                       disabled={isSubmitting}
                       autoComplete="off"
                       enterKeyHint="next"
-                      className={`${fieldClassName} ${justFilled ? "form-filled" : ""}`}
+                      className={`${fieldClassName} ${justFilled === "itemName" ? "form-filled" : ""}`}
                       aria-invalid={Boolean(errors.itemName)}
                       aria-describedby={describedBy("itemName", errors.itemName)}
                     />
@@ -454,9 +446,8 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                     name="description"
                     label={k.descriptionLabel}
                     hint={k.descriptionHint}
-                    example={k.descriptionExample}
-                    exampleLabel={t.example}
                     error={errors.description}
+                    after={chipFor("description", k.descriptionLabel, k.descriptionFill)}
                   >
                     <textarea
                       ref={(node) => {
@@ -468,8 +459,9 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                       rows={4}
                       value={fields.description}
                       onChange={(event) => updateField("description", event.target.value)}
+                      onAnimationEnd={() => setJustFilled(null)}
                       disabled={isSubmitting}
-                      className={`${textareaClassName} min-h-32`}
+                      className={`${textareaClassName} min-h-32 ${justFilled === "description" ? "form-filled" : ""}`}
                       aria-invalid={Boolean(errors.description)}
                       aria-describedby={describedBy(
                         "description",
@@ -495,9 +487,8 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                     name="location"
                     label={k.locationLabel}
                     hint={k.locationHint}
-                    example={k.locationExample}
-                    exampleLabel={t.example}
                     error={errors.location}
+                    after={chipFor("location", k.locationLabel, k.locationFill)}
                   >
                     <input
                       ref={(node) => {
@@ -509,10 +500,11 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                       dir={fields.location ? "auto" : undefined}
                       value={fields.location}
                       onChange={(event) => updateField("location", event.target.value)}
+                      onAnimationEnd={() => setJustFilled(null)}
                       disabled={isSubmitting}
                       autoComplete="off"
                       enterKeyHint="done"
-                      className={fieldClassName}
+                      className={`${fieldClassName} ${justFilled === "location" ? "form-filled" : ""}`}
                       aria-invalid={Boolean(errors.location)}
                       aria-describedby={describedBy("location", errors.location)}
                     />
