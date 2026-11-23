@@ -1,53 +1,107 @@
 @import "tailwindcss";
 
 /*
-  Amanah design tokens. One palette and one set of faces for the public site
-  and the staff workspace. See docs/design-guidelines.md.
+  Amanah design tokens: one palette, one type system and one set of shapes for
+  the public site and the staff workspace. See docs/design-guidelines.md.
+
+  The feeling: a real place where someone can leave an item for safekeeping.
+  Deep pine for the stage and footer, warm paper for the pages, a little brass.
 */
 @theme {
   /* Brand */
-  --color-cream: #f4f3ee;
-  --color-charcoal: #101d22;
-  --color-ink: #0c191e;
-  --color-sage: #8fae9a;
-  --color-forest: #426d58;
-  --color-pine: #214c43;
-  --color-clay: #c87742;
-  --color-clay-ink: #9a5326;
+  --color-paper: #f5f0e6;
+  --color-paper-deep: #eae3d5;
+  --color-pine-deep: #163a33;
+  --color-pine: #1f4a40;
+  --color-forest: #2e5e52;
+  --color-sage: #9bb8a8;
+  --color-brass: #b08d57;
+  --color-brass-ink: #7a5a2e;
+  --color-brass-light: #d9be86;
+  --color-brass-soft: #f0e4cc;
+
+  /* Older names, kept so existing screens keep working. */
+  --color-cream: #f5f0e6;
+  --color-charcoal: #10201c;
+  --color-ink: #163a33;
+  --color-clay: #b08d57;
+  --color-clay-ink: #7a5a2e;
 
   /* Roles */
-  --color-background: #f4f3ee;
-  --color-foreground: #101d22;
-  --color-card: #fbfaf7;
-  --color-card-foreground: #101d22;
-  --color-primary: #101d22;
-  --color-primary-foreground: #f4f3ee;
-  --color-secondary: #e9e8e0;
-  --color-secondary-foreground: #101d22;
-  --color-muted: #e9e8e0;
-  --color-muted-foreground: #55656a;
-  --color-accent: #e1eae4;
-  --color-accent-foreground: #101d22;
+  --color-background: #f5f0e6;
+  --color-foreground: #10201c;
+  --color-card: #fbf8f1;
+  --color-card-foreground: #10201c;
+  --color-primary: #163a33;
+  --color-primary-foreground: #f5f0e6;
+  --color-secondary: #eae3d5;
+  --color-secondary-foreground: #10201c;
+  --color-muted: #eae3d5;
+  --color-muted-foreground: #4f5f59;
+  --color-accent: #dce6e0;
+  --color-accent-foreground: #10201c;
   --color-destructive: #8a2f2f;
-  --color-border: #dad8ce;
-  --color-input: #dad8ce;
-  --color-ring: #426d58;
+  --color-border: #d6cdbd;
+  --color-input: #d6cdbd;
+  --color-ring: #2e5e52;
 
   /* Decision and status pairs (staff workspace, tracking outcomes) */
-  --color-ok-soft: #e3f1e8;
+  --color-ok-soft: #dfeee3;
   --color-ok-ink: #1d4a35;
-  --color-bad-soft: #fdecea;
+  --color-bad-soft: #f8e4e0;
   --color-bad-ink: #8a2323;
-  --color-wait-soft: #fbf0e6;
-  --color-wait-ink: #7a3f17;
+  --color-wait-soft: #f6e9d6;
+  --color-wait-ink: #7a4a17;
 
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
-  --font-arabic: var(--font-amiri), serif;
-  --font-heading: var(--font-cormorant), ui-serif, Georgia, serif;
+  /*
+    Type. Plex Sans Arabic and Plex Sans share one skeleton, so Arabic and
+    English pages read as one voice. `--font-serif` now points at the same
+    stack: every heading that still says `font-serif` converts at once.
+    Cormorant and Amiri are loaded only for the wordmark.
+  */
+  --font-sans: var(--font-plex), var(--font-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-plex), var(--font-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: var(--font-plex-arabic), var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  --font-wordmark-latin: var(--font-cormorant), ui-serif, Georgia, serif;
+  --font-wordmark-arabic: var(--font-amiri), "Amiri", serif;
 
-  /* Only for things that float (tooltips, the hero tags). Surfaces at rest are flat. */
-  --shadow-float: 0 18px 40px -18px rgb(12 25 30 / 0.55);
+  /*
+    Type scale. Sizes are fluid; line-heights and tracking come from variables
+    that `html:lang(ar)` loosens (Arabic needs more leading and no tracking).
+  */
+  --text-display: clamp(2.75rem, 1.6rem + 4.2vw, 5.75rem);
+  --text-display--line-height: var(--leading-display);
+  --text-display--letter-spacing: var(--tracking-display);
+  --text-display--font-weight: 600;
+
+  --text-title: clamp(2.125rem, 1.5rem + 2.2vw, 3.5rem);
+  --text-title--line-height: var(--leading-title);
+  --text-title--letter-spacing: var(--tracking-title);
+  --text-title--font-weight: 600;
+
+  --text-heading: clamp(1.5rem, 1.25rem + 0.9vw, 2rem);
+  --text-heading--line-height: var(--leading-heading);
+  --text-heading--letter-spacing: var(--tracking-heading);
+  --text-heading--font-weight: 600;
+
+  --text-subheading: 1.25rem;
+  --text-subheading--line-height: var(--leading-body);
+  --text-subheading--font-weight: 600;
+
+  --text-lead: clamp(1.125rem, 1rem + 0.4vw, 1.3125rem);
+  --text-lead--line-height: var(--leading-lead);
+
+  --text-body: 1rem;
+  --text-body--line-height: var(--leading-body);
+
+  --text-small: 0.9375rem;
+  --text-small--line-height: var(--leading-body);
+
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.5;
+
+  /* Only for things that float (tooltips, menus, a tag mid-swing). Surfaces at rest are flat. */
+  --shadow-float: 0 18px 40px -18px rgb(22 58 51 / 0.5);
 
   --animate-orbit: amanah-orbit 1.6s linear infinite;
   --animate-breathe: amanah-breathe 2.4s ease-in-out infinite;
@@ -124,6 +178,22 @@
 }
 
 @layer base {
+  :root {
+    /* English rhythm: tight display, relaxed body. */
+    --leading-display: 1.04;
+    --leading-title: 1.1;
+    --leading-heading: 1.2;
+    --leading-lead: 1.55;
+    --leading-body: 1.6;
+    --tracking-display: -0.02em;
+    --tracking-title: -0.015em;
+    --tracking-heading: -0.01em;
+    color-scheme: light;
+    accent-color: var(--color-forest);
+    caret-color: var(--color-forest);
+    scrollbar-color: color-mix(in srgb, var(--color-pine) 45%, transparent) transparent;
+  }
+
   * {
     border-color: var(--color-border);
   }
@@ -131,6 +201,31 @@
   html {
     font-family: var(--font-sans);
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /*
+    Arabic pages set every line in Plex Sans Arabic, Latin included. Arabic
+    letterforms sit taller and join, so they take more leading and never any
+    tracking.
+  */
+  html:lang(ar) {
+    --font-sans: var(--font-plex-arabic), var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+    --font-serif: var(--font-plex-arabic), var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+    --leading-display: 1.22;
+    --leading-title: 1.28;
+    --leading-heading: 1.4;
+    --leading-lead: 1.8;
+    --leading-body: 1.85;
+    --tracking-display: 0;
+    --tracking-title: 0;
+    --tracking-heading: 0;
+  }
+
+  /* Arabic islands on an English page, and vice versa, take their own rhythm. */
+  html:lang(en) [lang="ar"] {
+    font-family: var(--font-plex-arabic), var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0;
   }
 
   body {
@@ -139,29 +234,89 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "kern";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  /* Counts, scores and times line up. */
+  table,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  a {
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1.5px;
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--color-sage) 40%, transparent);
-    color: var(--color-charcoal);
+    background: color-mix(in srgb, var(--color-brass) 35%, var(--color-paper));
+    color: var(--color-foreground);
+  }
+
+  .bg-ink ::selection,
+  .bg-pine-deep ::selection,
+  .bg-pine ::selection {
+    background: color-mix(in srgb, var(--color-brass-light) 55%, transparent);
+    color: var(--color-paper);
+  }
+
+  ::placeholder {
+    color: var(--color-muted-foreground);
+    opacity: 1;
+  }
+
+  /* The browser's own parts take the palette. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-pine) 45%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  :focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-ring) 70%, transparent);
+    outline-offset: 2px;
   }
 }
 
 /*
-  The ink surface is written here, not only as a scanned utility. A dev CSS
+  The pine stage is written here, not only as a scanned utility. A dev CSS
   rebuild can omit `.bg-ink` while still emitting `.text-cream`, which leaves
-  cream type on the cream page.
+  paper type on the paper page.
 */
 .bg-ink {
-  background-color: #0c191e;
+  background-color: #163a33;
 }
 
 .text-ink {
-  color: #0c191e;
+  color: #163a33;
 }
 
 .ring-offset-ink {
-  --tw-ring-offset-color: #0c191e;
+  --tw-ring-offset-color: #163a33;
 }
 
 /*
@@ -171,7 +326,7 @@
   content so focus rings on the content are never clipped.
 */
 
-/* A luggage tag: two cut corners on the eyelet side. */
+/* A luggage tag: two cut corners on the eyelet side, which is the start side. */
 .shape-tag {
   clip-path: polygon(
     var(--tag-cut, 1.75rem) 0,
@@ -183,12 +338,34 @@
   );
 }
 
+/* In right-to-left pages the eyelet moves to the right edge. */
+[dir="rtl"] .shape-tag,
+.shape-tag:dir(rtl) {
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--tag-cut, 1.75rem)) 0,
+    100% var(--tag-cut, 1.75rem),
+    100% calc(100% - var(--tag-cut, 1.75rem)),
+    calc(100% - var(--tag-cut, 1.75rem)) 100%,
+    0 100%
+  );
+}
+
 /* A slip torn from a pad: a zigzag along its bottom edge. */
 .edge-torn {
   --tooth: 0.75rem;
   padding-bottom: calc(var(--tooth) + 1.5rem);
   mask:
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg)
+    50% / calc(2 * var(--tooth)) 100%;
+}
+
+/* The same tear along the top edge: the stub that stays on the pad. */
+.edge-torn-top {
+  --tooth: 0.75rem;
+  padding-top: calc(var(--tooth) + 1.5rem);
+  mask:
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg)
     50% / calc(2 * var(--tooth)) 100%;
 }
 
@@ -209,6 +386,18 @@
   background: radial-gradient(circle, currentColor 0.09rem, #0000 0.11rem) 0 50% / 0.5rem 0.25rem
     repeat-x;
   opacity: 0.45;
+}
+
+/* A brass eyelet ring, for the tag's hole and the one highlighted result. */
+.eyelet {
+  box-shadow: inset 0 0 0 3px var(--color-brass);
+  border-radius: 999px;
+}
+
+/* Flip a directional glyph (arrows, back chevrons) on right-to-left pages. */
+[dir="rtl"] .flip-rtl,
+.flip-rtl:dir(rtl) {
+  transform: scaleX(-1);
 }
 
 @media (prefers-reduced-motion: no-preference) {

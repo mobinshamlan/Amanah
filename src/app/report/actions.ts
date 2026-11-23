@@ -3,13 +3,15 @@
 import { randomUUID } from "node:crypto";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { currentIpKey } from "@/utils/limits/clientIp";
-import { consumeReportSubmission, usageBusyMessage } from "@/utils/limits/usageLimit";
+import { consumeReportSubmission } from "@/utils/limits/usageLimit";
 import { runWithUsageScope } from "@/utils/limits/usageScope";
 import {
   validateReportFields,
   type FieldErrors,
   type ReportFields,
 } from "@/app/report/validation";
+import { getMessages } from "@/i18n/server";
+import { report as reportMessages } from "@/i18n/messages/report";
 import {
   buildPairs,
   type MatchReport,
@@ -30,7 +32,7 @@ import {
   toPublicStatus,
   type PublicMatchingStatus,
 } from "@/utils/matching/publicStatus";
-import { getGeminiModel } from "@/utils/gemini/compareReports";
+import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import { loadFailureRow, recordMatchingRun } from "@/utils/monitoring/runLog";
 
 export type ReportType = "lost" | "found";
@@ -46,11 +48,6 @@ export type SubmitReportResult = {
 export type ContinueMatchingResult =
   | { ok: true; status: PublicMatchingStatus; waitMs?: number }
   | { ok: false };
-
-const LOCATION_REQUIRED: Record<ReportType, string> = {
-  lost: "Last-seen location is required.",
-  found: "Found location is required.",
-};
 
 // Longer than the worst case of one call: a 30 s batch request, one retry after
 // 2 s, another 30 s, then saving the results.
@@ -71,42 +68,35 @@ export async function submitReport(
   reportType: ReportType,
   input: ReportFields,
 ): Promise<SubmitReportResult> {
+  // Messages in the visitor's language; the form shows them as they come.
+  const t = await getMessages(reportMessages);
+
   // Only allow the two known types — never accept arbitrary client strings.
   if (reportType !== "lost" && reportType !== "found") {
-    return {
-      ok: false,
-      message: "Could not save your report. Please try again.",
-    };
+    return { ok: false, message: t.saveFailed };
   }
 
-  const fieldErrors = validateReportFields(
-    input,
-    LOCATION_REQUIRED[reportType],
-  );
+  const fieldErrors = validateReportFields(input, {
+    ...t,
+    locationRequired: t.kinds[reportType].locationRequired,
+  });
 
   if (Object.keys(fieldErrors).length > 0) {
-    return {
-      ok: false,
-      message: "Please fix the highlighted fields.",
-      fieldErrors,
-    };
+    return { ok: false, message: t.fixHighlighted, fieldErrors };
   }
 
   // The server key inserts the row. After the usage-limit migration, anonymous
   // clients can no longer insert reports directly and skip this check.
   const submission = await consumeReportSubmission(await currentIpKey());
   if (submission === "blocked") {
-    return { ok: false, message: usageBusyMessage() };
+    return { ok: false, message: t.busy };
   }
 
   const reportId = randomUUID();
   const supabase = tryCreateAdminClient();
   if (!supabase) {
     console.error("Report insert unavailable: admin client not configured");
-    return {
-      ok: false,
-      message: "Could not save your report. Please try again.",
-    };
+    return { ok: false, message: t.saveFailed };
   }
 
   const { error } = await supabase.from("reports").insert({
@@ -119,13 +109,10 @@ export async function submitReport(
 
   if (error) {
     console.error("Failed to insert report:", error.code);
-    return {
-      ok: false,
-      message: "Could not save your report. Please try again.",
-    };
+    return { ok: false, message: t.saveFailed };
   }
 
-  const saved = { ok: true, message: "Report saved." };
+  const saved = { ok: true, message: t.savedContext };
 
   const credential = createSubmissionCredential();
   const { error: credentialError } = await supabase.from("report_submissions").insert({
@@ -233,7 +220,7 @@ export async function continueMatching(
     remaining = pairs.filter((pair) => !checkedKeys.has(pair.key)).length;
 
     if (hasLease && remaining > 0) {
-      if (!process.env.GEMINI_API_KEY?.trim()) {
+      if (!isGeminiConfigured()) {
         failure = "config";
       } else {
         const summary = await runWithUsageScope({ ipKey, reportId: report.id }, () =>

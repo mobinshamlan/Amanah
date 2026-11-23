@@ -3,8 +3,11 @@
 import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 import { submitReport, type ReportType } from "@/app/report/actions";
 import {
+  DESCRIPTION_MAX,
   validateReportFields,
   type FieldErrors,
+  type ReportFieldName,
+  type ReportFields,
 } from "@/app/report/validation";
 import {
   FoundConfirmation,
@@ -13,42 +16,45 @@ import {
 } from "@/app/report/SubmissionConfirmation";
 import { trackingHref } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { ArrowRightIcon, KeyholeGlyph, KeyholeMark } from "@/components/icons";
+import { KeyholeGlyph, LensIcon, LockIcon, TagIcon } from "@/components/icons";
 import {
   FieldError,
   Notice,
   PageShell,
   Spinner,
   fieldClassName,
+  hintClassName,
+  labelClassName,
   primaryButtonLargeClassName,
+  secondaryButtonClassName,
   textareaClassName,
 } from "@/components/ui";
+import { formatNumber } from "@/i18n/format";
+import { useLocale, useMessages } from "@/i18n/LocaleProvider";
+import { report } from "@/i18n/messages/report";
 
-const descriptionClassName = `${textareaClassName} min-h-40`;
-
-const legendClassName =
-  "font-serif text-[1.75rem] font-semibold leading-tight tracking-[-0.01em] text-foreground";
+/*
+  The two reporting forms. One component, two kinds: what differs is the
+  question in the headline, the examples in the fields and the shape of the
+  guidance piece. Lost is a slip torn from the desk's pad (the report you
+  leave); found is a tag on deep pine (the tag tied to the item). The
+  difference is carried by the words, the mark and the shape, never by colour
+  alone.
+*/
 
 function storageKey(reportType: ReportType) {
   return `amanah:submission:${reportType}`;
 }
 
-type ReportFormProps = {
-  reportType: ReportType;
-  eyebrow: string;
-  title: string;
-  intro: string;
-  locationLabel: string;
-  locationHint: string;
-  locationRequiredMessage: string;
-  // Supporting guidance shown beside the form on desktop and after it on phones.
-  nextSteps?: string[];
-};
+const EMPTY: ReportFields = { itemName: "", description: "", location: "" };
+const FIELD_ORDER: ReportFieldName[] = ["itemName", "description", "location"];
 
-type FieldName = keyof FieldErrors;
-
-function describedBy(name: FieldName, errors: FieldErrors) {
-  return errors[name] ? `${name}-hint ${name}-error` : `${name}-hint`;
+// Fields take the page direction while empty (an empty dir="auto" field lays
+// its placeholder out left-to-right in Chrome) and follow their text after.
+function describedBy(name: ReportFieldName, error: string | undefined, extra?: string) {
+  return [`${name}-hint`, extra, error ? `${name}-error` : undefined]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function Field({
@@ -58,43 +64,62 @@ function Field({
   error,
   children,
 }: {
-  name: FieldName;
+  name: ReportFieldName;
   label: string;
   hint: string;
   error?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-col gap-1">
-        <label htmlFor={name} className="text-base font-semibold leading-snug text-foreground">
+    <div className="flex min-w-0 flex-col gap-2.5">
+      <div className="flex flex-col gap-0.5">
+        <label htmlFor={name} className={labelClassName}>
           {label}
         </label>
-        <p id={`${name}-hint`} className="text-[0.9375rem] leading-relaxed text-muted-foreground">
+        <p id={`${name}-hint`} className={hintClassName}>
           {hint}
         </p>
       </div>
       {children}
-      {error ? <FieldError id={`${name}-error`}>{error}</FieldError> : null}
+      {error ? (
+        <FieldError id={`${name}-error`}>
+          <span className="break-words">{error}</span>
+        </FieldError>
+      ) : null}
     </div>
   );
 }
 
-export default function ReportForm({
-  reportType,
-  eyebrow,
-  title,
-  intro,
-  locationLabel,
-  locationHint,
-  locationRequiredMessage,
-  nextSteps,
-}: ReportFormProps) {
-  const [itemName, setItemName] = useState("");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+/** The kind's mark: a lens in a dashed ring for lost, a tag on a filled tile for found. */
+function KindMark({ kind }: { kind: ReportType }) {
+  return kind === "lost" ? (
+    <span
+      aria-hidden
+      className="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-pine/60 text-pine sm:size-16"
+    >
+      <LensIcon className="size-6 sm:size-8" />
+    </span>
+  ) : (
+    <span
+      aria-hidden
+      className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-accent text-pine sm:size-16"
+    >
+      <TagIcon className="size-6 sm:size-8" />
+    </span>
+  );
+}
+
+export default function ReportForm({ reportType }: { reportType: ReportType }) {
+  const t = useMessages(report);
+  const k = t.kinds[reportType];
+  const { locale } = useLocale();
+  const validationMessages = { ...t, locationRequired: k.locationRequired };
+
+  const [fields, setFields] = useState<ReportFields>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [attempted, setAttempted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [canRetrySubmit, setCanRetrySubmit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     credential,
@@ -107,9 +132,11 @@ export default function ReportForm({
     clear,
   } = useMatchingProgress({ reportType, storageKey: storageKey(reportType) });
   const confirmationHeadingRef = useRef<HTMLHeadingElement>(null);
-  const itemNameRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const locationRef = useRef<HTMLInputElement>(null);
+  const fieldRefs = useRef<Record<ReportFieldName, HTMLInputElement | HTMLTextAreaElement | null>>({
+    itemName: null,
+    description: null,
+    location: null,
+  });
   const focusFormAfterReset = useRef(false);
   const showConfirmation = matching !== null;
 
@@ -145,29 +172,39 @@ export default function ReportForm({
       confirmationHeadingRef.current?.focus({ preventScroll: true });
     } else if (focusFormAfterReset.current) {
       focusFormAfterReset.current = false;
-      itemNameRef.current?.focus();
+      fieldRefs.current.itemName?.focus();
     }
   }, [showConfirmation]);
 
   function focusFirstInvalid(fieldErrors: FieldErrors) {
-    if (fieldErrors.itemName) {
-      itemNameRef.current?.focus();
-    } else if (fieldErrors.description) {
-      descriptionRef.current?.focus();
-    } else if (fieldErrors.location) {
-      locationRef.current?.focus();
+    const first = FIELD_ORDER.find((name) => fieldErrors[name]);
+    if (first) {
+      fieldRefs.current[first]?.focus();
     }
+  }
+
+  function updateField(name: ReportFieldName, value: string) {
+    const next = { ...fields, [name]: value };
+    setFields(next);
+    // After one attempt, errors clear as soon as the field is fixed.
+    if (attempted) {
+      setErrors(validateReportFields(next, validationMessages));
+    }
+  }
+
+  function resetForm() {
+    setErrors({});
+    setAttempted(false);
+    setFormError(null);
+    setCanRetrySubmit(false);
+    setFields(EMPTY);
   }
 
   function startAnotherReport() {
     // Stop following the previous submission; it stays saved and is not sent again.
     clear();
     sessionStorage.removeItem(storageKey(reportType));
-    setErrors({});
-    setFormError(null);
-    setItemName("");
-    setDescription("");
-    setLocation("");
+    resetForm();
     focusFormAfterReset.current = true;
   }
 
@@ -180,16 +217,16 @@ export default function ReportForm({
     void continueChecks(credential);
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submit() {
+    if (isSubmitting) {
+      return;
+    }
     setFormError(null);
+    setCanRetrySubmit(false);
+    setAttempted(true);
 
-    const nextErrors = validateReportFields(
-      { itemName, description, location },
-      locationRequiredMessage,
-    );
+    const nextErrors = validateReportFields(fields, validationMessages);
     setErrors(nextErrors);
-
     if (Object.keys(nextErrors).length > 0) {
       focusFirstInvalid(nextErrors);
       return;
@@ -202,26 +239,21 @@ export default function ReportForm({
     let leavingPage = false;
 
     try {
-      const result = await submitReport(reportType, {
-        itemName,
-        description,
-        location,
-      });
+      const result = await submitReport(reportType, fields);
 
       if (!result.ok) {
         if (result.fieldErrors) {
           setErrors(result.fieldErrors);
+          setFormError(result.message ?? t.fixHighlighted);
+          focusFirstInvalid(result.fieldErrors);
+        } else {
+          setFormError(result.message ?? t.saveFailed);
+          setCanRetrySubmit(true);
         }
-        setFormError(
-          result.message ?? "Could not save your report. Please try again.",
-        );
         return;
       }
 
-      setErrors({});
-      setItemName("");
-      setDescription("");
-      setLocation("");
+      resetForm();
 
       if (result.credential && reportType === "lost") {
         // The private tracking link follows matching from here, and keeps
@@ -235,7 +267,8 @@ export default function ReportForm({
         setMatching({ phase: "unavailable" });
       }
     } catch {
-      setFormError("Could not save your report. Please try again.");
+      setFormError(t.saveFailed);
+      setCanRetrySubmit(true);
     } finally {
       if (!leavingPage) {
         setIsSubmitting(false);
@@ -243,11 +276,29 @@ export default function ReportForm({
     }
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void submit();
+  }
+
+  const descriptionLength = fields.description.trim().length;
+  const overLimit = descriptionLength - DESCRIPTION_MAX;
+  const counterText =
+    overLimit > 0
+      ? t.overLimit(formatNumber(overLimit, locale))
+      : t.counter(formatNumber(descriptionLength, locale), formatNumber(DESCRIPTION_MAX, locale));
+
+  const lost = reportType === "lost";
+
   return (
     <PageShell width={matching ? "narrow" : "wide"}>
       {/* Always mounted so screen readers announce each status change. */}
       <p role="status" className="sr-only">
-        {matching ? statusMessage(reportType, matching, isContinuing) : ""}
+        {matching
+          ? statusMessage(reportType, matching, isContinuing)
+          : isSubmitting
+            ? t.savingStatus
+            : ""}
       </p>
 
       {matching ? (
@@ -262,10 +313,10 @@ export default function ReportForm({
           />
         ) : (
           <LostConfirmation
-            context="Report saved"
+            context={t.savedContext}
             saved
-            title="Lost report saved"
-            intro="Your report is saved."
+            title={k.savedTitle}
+            intro={k.savedIntro}
             view={matching}
             isContinuing={isContinuing}
             canRetry={canRetry}
@@ -275,184 +326,199 @@ export default function ReportForm({
           >
             {credential ? null : (
               <Notice className="mt-4">
-                <span className="font-normal">
-                  A private tracking link could not be created for this report,
-                  so its progress cannot be followed later. Your report is still
-                  saved.
-                </span>
+                <span className="font-normal">{t.noTrackingLink}</span>
               </Notice>
             )}
           </LostConfirmation>
         )
       ) : (
-        // Phones read title, form, then guidance; wide screens put the
-        // guidance under the title, beside the form.
-        <div className="mt-6 grid items-start gap-10 sm:mt-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:gap-y-12">
-          <header className="flex flex-col motion-safe:animate-rise lg:col-start-1 lg:row-start-1">
-            <p className="flex items-center gap-2.5 text-[0.9375rem] font-medium text-forest">
-              <KeyholeMark className="size-7" />
-              {eyebrow}
-            </p>
-            <h1 className="mt-5 max-w-[12ch] text-balance font-serif text-[2.75rem] font-semibold leading-[1.0] tracking-[-0.02em] text-foreground sm:text-6xl lg:text-[4.25rem]">
-              {title}
-            </h1>
-            <p className="mt-5 max-w-[46ch] text-pretty text-base leading-relaxed text-foreground/80 sm:text-lg">
-              {intro}
-            </p>
+        // Phones read the question, the form, then the guidance; wide screens
+        // put the guidance under the question, beside the form sheet.
+        <div className="mt-4 grid items-start gap-8 sm:mt-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:gap-y-10">
+          <header className="flex min-w-0 flex-col items-start gap-4 motion-safe:animate-rise lg:col-start-1 lg:row-start-1 lg:gap-6">
+            <KindMark kind={reportType} />
+            <div className="flex min-w-0 flex-col gap-3 sm:gap-4">
+              <h1 className="max-w-[14ch] text-title text-foreground">{k.title}</h1>
+              <p className="max-w-[46ch] text-lead text-foreground/85">{k.intro}</p>
+            </div>
           </header>
 
           <form
             onSubmit={handleSubmit}
             aria-busy={isSubmitting}
-            aria-label={title}
-            className="rounded-[1.75rem] border border-border bg-card p-5 motion-safe:animate-rise motion-safe:[animation-delay:80ms] sm:p-10 lg:col-start-2 lg:row-span-2 lg:row-start-1"
+            aria-label={k.formLabel}
+            className="min-w-0 rounded-[1.75rem] bg-card p-5 motion-safe:animate-rise motion-safe:[animation-delay:80ms] sm:p-8 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:p-10"
             noValidate
           >
-            <p className="text-[0.9375rem] leading-relaxed text-muted-foreground">
-              All fields are required.
-            </p>
+            <p className="text-small text-muted-foreground">{t.required}</p>
 
-            <fieldset className="mt-6">
-              <legend className={legendClassName}>What it is</legend>
-              <div className="mt-5 flex flex-col gap-7">
-                <Field
+            <div className="mt-6 flex flex-col gap-7">
+              <Field
+                name="itemName"
+                label={t.itemNameLabel}
+                hint={t.itemNameHint}
+                error={errors.itemName}
+              >
+                <input
+                  ref={(node) => {
+                    fieldRefs.current.itemName = node;
+                  }}
+                  id="itemName"
                   name="itemName"
-                  label="Item name"
-                  hint="A short name, for example “Black backpack”."
-                  error={errors.itemName}
-                >
-                  <input
-                    ref={itemNameRef}
-                    id="itemName"
-                    name="itemName"
-                    type="text"
-                    value={itemName}
-                    onChange={(event) => setItemName(event.target.value)}
-                    disabled={isSubmitting}
-                    className={fieldClassName}
-                    aria-invalid={Boolean(errors.itemName)}
-                    aria-describedby={describedBy("itemName", errors)}
-                  />
-                </Field>
+                  type="text"
+                  dir={fields.itemName ? "auto" : undefined}
+                  value={fields.itemName}
+                  onChange={(event) => updateField("itemName", event.target.value)}
+                  placeholder={k.itemNamePlaceholder}
+                  disabled={isSubmitting}
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  className={fieldClassName}
+                  aria-invalid={Boolean(errors.itemName)}
+                  aria-describedby={describedBy("itemName", errors.itemName)}
+                />
+              </Field>
 
-                <Field
+              <Field
+                name="description"
+                label={k.descriptionLabel}
+                hint={k.descriptionHint}
+                error={errors.description}
+              >
+                <textarea
+                  ref={(node) => {
+                    fieldRefs.current.description = node;
+                  }}
+                  id="description"
                   name="description"
-                  label="Description"
-                  hint="Colour, brand, size, contents, or anything distinctive."
-                  error={errors.description}
+                  dir={fields.description ? "auto" : undefined}
+                  rows={5}
+                  value={fields.description}
+                  onChange={(event) => updateField("description", event.target.value)}
+                  placeholder={k.descriptionPlaceholder}
+                  disabled={isSubmitting}
+                  className={`${textareaClassName} min-h-36`}
+                  aria-invalid={Boolean(errors.description)}
+                  aria-describedby={describedBy("description", errors.description, "description-count")}
+                />
+                <p
+                  id="description-count"
+                  data-numeric
+                  className={`-mt-1 text-end text-caption ${
+                    overLimit > 0 ? "font-semibold text-destructive" : "text-muted-foreground"
+                  }`}
                 >
-                  <textarea
-                    ref={descriptionRef}
-                    id="description"
-                    name="description"
-                    rows={4}
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    disabled={isSubmitting}
-                    className={descriptionClassName}
-                    aria-invalid={Boolean(errors.description)}
-                    aria-describedby={describedBy("description", errors)}
-                  />
-                </Field>
-              </div>
-            </fieldset>
+                  <span className="sr-only">{t.counterLabel}: </span>
+                  <span dir={overLimit > 0 ? undefined : "ltr"}>{counterText}</span>
+                </p>
+              </Field>
 
-            <span aria-hidden className="perforation my-9 block text-foreground/20" />
-
-            <fieldset>
-              <legend className={legendClassName}>Where</legend>
-              <div className="mt-5">
-                <Field
+              <Field
+                name="location"
+                label={k.locationLabel}
+                hint={k.locationHint}
+                error={errors.location}
+              >
+                <input
+                  ref={(node) => {
+                    fieldRefs.current.location = node;
+                  }}
+                  id="location"
                   name="location"
-                  label={locationLabel}
-                  hint={locationHint}
-                  error={errors.location}
-                >
-                  <input
-                    ref={locationRef}
-                    id="location"
-                    name="location"
-                    type="text"
-                    value={location}
-                    onChange={(event) => setLocation(event.target.value)}
-                    disabled={isSubmitting}
-                    className={fieldClassName}
-                    aria-invalid={Boolean(errors.location)}
-                    aria-describedby={describedBy("location", errors)}
-                  />
-                </Field>
-              </div>
-            </fieldset>
+                  type="text"
+                  dir={fields.location ? "auto" : undefined}
+                  value={fields.location}
+                  onChange={(event) => updateField("location", event.target.value)}
+                  placeholder={k.locationPlaceholder}
+                  disabled={isSubmitting}
+                  autoComplete="off"
+                  enterKeyHint="done"
+                  className={fieldClassName}
+                  aria-invalid={Boolean(errors.location)}
+                  aria-describedby={describedBy("location", errors.location)}
+                />
+              </Field>
+            </div>
+
+            <span aria-hidden className="perforation my-8 block text-foreground/20" />
 
             {formError ? (
-              <Notice tone="error" role="alert" className="mt-8">
-                {formError}
+              <Notice tone="error" role="alert" className="mb-6">
+                <p>{formError}</p>
+                {canRetrySubmit ? (
+                  <button
+                    type="button"
+                    onClick={() => void submit()}
+                    className={`${secondaryButtonClassName} mt-3`}
+                  >
+                    {t.retry}
+                  </button>
+                ) : null}
               </Notice>
             ) : null}
 
-            {reportType === "found" ? (
-              <Notice className="mt-8">
-                After submitting this report, please drop off the item with your
-                organization’s lost-and-found staff.
-              </Notice>
-            ) : null}
-
-            <div className="mt-10">
+            <div className="flex flex-col gap-5">
+              <p className="flex items-start gap-2.5 text-small text-foreground/80">
+                <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
+                <span>{lost ? t.privacy : t.privacyFound}</span>
+              </p>
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className={primaryButtonLargeClassName}
+                aria-disabled={isSubmitting}
+                className={`${primaryButtonLargeClassName} ${
+                  isSubmitting ? "cursor-progress opacity-80" : ""
+                }`}
               >
                 {isSubmitting ? (
                   <>
                     <Spinner />
-                    Saving…
+                    {k.saving}
                   </>
                 ) : (
-                  <>
-                    Submit report
-                    <ArrowRightIcon className="size-5" />
-                  </>
+                  k.submit
                 )}
               </button>
             </div>
           </form>
 
-          {nextSteps ? (
+          {lost ? (
             <aside
-              aria-labelledby="next-steps-title"
-              className="edge-torn bg-secondary px-5 pt-7 motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-8 sm:pt-8 lg:col-start-1 lg:row-start-2"
+              aria-labelledby="guide-title"
+              className="edge-torn min-w-0 bg-secondary px-5 pt-7 motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-8 sm:pt-8 lg:col-start-1 lg:row-start-2"
             >
-              <h2
-                id="next-steps-title"
-                className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground"
-              >
-                After you submit
+              <h2 id="guide-title" className="text-heading text-foreground">
+                {k.guideTitle}
               </h2>
-              <ol className="mt-5 flex flex-col gap-4">
-                {nextSteps.map((step) => (
-                  <li key={step} className="flex gap-3 text-base leading-relaxed text-foreground">
-                    <KeyholeGlyph className="mt-1 size-4 shrink-0 text-forest" />
-                    <span>{step}</span>
+              <ul className="mt-4 flex flex-col gap-3">
+                {k.guide.map((line) => (
+                  <li key={line} className="flex gap-3 text-body text-foreground">
+                    <KeyholeGlyph className="mt-1.5 size-4 shrink-0 text-forest" />
+                    <span className="min-w-0 break-words">{line}</span>
                   </li>
                 ))}
-              </ol>
+              </ul>
+              <h3 className="mt-7 text-subheading text-foreground">{k.afterTitle}</h3>
+              <p className="mt-1.5 max-w-[48ch] text-body text-foreground/85">{k.after}</p>
             </aside>
           ) : (
             <aside
-              aria-labelledby="care-title"
-              className="relative isolate px-6 py-8 pl-9 text-cream motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-9 sm:pl-12 lg:col-start-1 lg:row-start-2"
+              aria-labelledby="guide-title"
+              className="relative isolate min-w-0 px-6 py-8 ps-9 text-paper motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:px-9 sm:ps-12 lg:col-start-1 lg:row-start-2"
             >
-              <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-forest" />
-              <h2
-                id="care-title"
-                className="max-w-[16ch] font-serif text-[2rem] font-semibold leading-[1.05] tracking-[-0.01em] text-cream"
-              >
-                Every found item is an amanah.
+              <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-pine-deep" />
+              <h2 id="guide-title" className="text-heading text-paper">
+                {k.guideTitle}
               </h2>
-              <p className="mt-3 max-w-[40ch] text-base leading-relaxed text-cream/90">
-                Your report stays private and helps staff return the item safely.
-              </p>
+              <ul className="mt-4 flex flex-col gap-3">
+                {k.guide.map((line) => (
+                  <li key={line} className="flex gap-3 text-body text-paper">
+                    <KeyholeGlyph className="mt-1.5 size-4 shrink-0 text-brass-light" />
+                    <span className="min-w-0 break-words">{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <h3 className="mt-7 text-subheading text-paper">{k.afterTitle}</h3>
+              <p className="mt-1.5 max-w-[48ch] text-body text-paper/80">{k.after}</p>
             </aside>
           )}
         </div>

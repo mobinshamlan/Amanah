@@ -9,6 +9,10 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    // Parallel local previews build into .next-<name> (see next.config.ts).
+    ".next-*/**",
+    // Local agent tooling, not application code.
+    ".agents/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

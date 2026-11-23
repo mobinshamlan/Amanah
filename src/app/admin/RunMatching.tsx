@@ -2,62 +2,87 @@
 
 import { useState, useTransition } from "react";
 import { runMatching } from "@/app/admin/actions";
-import type {
-  MatchingFailure,
-  MatchingRunSummary,
-} from "@/utils/matching/runMatchingBatch";
-import { CheckIcon } from "@/components/icons";
-import { Notice, Spinner, primaryButtonClassName } from "@/components/ui";
+import type { MatchingRunSummary } from "@/utils/matching/runMatchingBatch";
+import { AlertIcon, CheckIcon, ClockIcon, CompareIcon, ChevronDownIcon } from "@/components/icons";
+import { Notice, Spinner, focusRingClassName, primaryButtonClassName } from "@/components/ui";
+import { useLocale, useMessages } from "@/i18n/LocaleProvider";
+import { formatNumber } from "@/i18n/format";
+import { adminTools } from "@/i18n/messages/admin-tools";
 
-const FAILURE_MESSAGES: Record<MatchingFailure, string> = {
-  quota:
-    "Gemini's free-tier limit was reached. Quota errors are not retried. Wait a minute, or until the daily quota resets, then run again.",
-  usage_limit: "Amanah is busy right now because today's usage limit was reached. Please try again later.",
-  timeout: "Gemini did not answer within 20 seconds.",
-  api: "Gemini was unavailable or returned an error, including after one retry for temporary server errors.",
-  invalid_response: "Gemini returned a result that did not pass validation.",
-  config: "Gemini is not configured on the server.",
-  save: "A suggestion could not be saved to the database.",
-};
+// The manual matching run: one button, an honest status line, and the counts
+// of the last batch. The server caps each run at 4 pairs and 30 seconds and
+// stops at the first Gemini failure; this component only reports that.
 
-type SummaryCountKey = Exclude<
-  keyof MatchingRunSummary,
-  "failure" | "stoppedForTime"
->;
+type SummaryCountKey = Exclude<keyof MatchingRunSummary, "failure" | "stoppedForTime">;
 
-const MAIN_ROWS: { key: SummaryCountKey; label: string }[] = [
-  { key: "checked", label: "Pairs checked" },
-  { key: "matched", label: "New possible matches" },
-  { key: "uncertain", label: "New “not enough information”" },
-  { key: "remaining", label: "Still unchecked" },
-];
+const MAIN_ROWS: SummaryCountKey[] = ["checked", "matched", "uncertain", "remaining"];
+const DETAIL_ROWS: SummaryCountKey[] = ["noMatch", "alreadySaved", "failed"];
 
-const DETAIL_ROWS: { key: SummaryCountKey; label: string }[] = [
-  { key: "noMatch", label: "Not a match (not saved)" },
-  { key: "alreadySaved", label: "Already saved (skipped)" },
-  { key: "failed", label: "Failed" },
-];
-
-function CountList({
-  rows,
-  summary,
-}: {
-  rows: { key: SummaryCountKey; label: string }[];
-  summary: MatchingRunSummary;
-}) {
+function CountList({ rows, summary }: { rows: SummaryCountKey[]; summary: MatchingRunSummary }) {
+  const t = useMessages(adminTools).run;
+  const { locale } = useLocale();
+  const labels: Record<SummaryCountKey, string> = {
+    checked: t.checked,
+    matched: t.matched,
+    uncertain: t.uncertain,
+    remaining: t.remaining,
+    noMatch: t.noMatch,
+    alreadySaved: t.alreadySaved,
+    failed: t.failedCount,
+  };
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm @lg:grid-cols-4">
-      {rows.map((row) => (
-        <div key={row.key} className="flex flex-col">
-          <dt className="text-muted-foreground">{row.label}</dt>
-          <dd className="text-lg font-semibold tabular-nums text-foreground">{summary[row.key]}</dd>
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 @lg:grid-cols-4">
+      {rows.map((key) => (
+        <div key={key} className="flex min-w-0 flex-col-reverse gap-0.5">
+          <dt className="text-small text-muted-foreground">{labels[key]}</dt>
+          <dd className="text-[1.5rem] font-medium leading-none tabular-nums text-foreground">
+            {formatNumber(summary[key], locale)}
+          </dd>
         </div>
       ))}
     </dl>
   );
 }
 
+/** The one-line verdict of a run: done, more to do, stopped early, or a failure. */
+function RunVerdict({ summary }: { summary: MatchingRunSummary }) {
+  const t = useMessages(adminTools).run;
+  if (summary.failure) {
+    const limited = summary.failure === "quota" || summary.failure === "usage_limit";
+    return (
+      <p className="flex items-start gap-2 text-small font-medium text-foreground">
+        {limited ? (
+          <ClockIcon className="mt-0.5 size-4 shrink-0 text-wait-ink" />
+        ) : (
+          <AlertIcon className="mt-0.5 size-4 shrink-0 text-destructive" />
+        )}
+        <span>
+          {t.partialFailure} {t.failures[summary.failure]} {t.keptAfterFailure}
+        </span>
+      </p>
+    );
+  }
+  if (summary.stoppedForTime) {
+    return (
+      <p className="flex items-start gap-2 text-small font-medium text-foreground">
+        <ClockIcon className="mt-0.5 size-4 shrink-0 text-wait-ink" />
+        <span>{t.stoppedForTime}</span>
+      </p>
+    );
+  }
+  if (summary.remaining > 0) {
+    return <p className="text-small font-medium text-foreground">{t.batchDone}</p>;
+  }
+  return (
+    <p className="flex items-center gap-2 text-small font-medium text-ok-ink">
+      <CheckIcon className="size-4 shrink-0" />
+      {t.allDone}
+    </p>
+  );
+}
+
 export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
+  const t = useMessages(adminTools).run;
   const [summary, setSummary] = useState<MatchingRunSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -67,7 +92,6 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
       return;
     }
     setError(null);
-
     startTransition(async () => {
       try {
         const result = await runMatching();
@@ -77,7 +101,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
         }
         setSummary(result.summary);
       } catch {
-        setError("The matching run failed. Nothing more was checked.");
+        setError(t.failed);
       }
     });
   }
@@ -85,7 +109,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
   return (
     <div className="@container flex min-w-0 flex-col gap-4">
       {/* Stacked: button above its help text, for narrow side panels. */}
-      <div className={`flex flex-col gap-3 ${stacked ? "items-stretch" : "sm:flex-row sm:items-center"}`}>
+      <div className={`flex flex-col gap-3 ${stacked ? "items-stretch" : "sm:flex-row sm:items-start"}`}>
         <button
           type="button"
           onClick={handleRun}
@@ -96,18 +120,17 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
           {isPending ? (
             <>
               <Spinner />
-              Running…
+              {t.running}
             </>
           ) : (
-            "Check for matches"
+            <>
+              <CompareIcon className="size-4" />
+              {t.button}
+            </>
           )}
         </button>
-        <p
-          id="run-matching-help"
-          className="text-sm leading-relaxed text-muted-foreground"
-        >
-          Checks the next 4 unchecked report pairs. Run again to continue;
-          completed checks are remembered.
+        <p id="run-matching-help" className="text-small text-muted-foreground">
+          {t.help}
         </p>
       </div>
 
@@ -117,51 +140,29 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
         </Notice>
       ) : null}
 
-      {summary ? (
-        <div
-          role="status"
-          className="flex flex-col gap-3 rounded-2xl bg-background px-4 py-4"
-        >
-          {summary.failure ? (
-            <p className="text-sm font-medium leading-snug text-foreground">
-              Partial result. {FAILURE_MESSAGES[summary.failure]} Suggestions
-              saved before the error were kept, and the failed pair stays
-              unchecked.
-            </p>
-          ) : summary.stoppedForTime ? (
-            <p className="text-sm font-medium leading-snug text-foreground">
-              Partial result. The run stopped after 30 seconds to avoid a long
-              wait. Unchecked pairs were not counted as “not a match”. Run
-              again to continue.
-            </p>
-          ) : summary.remaining > 0 ? (
-            <p className="text-sm font-medium leading-snug text-foreground">
-              Batch finished. Run again to check the next pairs.
-            </p>
-          ) : (
-            <p className="flex items-center gap-2 text-sm font-medium leading-snug text-forest">
-              <CheckIcon className="size-4 shrink-0" />
-              All current pairs have been checked.
-            </p>
-          )}
-          <CountList rows={MAIN_ROWS} summary={summary} />
-          <details className="group">
-            <summary className="-ml-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-foreground outline-none transition-colors hover:text-forest focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden">
-              <span className="group-open:hidden">Show run details</span>
-              <span className="hidden group-open:inline">Hide run details</span>
-            </summary>
-            <div className="mt-2 flex flex-col gap-2">
-              <CountList rows={DETAIL_ROWS} summary={summary} />
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Every completed comparison, including “not a match”, is
-                recorded and not sent to Gemini again. Failed comparisons are
-                not recorded, so they are retried on the next run. New reports
-                are included automatically.
-              </p>
-            </div>
-          </details>
-        </div>
-      ) : null}
+      {/* Stays mounted so a finished run is announced. */}
+      <div role="status" aria-live="polite" className={summary ? "" : "sr-only"}>
+        {isPending ? <span className="sr-only">{t.running}</span> : null}
+        {summary ? (
+          <div className="flex flex-col gap-3 rounded-2xl bg-background px-4 py-4">
+            <RunVerdict summary={summary} />
+            <CountList rows={MAIN_ROWS} summary={summary} />
+            <details className="group/details">
+              <summary
+                className={`-ms-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-small font-semibold text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`}
+              >
+                <span className="group-open/details:hidden">{t.showDetails}</span>
+                <span className="hidden group-open/details:inline">{t.hideDetails}</span>
+                <ChevronDownIcon className="size-4 transition-transform group-open/details:rotate-180" />
+              </summary>
+              <div className="mt-2 flex flex-col gap-3">
+                <CountList rows={DETAIL_ROWS} summary={summary} />
+                <p className="text-small text-muted-foreground">{t.detailsNote}</p>
+              </div>
+            </details>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

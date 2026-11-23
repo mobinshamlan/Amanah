@@ -1,46 +1,72 @@
+"use client";
+
 import Link from "next/link";
-import { KeyholeMark } from "@/components/icons";
+import type { ReactNode } from "react";
+import { frameClassName } from "@/components/frame";
+import { ArrowStartIcon, KeyholeMark } from "@/components/icons";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { useMessages } from "@/i18n/LocaleProvider";
+import { common } from "@/i18n/messages/common";
 
-type Tone = "cream" | "ink";
+/*
+  Site chrome: wordmark, header, footer and the back link. This module is a
+  client module so the same header can sit inside server pages and inside
+  client screens (the report form, the tracking page) while reading the
+  visitor's language from context.
 
-const NAV = [
-  { href: "/report/lost", label: "Report lost" },
-  { href: "/report/found", label: "Report found" },
-] as const;
+  Two tones. "paper" is the light tone for every inner page; "pine" is the
+  dark tone for the homepage stage. The older names "cream" and "ink" still
+  work and map to the same two tones.
+*/
 
-function focusFor(tone: Tone) {
-  return tone === "ink"
-    ? "outline-none focus-visible:ring-3 focus-visible:ring-sage focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
-    : "outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+export type Tone = "paper" | "pine" | "cream" | "ink";
+type ResolvedTone = "paper" | "pine";
+
+function resolveTone(tone: Tone): ResolvedTone {
+  return tone === "ink" || tone === "pine" ? "pine" : "paper";
 }
 
-/** AMANAH | أمانة beside the keyhole mark. */
+export function focusFor(tone: Tone) {
+  return resolveTone(tone) === "pine"
+    ? "outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep"
+    : "outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+}
+
+
+/** AMANAH | أمانة beside the keyhole mark. Always Latin first, then Arabic. */
 export function Wordmark({
-  tone = "cream",
+  tone = "paper",
   size = "md",
 }: {
   tone?: Tone;
   size?: "md" | "lg";
 }) {
-  const ink = tone === "ink";
+  const dark = resolveTone(tone) === "pine";
   const large = size === "lg";
   return (
-    <span className={`flex items-center ${large ? "gap-4" : "gap-2.5 sm:gap-3"}`}>
-      <KeyholeMark className={large ? "size-12 sm:size-14" : "size-8 sm:size-9"} />
+    <span dir="ltr" className={`inline-flex items-center ${large ? "gap-4" : "gap-2.5 sm:gap-3"}`}>
+      <KeyholeMark
+        tone={dark ? "paper" : "pine"}
+        className={large ? "size-12 sm:size-14" : "size-8 sm:size-9"}
+      />
       <span
-        className={`font-serif font-semibold leading-none tracking-[0.16em] ${
+        lang="en"
+        className={`font-wordmark-latin font-semibold leading-none tracking-[0.16em] ${
           large ? "text-4xl sm:text-5xl" : "text-xl sm:text-2xl"
-        } ${ink ? "text-cream" : "text-foreground"}`}
+        } ${dark ? "text-paper" : "text-foreground"}`}
       >
         AMANAH
       </span>
-      <span aria-hidden className={`${large ? "h-8" : "h-4"} w-px ${ink ? "bg-sage/70" : "bg-sage"}`} />
+      <span
+        aria-hidden
+        className={`${large ? "h-8" : "h-4"} w-px ${dark ? "bg-brass-light/70" : "bg-brass/80"}`}
+      />
       <span
         lang="ar"
         dir="rtl"
-        className={`font-arabic leading-none ${large ? "text-4xl sm:text-5xl" : "text-xl sm:text-2xl"} ${
-          ink ? "text-sage" : "text-forest"
-        }`}
+        className={`font-wordmark-arabic leading-none ${
+          large ? "text-4xl sm:text-5xl" : "text-xl sm:text-2xl"
+        } ${dark ? "text-brass-light" : "text-pine"}`}
       >
         أمانة
       </span>
@@ -48,33 +74,65 @@ export function Wordmark({
   );
 }
 
-export function SiteHeader({ tone = "cream" }: { tone?: Tone }) {
-  const ink = tone === "ink";
+function navLinkClassName(tone: ResolvedTone, quiet: boolean) {
+  const shape =
+    "inline-flex min-h-11 items-center rounded-full px-2.5 text-sm font-medium transition-colors sm:px-3.5 sm:text-small";
+  if (tone === "pine") {
+    return `${shape} ${
+      quiet
+        ? "text-paper/75 underline-offset-4 hover:text-paper hover:underline"
+        : "text-paper/90 hover:bg-paper/10 hover:text-paper"
+    }`;
+  }
+  return `${shape} ${
+    quiet
+      ? "text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      : "text-foreground/85 hover:bg-secondary hover:text-foreground"
+  }`;
+}
+
+/**
+ * Header: wordmark, the two ways to report, a quieter "check my report", and
+ * the language switch. On phones the wordmark and switch share the first row
+ * and the links take a full row below, so nothing is hidden behind a menu.
+ */
+export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
+  const t = useMessages(common);
+  const resolved = resolveTone(tone);
+  const dark = resolved === "pine";
   const focus = focusFor(tone);
 
+  const links = [
+    { href: "/report/lost", label: t.reportLost, quiet: false },
+    { href: "/report/found", label: t.reportFound, quiet: false },
+    { href: "/report/track", label: t.checkReport, quiet: true },
+  ];
+
   return (
-    <header className={ink ? "bg-ink text-cream" : "bg-background text-foreground"}>
+    <header className={dark ? "bg-pine-deep text-paper" : "bg-background text-foreground"}>
       <a
         href="#main"
-        className={`sr-only rounded-full bg-cream px-4 py-2 text-sm font-semibold text-ink focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-20 ${focus}`}
+        className={`sr-only rounded-full bg-paper px-4 py-2 text-sm font-semibold text-pine-deep focus:not-sr-only focus:absolute focus:start-4 focus:top-3 focus:z-20 ${focus}`}
       >
-        Skip to content
+        {t.skipToContent}
       </a>
-      <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:h-20 sm:px-8 xl:px-12">
-        <Link href="/" aria-label="AMANAH — home" className={`rounded-lg ${focus}`}>
+      <div
+        className={`${frameClassName} flex flex-wrap items-center gap-x-3 gap-y-1 py-3 sm:min-h-20 sm:flex-nowrap sm:gap-x-6 sm:py-0`}
+      >
+        <Link href="/" aria-label={t.homeLabel} className={`rounded-lg ${focus}`}>
           <Wordmark tone={tone} />
         </Link>
-        <nav aria-label="Report an item" className="hidden sm:block">
-          <ul className="flex items-center gap-1">
-            {NAV.map((item) => (
+        <LanguageSwitch tone={resolved} className="ms-auto sm:order-last sm:ms-0" />
+        <nav
+          aria-label={t.navLabel}
+          className="-ms-2.5 basis-full sm:ms-auto sm:basis-auto"
+        >
+          <ul className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+            {links.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`inline-flex min-h-11 items-center rounded-full px-4 text-[0.9375rem] font-medium transition-colors ${focus} ${
-                    ink
-                      ? "text-cream/85 hover:bg-cream/10 hover:text-cream"
-                      : "text-foreground/80 hover:bg-secondary hover:text-foreground"
-                  }`}
+                  className={`${navLinkClassName(resolved, item.quiet)} ${focus}`}
                 >
                   {item.label}
                 </Link>
@@ -87,39 +145,76 @@ export function SiteHeader({ tone = "cream" }: { tone?: Tone }) {
   );
 }
 
-/** The close of every public page: the name returns at full size with its meaning. */
-export function SiteFooter() {
-  const focus = focusFor("ink");
+/** "Back" link with an arrow that points to the start of the line in both directions. */
+export function BackLink({
+  href = "/",
+  label,
+  className = "",
+}: {
+  href?: string;
+  label?: ReactNode;
+  className?: string;
+}) {
+  const t = useMessages(common);
   return (
-    <footer className="bg-ink text-cream">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-10 px-4 pb-10 pt-16 sm:px-8 sm:pt-20 xl:px-12">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex flex-col gap-5">
-            <Wordmark tone="ink" size="lg" />
-            <p className="max-w-[34ch] text-lg leading-relaxed text-cream/80">
-              Every lost item is an amanah: something entrusted to us, to keep
-              safe and to return.
-            </p>
+    <Link
+      href={href}
+      className={`-ms-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground ${focusFor("paper")} ${className}`}
+    >
+      <ArrowStartIcon className="size-4" />
+      {label ?? t.backHome}
+    </Link>
+  );
+}
+
+/**
+ * The close of every public page: the name returns at full size with its
+ * meaning, the three links, and the privacy promise. Always on deep pine.
+ */
+export function SiteFooter() {
+  const t = useMessages(common);
+  const focus = focusFor("pine");
+  const links = [
+    { href: "/report/lost", label: t.reportLost },
+    { href: "/report/found", label: t.reportFound },
+    { href: "/report/track", label: t.checkReport },
+  ];
+
+  return (
+    <footer className="bg-pine-deep text-paper">
+      <div className={`${frameClassName} flex flex-col gap-10 pb-10 pt-16 sm:pt-20`}>
+        <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
+          <div className="flex max-w-2xl flex-col gap-6">
+            <Link href="/" aria-label={t.homeLabel} className={`w-fit rounded-lg ${focus}`}>
+              <Wordmark tone="pine" size="lg" />
+            </Link>
+            <div className="flex flex-col gap-2">
+              <p className="text-title text-paper">{t.tagline}</p>
+              <p className="max-w-[40ch] text-lead text-paper/80">{t.taglineExplainer}</p>
+            </div>
           </div>
-          <nav aria-label="Footer">
-            <ul className="flex flex-col gap-1 sm:flex-row sm:gap-2">
-              {NAV.map((item) => (
+          <nav aria-label={t.footerNavLabel} className="lg:shrink-0">
+            <ul className="-ms-3 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-2 lg:flex-col lg:items-end lg:gap-1">
+              {links.map((item) => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`-ml-3 inline-flex min-h-11 items-center rounded-full px-3 text-base font-medium text-cream/85 underline-offset-4 transition-colors hover:text-cream hover:underline sm:ml-0 ${focus}`}
+                    className={`inline-flex min-h-11 items-center rounded-full px-3 text-body font-medium text-paper/85 underline-offset-4 transition-colors hover:text-paper hover:underline ${focus}`}
                   >
-                    {item.label === "Report lost" ? "Report a lost item" : "Report a found item"}
+                    {item.label}
                   </Link>
                 </li>
               ))}
             </ul>
           </nav>
         </div>
-        <span aria-hidden className="perforation block text-sage/40" />
-        <p className="text-sm text-cream/65">
-          Reports are private. Found-item details are never shown publicly.
-        </p>
+        <span aria-hidden className="perforation block text-brass-light/40" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-[60ch] text-small text-paper/70">
+            {t.footerPrivacy} {t.footerStaff}
+          </p>
+          <LanguageSwitch tone="pine" className="w-fit" />
+        </div>
       </div>
     </footer>
   );

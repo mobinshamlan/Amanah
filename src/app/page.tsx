@@ -1,224 +1,195 @@
+import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRightIcon, KeyholeGlyph } from "@/components/icons";
+import { HeroPicture } from "@/components/home/HeroPicture";
+import "@/components/home/home.css";
+import {
+  ArrowEndIcon,
+  EyeOffIcon,
+  LensIcon,
+  LockIcon,
+  TagIcon,
+  UserIcon,
+} from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
-import { SlipRow } from "@/components/ui";
+import {
+  frameClassName,
+  primaryOnDarkButtonClassName,
+  secondaryOnDarkButtonClassName,
+  textLinkOnDarkClassName,
+} from "@/components/ui";
+import { home } from "@/i18n/messages/home";
+import { getMessages } from "@/i18n/server";
 
-// The two ways in. Each is a paper tag, like the one tied to an item at a
-// lost-property desk; its eyelet is the Amanah keyhole.
-const CHOICES = [
-  {
-    href: "/report/lost",
-    title: "I lost something",
-    description:
-      "Describe the item and where you last had it. You get a private link to follow your report.",
-    action: "Report a lost item",
-  },
-  {
-    href: "/report/found",
-    title: "I found something",
-    description:
-      "Describe the item and where you found it. Its details are never shown publicly.",
-    action: "Report a found item",
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getMessages(home);
+  return { title: t.metaTitle, description: t.metaDescription };
+}
+
+// The three scenes of what happens after a report, in order, on one desk.
+const SCENES = [
+  { src: "/art/guide-compare.png" },
+  { src: "/art/guide-question.png" },
+  { src: "/art/guide-handover.png" },
 ] as const;
 
-// What actually happens, in order, and who does each part.
-const JOURNEY = [
-  {
-    stage: "When a report is made",
-    rows: [
-      { what: "The item and where it was are described", who: "You" },
-      { what: "The report is saved privately", who: "Amanah" },
-      { what: "It is compared with reports of the other kind", who: "AI, privately" },
-    ],
-  },
-  {
-    stage: "If there is a possible match",
-    rows: [
-      { what: "The owner answers a few questions about the item", who: "Owner" },
-      { what: "Staff review the claim", who: "Staff" },
-    ],
-  },
-] as const;
+const PROMISE_ICONS = [EyeOffIcon, LockIcon, UserIcon] as const;
 
-const PRIVACY = [
-  {
-    title: "No public gallery.",
-    body: "Found-item details are never shown publicly, and nobody can browse found items.",
-  },
-  {
-    title: "Only your own report.",
-    body: "If you lost something, your private link shows your report’s progress, never a list of found items.",
-  },
-  {
-    title: "Questions in your own words.",
-    body: "After a possible match, you answer a few questions about your item. You never see the found report or the answers staff expect.",
-  },
-  {
-    title: "People decide, not AI.",
-    body: "An AI suggestion never proves ownership. Staff review every claim and make the final decision.",
-  },
-] as const;
+// The outlined pill on pine at the same 48px height as the primary beside it.
+const foundButtonClassName = `${secondaryOnDarkButtonClassName.replace("min-h-11 px-5", "min-h-12 px-7")}`;
 
-const tagFocus =
-  "outline-none focus-visible:ring-3 focus-visible:ring-sage focus-visible:ring-offset-4 focus-visible:ring-offset-ink";
+/** The two ways in, side by side from `sm`, stacked on phones. Lost is the filled pill, found the outlined one; each carries its own cue. */
+function ReportActions({
+  t,
+  label,
+}: {
+  t: (typeof home)["en"];
+  label: string;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center"
+    >
+      <Link href="/report/lost" className={primaryOnDarkButtonClassName}>
+        <LensIcon className="size-5 shrink-0" />
+        {t.reportLost}
+      </Link>
+      <Link href="/report/found" className={foundButtonClassName}>
+        <TagIcon className="size-5 shrink-0" />
+        {t.reportFound}
+      </Link>
+    </div>
+  );
+}
 
-export default function Home() {
+export default async function Home() {
+  const t = await getMessages(home);
+
   return (
     <>
-      <SiteHeader tone="ink" />
+      <SiteHeader tone="pine" />
       <main id="main" className="flex-1">
-        {/* First screen: the promise and the two ways in. */}
-        <section aria-labelledby="brand-line" className="bg-ink text-cream">
-          <div className="mx-auto grid w-full max-w-[1440px] gap-12 px-4 pb-20 pt-10 sm:px-8 sm:pb-28 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,33rem)] lg:items-center lg:gap-16 lg:pb-32 xl:px-12">
-            <div className="flex flex-col">
-              <h1
-                id="brand-line"
-                className="max-w-[12ch] text-balance font-serif text-[3.25rem] font-semibold leading-[0.98] tracking-[-0.025em] text-cream motion-safe:animate-rise sm:text-7xl lg:text-[6.25rem]"
-              >
-                Every lost item is an amanah.
-              </h1>
-              <p
-                lang="ar"
-                dir="rtl"
-                className="mt-5 w-fit font-arabic text-[2rem] leading-snug text-sage motion-safe:animate-rise motion-safe:[animation-delay:80ms] sm:text-[2.75rem]"
-              >
-                كل مفقود أمانة
-              </p>
-              <p className="mt-8 max-w-[44ch] text-pretty text-lg leading-relaxed text-cream/90 motion-safe:animate-rise motion-safe:[animation-delay:160ms] sm:text-xl">
-                Amanah is a private lost-and-found service. Report what you lost
-                or found; possible matches are checked privately, and staff make
-                the final decision on every claim.
-              </p>
-              <p className="mt-5 max-w-[44ch] text-base leading-relaxed text-cream/70 motion-safe:animate-rise motion-safe:[animation-delay:220ms]">
-                <span className="font-serif text-xl italic text-cream">amanah</span>{" "}
-                (n.) something entrusted to you, to keep safe and to return.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-5">
-              <h2 className="font-serif text-[1.75rem] font-semibold leading-tight text-cream sm:text-[2rem]">
-                What happened?
-              </h2>
-              <ul className="flex flex-col gap-5">
-                {CHOICES.map((choice, index) => (
-                  <li
-                    key={choice.href}
-                    className="origin-[2.5rem_50%] motion-safe:animate-swing"
-                    style={{ animationDelay: `${260 + index * 140}ms` }}
-                  >
-                    <Link
-                      href={choice.href}
-                      className={`group relative isolate flex min-h-44 cursor-pointer items-center gap-5 py-7 pl-5 pr-6 text-foreground transition-transform duration-300 ease-out hover:-rotate-1 focus-visible:-rotate-1 sm:gap-7 sm:py-8 sm:pl-6 sm:pr-8 motion-reduce:hover:rotate-0 ${tagFocus}`}
-                    >
-                      <span
-                        aria-hidden
-                        className="shape-tag absolute inset-0 -z-10 bg-card transition-colors duration-200 group-hover:bg-accent group-focus-visible:bg-accent"
-                      />
-                      {/* The eyelet: punched through to the ink behind. */}
-                      <span
-                        aria-hidden
-                        className="flex size-14 shrink-0 items-center justify-center rounded-full bg-ink text-sage ring-[5px] ring-sage/35 transition-colors duration-200 group-hover:text-cream sm:size-16"
-                      >
-                        <KeyholeGlyph className="size-8 sm:size-9" />
-                      </span>
-                      <span className="flex min-w-0 flex-col gap-2">
-                        <span className="font-serif text-[2rem] font-semibold leading-none tracking-[-0.015em] sm:text-[2.4rem]">
-                          {choice.title}
-                        </span>
-                        <span className="text-pretty text-base leading-relaxed text-foreground/75">
-                          {choice.description}
-                        </span>
-                        <span className="mt-2 inline-flex items-center gap-2 text-base font-semibold text-pine">
-                          {choice.action}
-                          <ArrowRightIcon className="size-5 transition-transform duration-200 group-hover:translate-x-1" />
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* First screen: the desk, the question, the two ways in. */}
+        <section
+          aria-labelledby="hero-title"
+          className="relative isolate overflow-hidden bg-pine-deep text-paper lg:flex lg:min-h-[min(52rem,calc(100svh-5rem))] lg:items-center"
+        >
+          {/*
+            The picture. On phones it is a band at the top of the stage; from
+            lg it fills the whole stage and the text sits on its calm side.
+          */}
+          <div className="relative h-[clamp(11rem,28svh,19rem)] w-full lg:absolute lg:inset-0 lg:-z-10 lg:h-auto">
+            <HeroPicture alt={t.heroImageAlt} />
+            {/* Keeps the headline legible whatever the light does: a plain pine scrim on the text side, the one gradient this page allows. */}
+            <span
+              aria-hidden
+              className="absolute inset-0 hidden bg-[linear-gradient(to_right,var(--color-pine-deep)_0%,color-mix(in_srgb,var(--color-pine-deep)_72%,transparent)_34%,transparent_58%)] lg:block lg:rtl:-scale-x-100"
+            />
           </div>
-        </section>
 
-        {/* The journey, printed as a slip from the desk's pad. */}
-        <section aria-labelledby="journey-title" className="bg-background">
-          <div className="mx-auto grid w-full max-w-[1440px] gap-10 px-4 py-20 sm:px-8 sm:py-28 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16 lg:py-36 xl:px-12">
-            <div className="reveal flex flex-col gap-5">
-              <h2
-                id="journey-title"
-                className="max-w-[14ch] text-balance font-serif text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.02em] sm:text-6xl"
+          <div className={`${frameClassName} relative py-6 sm:py-10 lg:py-20`}>
+            <div className="flex max-w-[34rem] flex-col items-start gap-5 sm:gap-6 lg:max-w-[min(50%,42rem)] lg:gap-8">
+              <h1
+                id="hero-title"
+                className="home-hero-title text-display text-paper motion-safe:animate-rise"
               >
-                From report to decision
-              </h2>
-              <p className="max-w-[40ch] text-pretty text-lg leading-relaxed text-foreground/85">
-                Nothing is published along the way. Matching happens privately,
-                and an AI suggestion is only ever a starting point for people to
-                check.
+                {t.heroHeadline}
+              </h1>
+              <p className="max-w-[36ch] text-lead text-paper/90 motion-safe:animate-rise motion-safe:[animation-delay:90ms]">
+                {t.heroSentence}
               </p>
-              <p className="max-w-[40ch] text-pretty text-base leading-relaxed text-muted-foreground">
-                If you found something, your part ends once your report is saved.
-                You are not shown whether it matched anyone.
-              </p>
-            </div>
-
-            <div className="reveal lg:pt-2">
-              <div className="edge-torn mx-auto w-full max-w-xl rotate-[0.6deg] bg-card px-5 pt-7 sm:px-9 sm:pt-9 lg:mx-0">
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="font-serif text-[1.75rem] font-semibold leading-tight">
-                    Your report, step by step
-                  </h3>
-                  <KeyholeGlyph className="size-7 shrink-0 text-forest" />
-                </div>
-                <span aria-hidden className="perforation mt-5 block text-foreground/25" />
-                {JOURNEY.map((group) => (
-                  <div key={group.stage} className="mt-7">
-                    <h4 className="text-base font-bold text-foreground">{group.stage}</h4>
-                    <ol className="mt-2 text-base leading-snug">
-                      {group.rows.map((row) => (
-                        <SlipRow key={row.what} label={row.what} value={row.who} />
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-                <p className="mt-8 flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-ink px-4 py-2.5 text-cream">
-                  <span className="font-semibold">Every claim ends with a staff decision</span>
-                  <span className="text-cream/75">Staff</span>
+              <div className="flex w-full flex-col gap-4 motion-safe:animate-rise motion-safe:[animation-delay:180ms] sm:gap-5">
+                <ReportActions t={t} label={t.actionsLabel} />
+                <p className="flex flex-wrap items-center gap-x-2 text-small text-paper/80">
+                  <span>{t.trackPrompt}</span>
+                  <Link href="/report/track" className={`${textLinkOnDarkClassName} text-small`}>
+                    {t.trackLink}
+                    <ArrowEndIcon className="size-4" />
+                  </Link>
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {/* What stays private, on a full field of forest. */}
-        <section aria-labelledby="privacy-title" className="bg-forest text-cream">
-          <div className="mx-auto grid w-full max-w-[1440px] gap-12 px-4 py-20 sm:px-8 sm:py-28 lg:grid-cols-[minmax(0,4fr)_minmax(0,7fr)] lg:gap-16 lg:py-32 xl:px-12">
-            <div className="reveal flex flex-col gap-5">
-              <h2
-                id="privacy-title"
-                className="max-w-[12ch] text-balance font-serif text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.02em] text-cream sm:text-6xl"
-              >
-                What stays private
+        {/* What happens after a report: three scenes along one counter. */}
+        <section aria-labelledby="after-title" className="overflow-hidden bg-background text-foreground">
+          <div
+            className={`${frameClassName} grid gap-3 pt-20 sm:pt-28 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:items-end lg:gap-12 lg:pt-32`}
+          >
+            <h2 id="after-title" className="text-title text-foreground">
+              {t.afterTitle}
+            </h2>
+            <p className="max-w-[40ch] text-lead text-foreground/85 lg:pb-2">{t.afterIntro}</p>
+          </div>
+
+          <div className="relative mt-4 sm:mt-6 lg:mt-8">
+            {/* The counter: one field of deeper paper the three scenes stand on, bleeding to both edges. */}
+            <span
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 top-0 bg-secondary sm:top-10 lg:top-[4.5rem]"
+            />
+            <ol
+              className={`${frameClassName} relative grid gap-12 pb-16 pt-6 sm:grid-cols-3 sm:gap-6 sm:pb-20 sm:pt-0 lg:gap-10 lg:pb-24`}
+            >
+              {SCENES.map((scene, index) => {
+                const copy = t.scenes[index];
+                return (
+                  <li
+                    key={scene.src}
+                    className="home-scene flex min-w-0 flex-col items-center gap-5 sm:items-stretch"
+                  >
+                    <Image
+                      src={scene.src}
+                      alt={copy.alt}
+                      width={1200}
+                      height={900}
+                      sizes="(min-width: 1024px) 30vw, (min-width: 640px) 31vw, 86vw"
+                      className="-mt-[10%] h-auto w-full max-w-[22rem] sm:max-w-none"
+                    />
+                    <div className="flex max-w-[34ch] flex-col gap-2 text-center sm:text-start">
+                      <h3 className="text-subheading text-foreground">{copy.title}</h3>
+                      <p className="text-body text-foreground/85">{copy.caption}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </section>
+
+        {/* The promise, and the way back to the two actions. */}
+        <section aria-labelledby="promise-title" className="bg-pine text-paper">
+          <div
+            className={`${frameClassName} grid gap-12 py-20 sm:py-28 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-20 lg:py-32`}
+          >
+            <div className="flex flex-col items-start gap-8">
+              <h2 id="promise-title" className="text-title text-paper">
+                {t.promiseTitle}
               </h2>
-              <p className="max-w-[36ch] text-pretty text-lg leading-relaxed text-cream/90">
-                Private by default. Reports are for staff to review, never for
-                the public to browse.
-              </p>
+              <ul className="flex flex-col gap-5">
+                {t.promises.map((promise, index) => {
+                  const Icon = PROMISE_ICONS[index];
+                  return (
+                    <li key={promise.title} className="flex items-start gap-4">
+                      <Icon className="mt-1 size-6 shrink-0 text-brass-light" />
+                      <p className="min-w-0 text-body text-paper/90">
+                        <strong className="block text-subheading font-semibold text-paper">
+                          {promise.title}
+                        </strong>
+                        {promise.body}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-            <ul className="reveal grid gap-x-12 gap-y-10 sm:grid-cols-2">
-              {PRIVACY.map((point) => (
-                <li key={point.title} className="flex flex-col gap-3">
-                  <KeyholeGlyph className="size-7 text-sage" />
-                  <h3 className="font-serif text-[1.75rem] font-semibold leading-tight text-cream">
-                    {point.title}
-                  </h3>
-                  <p className="max-w-[38ch] text-pretty text-base leading-relaxed text-cream/90">
-                    {point.body}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <div className="flex flex-col justify-end gap-6 lg:items-end lg:text-end">
+              <p className="max-w-[16ch] text-title text-paper">{t.closeLine}</p>
+              <ReportActions t={t} label={t.actionsLabel} />
+            </div>
           </div>
         </section>
       </main>

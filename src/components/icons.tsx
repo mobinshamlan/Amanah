@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 
-// One line-icon style for the whole app. Icons are decorative: the text beside
-// them always carries the meaning.
+// One line-icon style for the whole app: 24-unit grid, 1.75 stroke, round
+// joins. Icons are decorative: the text beside them always carries the
+// meaning. Directional icons carry `flip-rtl` so they mirror on Arabic pages.
 
 type IconProps = { className?: string };
 
@@ -25,6 +26,12 @@ function Icon({
     </svg>
   );
 }
+
+function cx(...parts: Array<string | undefined>) {
+  return parts.filter(Boolean).join(" ");
+}
+
+/* Status */
 
 export function CheckIcon({ className }: IconProps) {
   return (
@@ -72,20 +79,57 @@ export function AlertIcon({ className }: IconProps) {
   );
 }
 
-export function PinIcon({ className }: IconProps) {
+/** A circled check: a saved report, an approved claim. */
+export function CheckCircleIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
-      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
-      <circle cx="12" cy="10" r="2.25" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" strokeWidth={2} />
     </Icon>
   );
 }
 
-export function ShieldIcon({ className }: IconProps) {
+export function QuestionIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
-      <path d="M12 3 5 6v5.5c0 4.3 3 8 7 9.5 4-1.5 7-5.2 7-9.5V6l-7-3Z" />
-      <path d="m9 12 2 2 4-4" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.6 2.25c-.75.4-1.1 1-1.1 1.75v.25" />
+      <path d="M12 16.75v.01" strokeWidth={2.5} />
+    </Icon>
+  );
+}
+
+/* Report cues. Lost and found are told apart by shape, never by colour alone. */
+
+/** Lost cue: a lens over a dotted outline, the item that is not here. */
+export function LensIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m20 20-4.4-4.4" />
+      <circle cx="10.5" cy="10.5" r="2.75" strokeDasharray="1.2 2" strokeWidth={1.5} />
+    </Icon>
+  );
+}
+
+/** Found cue: a luggage tag with its eyelet, the item waiting at the desk. */
+export function TagIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M3.5 12.5V5.5a2 2 0 0 1 2-2h7l8 8-8.5 8.5-8.5-7.5Z" />
+      <circle cx="8" cy="8" r="1.4" />
+    </Icon>
+  );
+}
+
+/** Found cue, alternative: an open hand holding something up. */
+export function HandIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M8 13.5V6a1.5 1.5 0 0 1 3 0v6" />
+      <path d="M11 11.5V4.5a1.5 1.5 0 0 1 3 0v7" />
+      <path d="M14 11.5V6a1.5 1.5 0 0 1 3 0v8.5" />
+      <path d="M8 13.5 6.2 11.2a1.5 1.5 0 0 0-2.4 1.8L7 18.5a6 6 0 0 0 5 2.5h1a4 4 0 0 0 4-4v-2.5" />
     </Icon>
   );
 }
@@ -109,6 +153,138 @@ export function BoxIcon({ className }: IconProps) {
   );
 }
 
+export function PinIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
+      <circle cx="12" cy="10" r="2.25" />
+    </Icon>
+  );
+}
+
+/* Trust and privacy */
+
+export function ShieldIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M12 3 5 6v5.5c0 4.3 3 8 7 9.5 4-1.5 7-5.2 7-9.5V6l-7-3Z" />
+      <path d="m9 12 2 2 4-4" />
+    </Icon>
+  );
+}
+
+export function LockIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3" />
+      <path d="M12 15v2" strokeWidth={2.25} />
+    </Icon>
+  );
+}
+
+export function EyeOffIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.3A10.6 10.6 0 0 1 12 5.2c4.5 0 8 3.2 9.5 6.8a11.7 11.7 0 0 1-2.6 3.8" />
+      <path d="M6.3 6.9C4.5 8.1 3.2 9.9 2.5 12c1.5 3.6 5 6.8 9.5 6.8 1.6 0 3-.4 4.3-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </Icon>
+  );
+}
+
+export function UserIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <circle cx="12" cy="8" r="3.75" />
+      <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" />
+    </Icon>
+  );
+}
+
+/* Actions */
+
+export function CopyIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5.5 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v.5" />
+    </Icon>
+  );
+}
+
+export function LinkIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2" />
+    </Icon>
+  );
+}
+
+export function SendIcon({ className }: IconProps) {
+  return (
+    <Icon className={cx(className, "flip-rtl")}>
+      <path d="M20.5 3.5 3.5 10.5l7.5 2.5 2.5 7.5 7-17Z" />
+      <path d="m11 13 9.5-9.5" />
+    </Icon>
+  );
+}
+
+export function RefreshIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M20 12a8 8 0 0 1-13.9 5.4" />
+      <path d="M4 12a8 8 0 0 1 13.9-5.4" />
+      <path d="M17.9 2.8v3.8h-3.8" />
+      <path d="M6.1 21.2v-3.8h3.8" />
+    </Icon>
+  );
+}
+
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <Icon className={className} strokeWidth={2}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Icon>
+  );
+}
+
+export function FilterIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M4 6h16" />
+      <path d="M7 12h10" />
+      <path d="M10 18h4" />
+    </Icon>
+  );
+}
+
+export function GlobeIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a13.5 13.5 0 0 1 0 18" />
+      <path d="M12 3a13.5 13.5 0 0 0 0 18" />
+    </Icon>
+  );
+}
+
+export function HomeIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M4 11 12 4l8 7" />
+      <path d="M6 9.5V20h12V9.5" />
+      <path d="M10 20v-5h4v5" />
+    </Icon>
+  );
+}
+
+/* Arrows. Start/End follow the reading direction; Left/Right are physical. */
+
 export function ArrowRightIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
@@ -118,27 +294,43 @@ export function ArrowRightIcon({ className }: IconProps) {
   );
 }
 
-/** Solid keyhole, the Amanah symbol. Decorative. */
-export function KeyholeGlyph({ className }: IconProps) {
+export function ArrowLeftIcon({ className }: IconProps) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <circle cx="12" cy="9" r="3.15" />
-      <path d="M10.15 11.7 8.7 20.2h6.6l-1.45-8.5a3.6 3.6 0 0 1-3.7 0Z" />
-    </svg>
+    <Icon className={className}>
+      <path d="M19 12H5" />
+      <path d="m11 6-6 6 6 6" />
+    </Icon>
   );
 }
 
-/** Small trust mark: a keyhole on a forest tile, as in the Amanah deck. */
-export function KeyholeMark({ className = "size-9" }: IconProps) {
+/** Points towards the end of the line: "continue", "next". Flips in RTL. */
+export function ArrowEndIcon({ className }: IconProps) {
+  return <ArrowRightIcon className={cx(className, "flip-rtl")} />;
+}
+
+/** Points towards the start of the line: "back". Flips in RTL. */
+export function ArrowStartIcon({ className }: IconProps) {
+  return <ArrowLeftIcon className={cx(className, "flip-rtl")} />;
+}
+
+export function ChevronDownIcon({ className }: IconProps) {
   return (
-    <span
-      aria-hidden
-      className={`inline-flex shrink-0 items-center justify-center rounded-xl bg-forest text-cream ${className}`}
-    >
-      <KeyholeGlyph className="size-[55%]" />
-    </span>
+    <Icon className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </Icon>
   );
 }
+
+/** A chevron towards the end of the line, for list rows that open. Flips in RTL. */
+export function ChevronEndIcon({ className }: IconProps) {
+  return (
+    <Icon className={cx(className, "flip-rtl")}>
+      <path d="m9 6 6 6-6 6" />
+    </Icon>
+  );
+}
+
+/* Staff workspace */
 
 /** Two linked rings: a lost report and a found report suggested as a pair. */
 export function PairIcon({ className }: IconProps) {
@@ -150,10 +342,22 @@ export function PairIcon({ className }: IconProps) {
   );
 }
 
-export function PulseIcon({ className }: IconProps) {
+/** Two sheets side by side: compare a lost and a found report. */
+export function CompareIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
-      <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />
+      <rect x="3" y="4" width="7.5" height="16" rx="1.5" />
+      <rect x="13.5" y="4" width="7.5" height="16" rx="1.5" />
+      <path d="M5.5 8.5h2.5M5.5 12h2.5M16 8.5h2.5M16 12h2.5" />
+    </Icon>
+  );
+}
+
+export function InboxIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M3.5 13.5 6 5.5h12l2.5 8" />
+      <path d="M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5a3.5 3.5 0 0 1-7 0h-5Z" />
     </Icon>
   );
 }
@@ -169,11 +373,53 @@ export function ListIcon({ className }: IconProps) {
   );
 }
 
-export function ArrowLeftIcon({ className }: IconProps) {
+export function ChartIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
-      <path d="M19 12H5" />
-      <path d="m11 6-6 6 6 6" />
+      <path d="M4 20h16" />
+      <path d="M7 16v-5" />
+      <path d="M12 16V7" />
+      <path d="M17 16v-3" />
     </Icon>
+  );
+}
+
+export function PulseIcon({ className }: IconProps) {
+  return (
+    <Icon className={className}>
+      <path d="M3 12h4l2.5-6 5 12 2.5-6h4" />
+    </Icon>
+  );
+}
+
+/* Identity */
+
+/** Solid keyhole, the Amanah symbol. Decorative. */
+export function KeyholeGlyph({ className }: IconProps) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <circle cx="12" cy="9" r="3.15" />
+      <path d="M10.15 11.7 8.7 20.2h6.6l-1.45-8.5a3.6 3.6 0 0 1-3.7 0Z" />
+    </svg>
+  );
+}
+
+/**
+ * Small trust mark: the keyhole on a pine tile. `tone="paper"` puts a paper
+ * tile with a pine keyhole on dark fields.
+ */
+export function KeyholeMark({
+  className = "size-9",
+  tone = "pine",
+}: IconProps & { tone?: "pine" | "paper" }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex shrink-0 items-center justify-center rounded-xl ${
+        tone === "paper" ? "bg-paper text-pine-deep" : "bg-forest text-paper"
+      } ${className}`}
+    >
+      <KeyholeGlyph className="size-[55%]" />
+    </span>
   );
 }

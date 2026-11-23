@@ -1,13 +1,28 @@
+"use client";
+
 import Link from "next/link";
-import type { ReactNode, RefObject } from "react";
+import { useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import type { PublicMatchingStatus } from "@/utils/matching/publicStatus";
-import { CheckIcon, ClockIcon, InfoIcon, KeyholeGlyph, PinIcon, XIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  ClockIcon,
+  CopyIcon,
+  HandIcon,
+  LockIcon,
+  SendIcon,
+  XIcon,
+} from "@/components/icons";
 import {
   Notice,
   PageHeading,
+  fieldClassName,
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/ui";
+import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
+import { useMessages } from "@/i18n/LocaleProvider";
+import { common } from "@/i18n/messages/common";
+import { track, type TrackMessages } from "@/i18n/messages/track";
 
 export type MatchingView =
   | PublicMatchingStatus
@@ -25,58 +40,521 @@ export type OwnershipStage =
   | "approved"
   | "rejected";
 
+/* Headlines */
+
+export type HeadlineTone = "busy" | "notice" | "neutral" | "match" | "ok" | "bad";
+
+export type Headline = {
+  title: string;
+  intro: string;
+  // A second short sentence, e.g. "some other comparisons did not finish".
+  extra?: string;
+  tone: HeadlineTone;
+};
+
+function isPossibleMatch(view: MatchingView) {
+  return "outcome" in view && view.outcome === "possible_match";
+}
+
+/**
+ * The one headline a lost reporter sees: what is happening and what to do now.
+ * Ownership takes over the headline once a possible match has questions or a
+ * decision; otherwise the matching phase decides.
+ */
+export function lostHeadline(
+  t: TrackMessages,
+  view: MatchingView,
+  waiting: boolean,
+  ownership?: OwnershipStage | null,
+): Headline {
+  if (isPossibleMatch(view)) {
+    if (!waiting && ownership) {
+      const copy = t.ownership[ownership];
+      const tone: HeadlineTone =
+        ownership === "approved"
+          ? "ok"
+          : ownership === "rejected"
+            ? "bad"
+            : ownership === "staff_review" || ownership === "answers_received"
+              ? "neutral"
+              : "match";
+      return { ...copy, tone };
+    }
+    const partial =
+      !waiting &&
+      (view.phase === "failed" || view.phase === "unavailable" || view.phase === "rate_limited");
+    return {
+      ...t.status.possibleMatch,
+      extra: partial ? t.status.possibleMatchPartial : undefined,
+      tone: "match",
+    };
+  }
+  if (waiting) {
+    return view.phase === "rate_limited"
+      ? { ...t.status.pausedWaiting, tone: "busy" }
+      : { ...t.status.checking, tone: "busy" };
+  }
+  switch (view.phase) {
+    case "complete":
+      return "outcome" in view && view.outcome === "uncertain"
+        ? { ...t.status.uncertain, tone: "neutral" }
+        : { ...t.status.noMatch, tone: "neutral" };
+    case "rate_limited":
+      return { ...t.status.pausedStopped, tone: "notice" };
+    case "unavailable":
+      return { ...t.status.unavailable, tone: "notice" };
+    case "stalled":
+      return { ...t.status.stalled, tone: "notice" };
+    case "lost_access":
+      return { ...t.status.lostAccess, tone: "neutral" };
+    default:
+      return { ...t.status.failed, tone: "notice" };
+  }
+}
+
+function foundNote(t: TrackMessages, view: MatchingView, waiting: boolean, canRetry: boolean) {
+  if (waiting) {
+    return view.phase === "rate_limited" ? t.found.finishingPaused : t.found.finishing;
+  }
+  switch (view.phase) {
+    case "complete":
+    case "lost_access":
+      return null;
+    case "stalled":
+      return t.found.stalled;
+    case "rate_limited":
+      return t.found.rateLimited;
+    default:
+      return canRetry ? t.found.failedRetry : t.found.failed;
+  }
+}
+
+// Callers without the visitor's messages (the report form's live line) still
+// speak the page's language: read it from <html lang>, set by the root layout.
+function pageMessages(): TrackMessages {
+  if (typeof document !== "undefined") {
+    const lang = document.documentElement.lang;
+    if (isLocale(lang)) return track[lang];
+  }
+  return track[DEFAULT_LOCALE];
+}
+
+/**
+ * One sentence for the page's live status line. Pass the visitor's messages
+ * (`useMessages(track)`); without them the page's language is used.
+ */
 export function statusMessage(
   reportType: "lost" | "found",
   view: MatchingView,
   waiting: boolean,
+  t: TrackMessages = pageMessages(),
+  ownership?: OwnershipStage | null,
 ) {
   if (reportType === "found") {
-    switch (view.phase) {
-      case "checking":
-        return "Report saved. Thank you for reporting this item. Finishing up…";
-      case "rate_limited":
-        return waiting
-          ? "Report saved. Thank you for reporting this item. Automatic processing is paused because Amanah is busy. Please keep this page open, or try again later."
-          : "Report saved. Thank you for reporting this item. Automatic processing did not finish because Amanah is busy. Please try again later.";
-      case "complete":
-        return "Report saved. Thank you for reporting this item.";
-      case "stalled":
-        return "Report saved. Thank you for reporting this item. Processing is taking longer than expected; refresh the page to continue.";
-      case "lost_access":
-        return "Report saved. Thank you for reporting this item.";
-      default:
-        return "Report saved. Thank you for reporting this item. Some automatic processing did not finish. You can try again.";
+    const note = foundNote(t, view, waiting, false);
+    const base = waiting ? t.found.announce.checking : t.found.announce.complete;
+    return note ? `${base} ${note}` : base;
+  }
+  const headline = lostHeadline(t, view, waiting, ownership);
+  return [headline.title + ".", headline.intro, headline.extra].filter(Boolean).join(" ");
+}
+
+/** The same sentence, in the visitor's language. For client components. */
+export function useStatusMessage(
+  reportType: "lost" | "found",
+  view: MatchingView | null,
+  waiting: boolean,
+  ownership?: OwnershipStage | null,
+) {
+  const t = useMessages(track);
+  return view ? statusMessage(reportType, view, waiting, t, ownership) : "";
+}
+
+/* Step timeline */
+
+type StepState = "done" | "active" | "paused" | "waiting" | "stopped" | "rejected" | "upcoming";
+
+type Step = { key: string; state: StepState; label: string; detail: string };
+
+function PauseBars({ className = "bg-forest" }: { className?: string }) {
+  return (
+    <span className="flex gap-[3px]">
+      <span className={`h-2.5 w-[3px] rounded-full ${className}`} />
+      <span className={`h-2.5 w-[3px] rounded-full ${className}`} />
+    </span>
+  );
+}
+
+function StepNode({ state }: { state: StepState }) {
+  // Opaque fills so the track passes behind a node, never through it. One short
+  // pop when a node changes state; nothing loops except the "in progress" dot.
+  const base =
+    "relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full motion-safe:animate-pop";
+  switch (state) {
+    case "done":
+      return (
+        <span aria-hidden className={`${base} bg-pine-deep text-paper`}>
+          <CheckIcon className="size-5" />
+        </span>
+      );
+    case "rejected":
+      return (
+        <span aria-hidden className={`${base} bg-destructive text-paper`}>
+          <XIcon className="size-5" />
+        </span>
+      );
+    case "active":
+      return (
+        <span aria-hidden className={`${base} border-2 border-forest bg-card`}>
+          <span className="size-3 rounded-full bg-forest motion-safe:animate-breathe" />
+        </span>
+      );
+    case "paused":
+      return (
+        <span aria-hidden className={`${base} border-2 border-forest bg-card`}>
+          <PauseBars />
+        </span>
+      );
+    case "waiting":
+      return (
+        <span aria-hidden className={`${base} border-2 border-forest bg-card text-forest`}>
+          <ClockIcon className="size-5" />
+        </span>
+      );
+    case "stopped":
+      return (
+        <span aria-hidden className={`${base} border-2 border-wait-ink/60 bg-card`}>
+          <PauseBars className="bg-wait-ink" />
+        </span>
+      );
+    default:
+      return (
+        <span aria-hidden className={`${base} border-2 border-border bg-card`}>
+          <span className="size-2 rounded-full bg-border" />
+        </span>
+      );
+  }
+}
+
+function matchingStep(t: TrackMessages, view: MatchingView, waiting: boolean): Step {
+  const d = t.steps.detail;
+  const label = t.steps.labels.matching;
+  if (waiting) {
+    if (view.phase === "rate_limited") {
+      return { key: "matching", state: "paused", label, detail: d.matchingPaused };
+    }
+    return {
+      key: "matching",
+      state: "active",
+      label,
+      detail: isPossibleMatch(view) ? d.matchingActiveMatch : d.matchingActive,
+    };
+  }
+  if (view.phase === "complete") {
+    return { key: "matching", state: "done", label, detail: d.matchingDone };
+  }
+  return {
+    key: "matching",
+    state: "stopped",
+    label,
+    detail: view.phase === "lost_access" ? d.matchingLostAccess : d.matchingStopped,
+  };
+}
+
+function ownershipSteps(
+  t: TrackMessages,
+  view: MatchingView,
+  waiting: boolean,
+  ownership: OwnershipStage | null | undefined,
+): [Step, Step] {
+  const d = t.steps.detail;
+  const q = t.steps.labels.questions;
+  const dec = t.steps.labels.decision;
+  const decisionUpcoming: Step = { key: "decision", state: "upcoming", label: dec, detail: d.decisionUpcoming };
+  const possible = isPossibleMatch(view);
+
+  if (!possible || !ownership) {
+    return [
+      {
+        key: "questions",
+        state: "upcoming",
+        label: q,
+        detail: possible && waiting ? d.questionsAfterMatch : d.questionsUpcoming,
+      },
+      decisionUpcoming,
+    ];
+  }
+  const questionsDone = (detail: string): Step => ({ key: "questions", state: "done", label: q, detail });
+  switch (ownership) {
+    case "loading":
+      return [{ key: "questions", state: "active", label: q, detail: d.questionsLoading }, decisionUpcoming];
+    case "question":
+      return [{ key: "questions", state: "active", label: q, detail: d.questionsActive }, decisionUpcoming];
+    case "followup":
+      return [{ key: "questions", state: "active", label: q, detail: d.questionsFollowup }, decisionUpcoming];
+    case "retry":
+      return [{ key: "questions", state: "stopped", label: q, detail: d.questionsRetry }, decisionUpcoming];
+    case "staff_review":
+      return [
+        questionsDone(d.questionsNoneNeeded),
+        { key: "decision", state: "waiting", label: dec, detail: d.decisionWaiting },
+      ];
+    case "answers_received":
+      return [
+        questionsDone(d.questionsAnswered),
+        { key: "decision", state: "waiting", label: dec, detail: d.decisionWaitingAnswers },
+      ];
+    case "approved":
+      return [
+        questionsDone(d.questionsCompleted),
+        { key: "decision", state: "done", label: dec, detail: d.decisionApproved },
+      ];
+    case "rejected":
+      return [
+        questionsDone(d.questionsCompleted),
+        { key: "decision", state: "rejected", label: dec, detail: d.decisionRejected },
+      ];
+  }
+}
+
+export function buildSteps(
+  t: TrackMessages,
+  view: MatchingView,
+  waiting: boolean,
+  ownership?: OwnershipStage | null,
+): Step[] {
+  return [
+    { key: "saved", state: "done", label: t.steps.labels.saved, detail: t.steps.detail.saved },
+    matchingStep(t, view, waiting),
+    ...ownershipSteps(t, view, waiting, ownership),
+  ];
+}
+
+/**
+ * The report's four stages on a paper slip, read top to bottom in either
+ * direction. Every node also carries its state in words.
+ */
+export function JourneySteps({
+  view,
+  waiting,
+  ownership,
+  className = "",
+}: {
+  view: MatchingView;
+  waiting: boolean;
+  ownership?: OwnershipStage | null;
+  className?: string;
+}) {
+  const t = useMessages(track);
+  const steps = buildSteps(t, view, waiting, ownership);
+  const current = steps.findIndex((step) => step.state !== "done" && step.state !== "upcoming");
+
+  return (
+    <section
+      aria-labelledby="journey-steps-title"
+      aria-busy={waiting}
+      className={`edge-torn bg-card px-5 pt-6 sm:px-7 ${className}`}
+    >
+      <h2 id="journey-steps-title" className="text-subheading font-semibold text-foreground">
+        {t.steps.title}
+      </h2>
+      <ol className="mt-4 flex flex-col">
+        {steps.map((step, index) => {
+          const last = index === steps.length - 1;
+          const next = steps[index + 1];
+          // The track below a node is filled once that stage is done.
+          const trackClass =
+            step.state === "done"
+              ? next?.state === "rejected"
+                ? "bg-destructive"
+                : "bg-pine-deep"
+              : "bg-secondary";
+          const stateClass =
+            step.state === "rejected"
+              ? "text-bad-ink"
+              : step.state === "stopped"
+                ? "text-wait-ink"
+                : step.state === "upcoming"
+                  ? "text-muted-foreground"
+                  : "text-forest";
+          return (
+            <li
+              key={step.key}
+              aria-current={index === current ? "step" : undefined}
+              className={`relative flex gap-4 ${last ? "" : "pb-6"}`}
+            >
+              <div className="flex shrink-0 flex-col items-center">
+                <StepNode key={step.state} state={step.state} />
+                {last ? null : (
+                  <span aria-hidden className={`-my-1 w-1 flex-1 rounded-full ${trackClass}`} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 pt-1.5">
+                <p className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                  <span className="sr-only">{t.steps.step(index + 1)}: </span>
+                  <span
+                    className={`text-body font-semibold ${
+                      step.state === "upcoming" ? "text-muted-foreground" : "text-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                  <span className={`text-small font-medium ${stateClass}`}>
+                    <span className="sr-only">, </span>
+                    {t.steps.state[step.state]}
+                  </span>
+                </p>
+                <p
+                  className={`mt-0.5 text-small ${
+                    step.state === "upcoming" ? "text-muted-foreground" : "text-foreground/80"
+                  }`}
+                >
+                  {step.detail}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+/* Private link */
+
+const subscribeNever = () => () => {};
+
+/**
+ * The owner's private link with a copy button, a "send to myself" share when
+ * the browser offers one, and the bookmark fallback. `focal` is the brass,
+ * highlighted version shown right after the report is saved.
+ */
+export function TrackingLinkCard({
+  url,
+  focal = false,
+  headingRef,
+  className = "",
+}: {
+  url: string;
+  focal?: boolean;
+  headingRef?: RefObject<HTMLHeadingElement | null>;
+  className?: string;
+}) {
+  const t = useMessages(track);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed" | "shareFailed">("idle");
+  // Browser-only: false on the server and during hydration, then the real answer.
+  const canShare = useSyncExternalStore(
+    subscribeNever,
+    () => typeof navigator.share === "function",
+    () => false,
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyState("copied");
+    } catch {
+      inputRef.current?.select();
+      setCopyState("failed");
     }
   }
 
-  if ("outcome" in view && view.outcome === "possible_match") {
-    return view.phase === "failed" ||
-      view.phase === "unavailable" ||
-      view.phase === "rate_limited"
-      ? "We found a possible match. Ownership verification is the next step. Some other checks did not finish."
-      : "We found a possible match. Ownership verification is the next step.";
+  async function shareLink() {
+    try {
+      await navigator.share({ title: t.link.shareTitle, text: t.link.shareText, url });
+    } catch (error) {
+      // Closing the share sheet is not a failure.
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      setCopyState("shareFailed");
+    }
   }
-  switch (view.phase) {
-    case "checking":
-      return "Report saved. Checking for possible matches…";
-    case "rate_limited":
-      return waiting
-        ? "Your report is saved. Checking is paused because Amanah is busy. Please keep this page open, or try again later. This is not a “no match” result."
-        : "Your report is saved, but checking for possible matches did not finish because Amanah is busy. This is not a “no match” result. Please try again later.";
-    case "complete":
-      return "outcome" in view && view.outcome === "uncertain"
-        ? "No possible match yet. Your report is saved. We could not tell from the details whether a found item matches, so staff may review it."
-        : "No possible match yet. Your report is saved.";
-    case "unavailable":
-      return "Your report is saved, but automatic matching is not available right now. This is not a “no match” result.";
-    case "stalled":
-      return "Your report is saved. Checking is taking longer than expected and is not finished. Refresh the page to continue.";
-    case "lost_access":
-      return "Your report is saved. Its matching status is no longer available on this page.";
-    default:
-      return "Your report is saved, but checking for possible matches did not finish. This is not a “no match” result. You can try again.";
-  }
+
+  const statusText =
+    copyState === "copied"
+      ? t.link.copiedStatus
+      : copyState === "failed"
+        ? t.link.copyFailed
+        : copyState === "shareFailed"
+          ? t.link.shareFailed
+          : "";
+
+  return (
+    <section
+      id="private-link"
+      aria-labelledby="tracking-link-title"
+      className={`relative isolate scroll-mt-6 rounded-[1.75rem] p-5 sm:p-7 ${
+        focal ? "bg-brass-soft" : "bg-secondary"
+      } ${className}`}
+    >
+      {focal ? (
+        // The brass eyelet: this is the one highlighted thing on the screen.
+        <span aria-hidden className="eyelet absolute end-6 top-6 size-5 bg-paper sm:end-7 sm:top-7" />
+      ) : null}
+      <h2
+        id="tracking-link-title"
+        ref={headingRef}
+        tabIndex={headingRef ? -1 : undefined}
+        className={`${focal ? "text-heading pe-9" : "text-subheading font-semibold"} text-foreground outline-none`}
+      >
+        {focal ? t.link.focalTitle : t.link.title}
+      </h2>
+      <p className={`mt-2 max-w-[58ch] ${focal ? "text-body" : "text-small"} text-foreground/85`}>
+        {focal ? t.link.focalBody : t.link.body}
+      </p>
+      <div className="mt-5 flex flex-col gap-3">
+        <label htmlFor="tracking-link" className="sr-only">
+          {t.link.label}
+        </label>
+        <input
+          ref={inputRef}
+          id="tracking-link"
+          type="text"
+          readOnly
+          dir="ltr"
+          value={url}
+          onFocus={(event) => event.currentTarget.select()}
+          className={`${fieldClassName} truncate text-small`}
+        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <button type="button" onClick={() => void copyLink()} className={primaryButtonClassName}>
+            {copyState === "copied" ? (
+              <>
+                <CheckIcon className="size-4" />
+                {t.link.copied}
+              </>
+            ) : (
+              <>
+                <CopyIcon className="size-4" />
+                {t.link.copy}
+              </>
+            )}
+          </button>
+          {canShare ? (
+            <button type="button" onClick={() => void shareLink()} className={secondaryButtonClassName}>
+              <SendIcon className="size-4" />
+              {t.link.share}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <p
+        aria-live="polite"
+        className={`mt-3 min-h-6 text-small font-medium ${copyState === "copied" ? "text-forest" : "text-wait-ink"}`}
+      >
+        {statusText}
+      </p>
+      <p className="mt-1 flex items-start gap-2 text-small text-foreground/85">
+        <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
+        <span>
+          {t.link.keepPrivate} {t.link.bookmarkHint}
+        </span>
+      </p>
+    </section>
+  );
 }
+
+/* Found confirmation */
 
 type ConfirmationProps = {
   view: MatchingView;
@@ -87,310 +565,9 @@ type ConfirmationProps = {
   headingRef: RefObject<HTMLHeadingElement | null>;
 };
 
-function PauseBars() {
-  return (
-    <span className="flex gap-[3px]">
-      <span className="h-2.5 w-[3px] rounded-full bg-forest" />
-      <span className="h-2.5 w-[3px] rounded-full bg-forest" />
-    </span>
-  );
-}
-
-type StepState =
-  | "done"
-  | "active"
-  | "paused"
-  | "waiting"
-  | "stopped"
-  | "rejected"
-  | "upcoming";
-
-type Step = { state: StepState; label: string; detail: string };
-
-// Read before each step, since the indicators are decorative.
-const STEP_STATE_TEXT: Record<StepState, string> = {
-  done: "Done",
-  active: "In progress",
-  paused: "Paused",
-  waiting: "Waiting",
-  stopped: "Did not finish",
-  rejected: "Not verified",
-  upcoming: "Not started",
-};
-
-function StepIndicator({ state, number }: { state: StepState; number: number }) {
-  // Opaque fills, so the progress line passes behind a node and never through
-  // it. One short pop when a node's state changes; nothing loops.
-  const base =
-    "relative z-10 flex size-10 shrink-0 items-center justify-center rounded-full motion-safe:animate-pop";
-  switch (state) {
-    case "done":
-      return (
-        <span aria-hidden className={`${base} bg-forest text-primary-foreground`}>
-          <CheckIcon className="size-5" />
-        </span>
-      );
-    case "rejected":
-      return (
-        <span aria-hidden className={`${base} bg-destructive text-primary-foreground`}>
-          <XIcon className="size-5" />
-        </span>
-      );
-    case "stopped":
-      return (
-        <span aria-hidden className={`${base} border-2 border-sage bg-card`}>
-          <PauseBars />
-        </span>
-      );
-    case "waiting":
-      return (
-        <span aria-hidden className={`${base} border-2 border-forest bg-card text-forest`}>
-          <ClockIcon className="size-5" />
-        </span>
-      );
-    case "upcoming":
-      return (
-        <span
-          aria-hidden
-          className={`${base} border border-foreground/25 bg-card text-sm font-semibold tabular-nums text-muted-foreground`}
-        >
-          {number}
-        </span>
-      );
-    default:
-      // In progress and paused: a forest ring with a dot, or pause bars.
-      return (
-        <span aria-hidden className={`${base} border-2 border-forest bg-card`}>
-          {state === "active" ? <span className="size-3 rounded-full bg-forest" /> : <PauseBars />}
-        </span>
-      );
-  }
-}
-
-function matchingStep(view: MatchingView, waiting: boolean): Step {
-  if (waiting) {
-    if (view.phase === "rate_limited") {
-      return {
-        state: "paused",
-        label: "Matching",
-        detail:
-          "Amanah is busy. Please keep this page open, or try again later.",
-      };
-    }
-    return {
-      state: "active",
-      label: "Matching",
-      detail:
-        "outcome" in view && view.outcome === "possible_match"
-          ? "A possible match has turned up. Finishing the remaining checks…"
-          : "This can take a little while. Please keep this page open.",
-    };
-  }
-  if (view.phase === "complete") {
-    return {
-      state: "done",
-      label: "Matching",
-      detail: "Every found-item report has been checked.",
-    };
-  }
-  return {
-    state: "stopped",
-    label: "Matching",
-    detail:
-      view.phase === "lost_access"
-        ? "The status of this check is no longer available here."
-        : "Not every found-item report was checked.",
-  };
-}
-
-/** The last two steps, from the ownership state already shown on the page. */
-function ownershipSteps(
-  view: MatchingView,
-  waiting: boolean,
-  ownership: OwnershipStage | null | undefined,
-): [Step, Step] {
-  const decisionUpcoming: Step = {
-    state: "upcoming",
-    label: "Staff decision",
-    detail: "Staff review the claim and decide the next step.",
-  };
-  const possibleMatch = "outcome" in view && view.outcome === "possible_match";
-
-  if (!possibleMatch || !ownership) {
-    return [
-      {
-        state: "upcoming",
-        label: "Ownership questions",
-        detail:
-          possibleMatch && waiting
-            ? "Starts once matching finishes."
-            : "Only if a possible match is found: a few neutral questions about your item.",
-      },
-      decisionUpcoming,
-    ];
-  }
-
-  const questionsDone = (detail: string): Step => ({
-    state: "done",
-    label: "Ownership questions",
-    detail,
-  });
-
-  switch (ownership) {
-    case "loading":
-      return [
-        { state: "active", label: "Ownership questions", detail: "Preparing your questions…" },
-        decisionUpcoming,
-      ];
-    case "question":
-      return [
-        {
-          state: "active",
-          label: "Ownership questions",
-          detail: "Answer the questions below in your own words.",
-        },
-        decisionUpcoming,
-      ];
-    case "followup":
-      return [
-        {
-          state: "active",
-          label: "Ownership questions",
-          detail: "Staff have one more question for you.",
-        },
-        decisionUpcoming,
-      ];
-    case "retry":
-      return [
-        {
-          state: "stopped",
-          label: "Ownership questions",
-          detail: "Your questions could not be prepared yet. See below.",
-        },
-        decisionUpcoming,
-      ];
-    case "staff_review":
-      return [
-        questionsDone("No questions are needed for this possible match."),
-        { state: "waiting", label: "Staff decision", detail: "Waiting for staff review." },
-      ];
-    case "answers_received":
-      return [
-        questionsDone("Your answers were received."),
-        { state: "waiting", label: "Staff decision", detail: "Waiting for staff to review your answers." },
-      ];
-    case "approved":
-      return [
-        questionsDone("Completed."),
-        { state: "done", label: "Staff decision", detail: "Approved for ownership follow-up." },
-      ];
-    case "rejected":
-      return [
-        questionsDone("Completed."),
-        { state: "rejected", label: "Staff decision", detail: "Staff couldn’t verify this claim." },
-      ];
-  }
-}
-
-function JourneySteps({ steps, busy }: { steps: Step[]; busy: boolean }) {
-  const current = steps.findIndex(
-    (step) => step.state !== "done" && step.state !== "upcoming",
-  );
-  // The line is filled up to the furthest step that has started.
-  const reached = steps.reduce((last, step, index) => (step.state === "upcoming" ? last : index), 0);
-  const problem = steps[reached]?.state === "rejected" && reached > 0;
-  const goodFill = (problem ? reached - 1 : reached) / (steps.length - 1);
-
-  // Four columns at every width: short labels wrap under their node. The track
-  // runs from the first node's centre to the last node's centre.
-  return (
-    <section
-      aria-labelledby="journey-steps-title"
-      aria-busy={busy}
-      className="mt-8 rounded-[1.75rem] bg-card px-4 py-6 sm:px-10 sm:py-8"
-    >
-      <h2 id="journey-steps-title" className="sr-only">
-        Your report’s progress
-      </h2>
-      <div className="relative">
-        <span
-          aria-hidden
-          className="absolute left-[12.5%] right-[12.5%] top-[1.125rem] h-1 rounded-full bg-secondary"
-        />
-        <span
-          aria-hidden
-          style={{ "--fill": goodFill } as React.CSSProperties}
-          className="absolute left-[12.5%] right-[12.5%] top-[1.125rem] h-1 origin-left scale-x-[var(--fill)] rounded-full bg-forest transition-transform duration-700 ease-out motion-safe:animate-grow motion-reduce:transition-none"
-        />
-        {problem ? (
-          // Only the last stretch, into the step that did not pass, is red.
-          <span
-            aria-hidden
-            style={{ left: `calc(12.5% + ${(reached - 1) * 25}%)` }}
-            className="absolute top-[1.125rem] h-1 w-1/4 origin-left rounded-full bg-destructive motion-safe:animate-grow motion-safe:[animation-delay:500ms]"
-          />
-        ) : null}
-        <ol className="relative grid grid-cols-4">
-          {steps.map((step, index) => (
-            <li
-              key={step.label + index}
-              aria-current={index === current ? "step" : undefined}
-              className="flex min-w-0 flex-col items-center gap-2.5 px-1 text-center"
-            >
-              <StepIndicator key={step.state} state={step.state} number={index + 1} />
-              <p
-                className={`text-[0.9375rem] font-semibold leading-tight sm:text-base ${
-                  step.state === "upcoming" ? "text-muted-foreground" : "text-foreground"
-                }`}
-              >
-                <span className="sr-only">Step {index + 1}: </span>
-                {step.label}
-                <span
-                  className={`mt-1 block text-[0.8125rem] font-medium leading-tight ${
-                    step.state === "rejected" ? "text-bad-ink" : "text-muted-foreground"
-                  }`}
-                >
-                  <span className="sr-only">, </span>
-                  {STEP_STATE_TEXT[step.state]}
-                </span>
-              </p>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-  );
-}
-
-// Placeholder until the organization provides its real drop-off location.
-export const FOUND_DROP_OFF_GUIDANCE =
-  "Found report saved. Please drop off the item with your organization’s lost-and-found staff.";
-
-// Shared by the lost-report and tracking pages. No staff email or phone is
-// configured in the project; add a contact link here when one exists.
-export const STAFF_CONTACT_NOTE =
-  "Questions or updates? Contact your organization’s lost-and-found staff.";
-
-function foundNote(view: MatchingView, waiting: boolean, canRetry: boolean) {
-  if (waiting) {
-    return view.phase === "rate_limited"
-      ? "Finishing up. Automatic processing is paused because Amanah is busy. Please keep this page open, or try again later."
-      : "Finishing up. Please keep this page open for a moment.";
-  }
-  switch (view.phase) {
-    case "complete":
-    case "lost_access":
-      return null;
-    case "stalled":
-      return "Some automatic processing is taking longer than expected. Your report is still saved. Refresh the page to continue.";
-    case "rate_limited":
-      return "Some automatic processing did not finish because Amanah is busy. Your report is still saved. Please try again later.";
-    default:
-      return canRetry
-        ? "Some automatic processing did not finish. Your report is still saved. You can try again."
-        : "Some automatic processing did not finish. Your report is still saved.";
-  }
-}
+// Kept for modules that still read these as constants; the catalogue is the source.
+export const FOUND_DROP_OFF_GUIDANCE = track.en.found.nextBody;
+export const STAFF_CONTACT_NOTE = track.en.staffContact;
 
 export function FoundConfirmation({
   view,
@@ -400,181 +577,154 @@ export function FoundConfirmation({
   onReportAnother,
   headingRef,
 }: ConfirmationProps) {
-  const note = foundNote(view, isContinuing, canRetry);
+  const t = useMessages(track);
+  const c = useMessages(common);
+  const note = foundNote(t, view, isContinuing, canRetry);
 
   return (
-    <>
+    <div className="mx-auto w-full max-w-3xl">
       <PageHeading
-        context="Report saved"
+        context={t.found.context}
         saved
-        title="Found report saved"
-        intro="Thank you for reporting this item. It has been saved so it can be returned to its owner safely."
+        title={t.found.title}
+        intro={t.found.intro}
         headingRef={headingRef}
       />
 
       <section
-        aria-labelledby="drop-off-title"
-        className="relative isolate mt-10 py-7 pl-9 pr-6 text-cream motion-safe:animate-rise sm:py-8 sm:pl-12 sm:pr-9"
+        aria-labelledby="hand-in-title"
+        className="relative isolate mt-10 py-7 ps-10 pe-6 text-paper motion-safe:animate-rise sm:py-9 sm:ps-14 sm:pe-10"
       >
-        <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-forest" />
-        <div className="flex items-start gap-3">
-          <PinIcon className="mt-1.5 size-5 shrink-0 text-sage" />
-          <div>
-            <h2
-              id="drop-off-title"
-              className="font-serif text-[1.75rem] font-semibold leading-tight text-cream sm:text-[2rem]"
-            >
-              Next step: hand in the item
+        <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-pine-deep" />
+        <span aria-hidden className="eyelet absolute start-3 top-1/2 size-4 -translate-y-1/2 bg-paper sm:start-5" />
+        <div className="flex items-start gap-4">
+          <HandIcon className="mt-1 size-7 shrink-0 text-brass-light" />
+          <div className="min-w-0">
+            <h2 id="hand-in-title" className="text-heading text-paper">
+              {t.found.nextTitle}
             </h2>
-            <p className="mt-2 max-w-[52ch] text-base leading-relaxed text-cream/90">
-              {FOUND_DROP_OFF_GUIDANCE}
-            </p>
+            <p className="mt-3 max-w-[52ch] text-body text-paper/85">{t.found.nextBody}</p>
           </div>
         </div>
       </section>
 
       {note ? (
-        <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-secondary px-4 py-3.5 motion-safe:animate-rise sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            {isContinuing ? (
-              <span
-                aria-hidden
-                className="mt-1.5 size-2 shrink-0 rounded-full bg-forest motion-safe:animate-breathe"
-              />
-            ) : (
-              <InfoIcon className="mt-0.5 size-5 shrink-0 text-forest" />
-            )}
-            <p className="text-[0.9375rem] leading-relaxed text-foreground/80">{note}</p>
-          </div>
-          {canRetry ? (
-            <button
-              type="button"
-              onClick={onRetry}
-              className={`${secondaryButtonClassName} shrink-0`}
-            >
-              Try again
-            </button>
-          ) : null}
-        </div>
+        <Notice
+          tone={isContinuing ? "info" : view.phase === "stalled" || view.phase === "rate_limited" ? "warning" : "info"}
+          className="mt-5"
+        >
+          <span className="font-normal">{note}</span>
+        </Notice>
       ) : null}
 
       {!isContinuing ? (
         <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-          <button type="button" onClick={onReportAnother} className={primaryButtonClassName}>
-            Report another found item
+          {canRetry ? (
+            <button type="button" onClick={onRetry} className={primaryButtonClassName}>
+              {t.actions.tryAgain}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onReportAnother}
+            className={canRetry ? secondaryButtonClassName : primaryButtonClassName}
+          >
+            {t.actions.reportAnotherFound}
           </button>
           <Link href="/" className={secondaryButtonClassName}>
-            Back to home
+            {c.backHome}
           </Link>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
-type LostResult = {
-  tone: "match" | "neutral" | "notice";
-  title: string;
-  body: string[];
-  aiNote?: boolean;
+/* Lost confirmation */
+
+const headlineSurface: Record<HeadlineTone, string> = {
+  busy: "bg-card",
+  notice: "bg-wait-soft",
+  neutral: "bg-card",
+  match: "bg-brass-soft",
+  ok: "bg-ok-soft",
+  bad: "bg-bad-soft",
 };
 
-const AI_SUGGESTION_NOTE =
-  "This is an AI suggestion. It does not confirm that the item is yours, and nothing is returned until ownership is verified.";
-
-const NOT_NO_MATCH = "This is not a “no match” result.";
-
-function lostResult(view: MatchingView, canRetry: boolean): LostResult {
-  if ("outcome" in view && view.outcome === "possible_match") {
-    const partial =
-      view.phase === "failed" ||
-      view.phase === "unavailable" ||
-      view.phase === "rate_limited";
-    return {
-      tone: "match",
-      title: "Possible match found",
-      body: [
-        "A found-item report may describe your item. Ownership verification is the next step.",
-        ...(partial ? ["Some other checks did not finish."] : []),
-      ],
-      aiNote: true,
-    };
-  }
-  switch (view.phase) {
-    case "complete":
-      return "outcome" in view && view.outcome === "uncertain"
-        ? {
-            tone: "neutral",
-            title: "No possible match yet",
-            body: [
-              "We could not tell from the details whether a found item matches, so staff may review it. Your report stays saved.",
-            ],
-          }
-        : {
-            tone: "neutral",
-            title: "No possible match yet",
-            body: [
-              "None of the found-item reports so far look like a match. Your report stays saved.",
-            ],
-          };
-    case "rate_limited":
-      return {
-        tone: "notice",
-        title: "Matching needs attention",
-        body: [
-          `Your report is still saved, but checking did not finish because Amanah is busy. ${NOT_NO_MATCH}`,
-          "Please try again later.",
-        ],
-      };
-    case "unavailable":
-      return {
-        tone: "notice",
-        title: "Matching needs attention",
-        body: [
-          `Your report is still saved, but automatic matching is not available right now. ${NOT_NO_MATCH}`,
-          ...(canRetry ? ["You can try again."] : []),
-        ],
-      };
-    case "stalled":
-      return {
-        tone: "notice",
-        title: "Matching needs attention",
-        body: [
-          `Your report is still saved. Checking is taking longer than expected and is not finished. ${NOT_NO_MATCH}`,
-          "Refresh the page to continue.",
-        ],
-      };
-    case "lost_access":
-      return {
-        tone: "neutral",
-        title: "Status no longer available",
-        body: [
-          "Your report is still saved. Its matching status is no longer available on this page.",
-        ],
-      };
-    default:
-      return {
-        tone: "notice",
-        title: "Matching needs attention",
-        body: [
-          `Your report is still saved, but checking for possible matches did not finish. ${NOT_NO_MATCH}`,
-          ...(canRetry ? ["You can try again."] : []),
-        ],
-      };
-  }
+/**
+ * The current status as a titled block, for pages whose main heading is not
+ * the status itself (the report form's fallback confirmation).
+ */
+export function StatusBlock({
+  headline,
+  waiting,
+  children,
+}: {
+  headline: Headline;
+  waiting: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <section
+      aria-labelledby="matching-result-title"
+      aria-busy={waiting}
+      className={`relative isolate rounded-[1.75rem] p-5 motion-safe:animate-rise sm:p-7 ${headlineSurface[headline.tone]}`}
+    >
+      {headline.tone === "match" ? (
+        <span aria-hidden className="eyelet absolute end-6 top-6 size-5 bg-paper sm:end-7 sm:top-7" />
+      ) : null}
+      <h2 id="matching-result-title" className="text-heading pe-9 text-foreground">
+        {headline.title}
+      </h2>
+      <p className="mt-3 max-w-[58ch] text-body text-foreground">{headline.intro}</p>
+      {headline.extra ? <p className="mt-2 text-body text-foreground">{headline.extra}</p> : null}
+      {children}
+    </section>
+  );
 }
 
-const resultToneClassName: Record<LostResult["tone"], string> = {
-  match: "bg-accent",
-  neutral: "border border-border bg-card",
-  notice: "bg-wait-soft",
-};
-
-const ResultIcon: Record<LostResult["tone"], typeof CheckIcon> = {
-  match: KeyholeGlyph,
-  neutral: InfoIcon,
-  notice: ClockIcon,
-};
+/** The follow-up actions under a lost report's status. */
+export function LostActions({
+  view,
+  waiting,
+  canRetry,
+  onRetry,
+  onReportAnother,
+}: {
+  view: MatchingView;
+  waiting: boolean;
+  canRetry: boolean;
+  onRetry: () => void;
+  onReportAnother: () => void;
+}) {
+  const t = useMessages(track);
+  const c = useMessages(common);
+  if (waiting) return null;
+  const stalled = view.phase === "stalled";
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+      {canRetry ? (
+        <button type="button" onClick={onRetry} className={primaryButtonClassName}>
+          {t.actions.tryAgain}
+        </button>
+      ) : stalled ? (
+        <button type="button" onClick={() => window.location.reload()} className={primaryButtonClassName}>
+          {t.actions.refresh}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={onReportAnother}
+        className={canRetry || stalled ? secondaryButtonClassName : primaryButtonClassName}
+      >
+        {t.actions.reportAnotherLost}
+      </button>
+      <Link href="/" className={secondaryButtonClassName}>
+        {c.backHome}
+      </Link>
+    </div>
+  );
+}
 
 export function LostConfirmation({
   context,
@@ -597,121 +747,44 @@ export function LostConfirmation({
   intro: ReactNode;
   // Ownership state from the verification card; undefined where it is not shown.
   ownership?: OwnershipStage | null;
-  // Shown below the result, e.g. the ownership questions.
+  // Shown below the status, e.g. the ownership questions.
   children?: ReactNode;
-  // Shown in the side column on wide screens, e.g. the tracking link.
+  // Shown beside the status on wide screens, e.g. the tracking link.
   aside?: ReactNode;
 }) {
-  const result = isContinuing ? null : lostResult(view, canRetry);
-  const steps: Step[] = [
-    { state: "done", label: "Report saved", detail: "Your details are stored privately." },
-    matchingStep(view, isContinuing),
-    ...ownershipSteps(view, isContinuing, ownership),
-  ];
-
-  const Icon = result ? ResultIcon[result.tone] : null;
-
-  // Once ownership has taken over, the match card shrinks to the AI reminder
-  // (while questions or review are open) and then goes away. The decision
-  // itself is shown by the ownership card.
-  const ownershipActive =
-    ownership === "question" ||
-    ownership === "followup" ||
-    ownership === "staff_review" ||
-    ownership === "answers_received";
+  const t = useMessages(track);
+  const headline = lostHeadline(t, view, isContinuing, ownership);
   const decided = ownership === "approved" || ownership === "rejected";
-  const showFullResult = Boolean(result && Icon) && !ownershipActive && !decided;
+  const showAiNote = headline.tone === "match";
 
-  // Reading order: heading, the progress stepper, then the current status with
-  // its follow-up (the staff-contact line and the action button) kept together,
-  // and the private tracking link beside it. Columns are top-aligned and keep
-  // their own height.
+  // Reading order: heading, the status with what to do now, the ownership
+  // card, the actions; the progress slip and any aside sit beside them on
+  // wide screens and after them on phones.
   return (
-    <div>
-      <PageHeading
-        context={context}
-        saved={saved}
-        title={title}
-        intro={intro}
-        headingRef={headingRef}
-      />
-      <JourneySteps steps={steps} busy={isContinuing} />
-
-      <div className="@container mt-6">
-        <div
-          className={`grid items-start gap-6 ${
-            aside ? "@4xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @4xl:gap-8" : "max-w-3xl"
-          }`}
-        >
-          <div className="flex min-w-0 flex-col gap-4 [&>*]:mt-0!">
-          {showFullResult && result && Icon ? (
-            <section
-              aria-labelledby="matching-result-title"
-              className={`rounded-[1.75rem] p-5 motion-safe:animate-rise sm:p-7 ${resultToneClassName[result.tone]}`}
-            >
-              <div className="flex items-start gap-3">
-                <Icon
-                  className={`mt-1.5 size-6 shrink-0 ${
-                    result.tone === "notice" ? "text-wait-ink" : "text-forest"
-                  }`}
-                />
-                <div className="min-w-0 flex-1">
-                  <h2
-                    id="matching-result-title"
-                    className={`font-serif text-[2rem] font-semibold leading-tight tracking-[-0.01em] ${
-                      result.tone === "match" ? "text-pine" : "text-foreground"
-                    }`}
-                  >
-                    {result.title}
-                  </h2>
-                  {result.body.map((paragraph) => (
-                    <p key={paragraph} className="mt-2 text-base leading-relaxed text-foreground">
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              </div>
-              {result.aiNote ? (
-                <Notice surface="bg-card/80" className="mt-5">
-                  <span className="font-normal">{AI_SUGGESTION_NOTE}</span>
-                </Notice>
-              ) : null}
-            </section>
-          ) : null}
-
-          {ownershipActive && result?.aiNote ? (
-            <Notice>
-              <span className="font-normal">{AI_SUGGESTION_NOTE}</span>
-            </Notice>
-          ) : null}
-
+    <div className="@container">
+      <PageHeading context={context} saved={saved} title={title} intro={intro} headingRef={headingRef} />
+      <div className="mt-8 grid items-start gap-8 @4xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] @4xl:gap-x-12">
+        <div className="flex min-w-0 flex-col gap-5">
+          <StatusBlock headline={headline} waiting={isContinuing}>
+            {showAiNote ? (
+              <Notice surface="bg-card/80" className="mt-5">
+                <span className="font-normal">{t.aiNote}</span>
+              </Notice>
+            ) : null}
+          </StatusBlock>
           {children}
-
-            <div className="flex flex-col gap-4 pt-2">
-              {decided ? null : (
-                <p className="max-w-[52ch] text-[0.9375rem] leading-relaxed text-foreground/80">
-                  {STAFF_CONTACT_NOTE}
-                </p>
-              )}
-              {!isContinuing ? (
-                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                  {canRetry ? (
-                    <button type="button" onClick={onRetry} className={primaryButtonClassName}>
-                      Try again
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={onReportAnother}
-                    className={canRetry ? secondaryButtonClassName : primaryButtonClassName}
-                  >
-                    Report another lost item
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-          {aside ? <div className="min-w-0 [&>*]:mt-0!">{aside}</div> : null}
+          {decided ? null : <p className="max-w-[58ch] text-small text-foreground/80">{t.staffContact}</p>}
+          <LostActions
+            view={view}
+            waiting={isContinuing}
+            canRetry={canRetry}
+            onRetry={onRetry}
+            onReportAnother={onReportAnother}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-6">
+          <JourneySteps view={view} waiting={isContinuing} ownership={ownership} />
+          {aside}
         </div>
       </div>
     </div>

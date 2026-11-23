@@ -1,15 +1,16 @@
+import type { Metadata } from "next";
 import ReportForm from "@/app/report/ReportForm";
+import { report } from "@/i18n/messages/report";
+import { getMessages } from "@/i18n/server";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getMessages(report);
+  return {
+    title: t.kinds.found.metaTitle,
+    description: t.kinds.found.metaDescription,
+  };
+}
 
 export default function ReportFoundPage() {
-  return (
-    <ReportForm
-      reportType="found"
-      eyebrow="Found item report"
-      title="Report a found item"
-      intro="Tell us what you found and where. Found-item details are kept private and never shown publicly."
-      locationLabel="Found location"
-      locationHint="Where you found it, for example a building, room, or area."
-      locationRequiredMessage="Found location is required."
-    />
-  );
+  return <ReportForm reportType="found" />;
 }

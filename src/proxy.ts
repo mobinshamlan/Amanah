@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/utils/supabase/proxy";
+import { isFixtureMode } from "@/utils/fixtures/mode";
 
 export async function proxy(request: NextRequest) {
   if (
@@ -7,6 +8,11 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/admin")
   ) {
     return new NextResponse("Not Found", { status: 404 });
+  }
+
+  // Development fixture mode never contacts Supabase, including its auth check.
+  if (isFixtureMode()) {
+    return NextResponse.next();
   }
 
   return await updateSession(request);

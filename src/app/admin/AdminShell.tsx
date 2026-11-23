@@ -1,20 +1,22 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  ArrowLeftIcon,
-  KeyholeMark,
+  ArrowStartIcon,
+  CompareIcon,
   ListIcon,
-  PairIcon,
   PulseIcon,
   SearchIcon,
   ShieldIcon,
 } from "@/components/icons";
+import { LanguageSwitch } from "@/components/LanguageSwitch";
+import { Wordmark } from "@/components/site-header";
 import { focusRingClassName } from "@/components/ui";
+import type { AdminMessages } from "@/i18n/messages/admin";
 
-// The staff workspace frame: a labelled sidebar on the cream ground and one
-// work sheet per section. On tablets and phones the sidebar folds into a top
-// bar with the section links below it. Navigation keeps the same
-// /admin?section=… links as before.
+// The staff workspace frame: the wordmark and a labelled sidebar on the paper
+// ground, one card work sheet per section. Under lg the sidebar folds into a
+// top bar with the section links wrapped below it, so every section stays one
+// tap away. Navigation keeps the same /admin?section=… links as before.
 
 export type AdminSectionKey = "matches" | "candidates" | "claims" | "reports" | "monitoring";
 
@@ -28,7 +30,7 @@ export type AdminNavItem = {
 };
 
 const ICONS: Record<AdminSectionKey, (props: { className?: string }) => ReactNode> = {
-  matches: PairIcon,
+  matches: CompareIcon,
   candidates: SearchIcon,
   claims: ShieldIcon,
   reports: ListIcon,
@@ -42,7 +44,7 @@ function sectionHref(key: AdminSectionKey) {
 function Badge({ item }: { item: AdminNavItem }) {
   if (item.alert) {
     return (
-      <span className="ml-auto flex items-center gap-1.5">
+      <span className="ms-auto flex items-center gap-1.5 ps-1">
         <span aria-hidden className="size-2.5 rounded-full bg-destructive" />
         <span className="sr-only">{item.alert}</span>
       </span>
@@ -50,7 +52,7 @@ function Badge({ item }: { item: AdminNavItem }) {
   }
   if (item.count && item.count.value > 0) {
     return (
-      <span className="ml-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-2 text-xs font-semibold tabular-nums text-cream">
+      <span className="ms-auto inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-primary px-2 text-caption font-semibold tabular-nums text-primary-foreground">
         {item.count.value}
         <span className="sr-only"> {item.count.label}</span>
       </span>
@@ -59,32 +61,26 @@ function Badge({ item }: { item: AdminNavItem }) {
   return null;
 }
 
-function Brand() {
+function Brand({ t }: { t: AdminMessages }) {
   return (
-    <Link
-      href="/admin"
-      className={`flex w-fit items-center gap-3 rounded-xl py-1 pr-2 ${focusRingClassName}`}
-    >
-      <KeyholeMark className="size-9" />
-      <span className="flex min-w-0 flex-col gap-1 leading-none">
-        <span className="font-serif text-xl font-semibold tracking-[0.16em] text-foreground">
-          AMANAH
-        </span>
-        <span className="text-[0.8125rem] font-medium text-muted-foreground">Staff workspace</span>
-      </span>
+    <Link href="/admin" className={`flex w-fit flex-col gap-1 rounded-xl py-1 pe-2 ${focusRingClassName}`}>
+      <Wordmark tone="paper" />
+      <span className="text-caption font-medium text-muted-foreground">{t.workspace}</span>
     </Link>
   );
 }
 
-function NavLinks({ nav, active, layout }: { nav: AdminNavItem[]; active: AdminSectionKey | null; layout: "side" | "top" }) {
+function NavLinks({
+  nav,
+  active,
+  layout,
+}: {
+  nav: AdminNavItem[];
+  active: AdminSectionKey | null;
+  layout: "side" | "top";
+}) {
   return (
-    <ul
-      className={
-        layout === "side"
-          ? "flex flex-col gap-1"
-          : "grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap"
-      }
-    >
+    <ul className={layout === "side" ? "flex flex-col gap-1" : "flex flex-wrap gap-1.5"}>
       {nav.map((item) => {
         const Icon = ICONS[item.key];
         const current = item.key === active;
@@ -93,15 +89,15 @@ function NavLinks({ nav, active, layout }: { nav: AdminNavItem[]; active: AdminS
             <Link
               href={sectionHref(item.key)}
               aria-current={current ? "page" : undefined}
-              className={`flex min-h-11 cursor-pointer items-center gap-2.5 px-3.5 py-1.5 text-[0.9375rem] leading-tight transition-colors duration-150 ${
-                layout === "side" ? "rounded-full" : "rounded-2xl sm:rounded-full"
+              className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full py-1.5 text-small leading-tight transition-colors duration-150 ${
+                layout === "side" ? "px-3.5" : "px-3"
               } ${focusRingClassName} ${
                 current
                   ? "bg-secondary font-semibold text-foreground"
-                  : "text-foreground/70 hover:bg-secondary/70 hover:text-foreground"
+                  : "text-foreground/75 hover:bg-secondary/70 hover:text-foreground"
               }`}
             >
-              <Icon className={`size-[1.125rem] shrink-0 ${current ? "text-forest" : ""}`} />
+              <Icon className={`size-[1.125rem] shrink-0 ${current ? "text-forest" : ""} ${layout === "top" ? "hidden sm:block" : ""}`} />
               <span className="min-w-0">{item.label}</span>
               <Badge item={item} />
             </Link>
@@ -112,11 +108,12 @@ function NavLinks({ nav, active, layout }: { nav: AdminNavItem[]; active: AdminS
   );
 }
 
-function LocalAdminTag() {
+function LocalNote({ t, short = false }: { t: AdminMessages; short?: boolean }) {
   return (
-    <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground">
-      Local admin
-    </span>
+    <p className={`flex items-start gap-2 text-caption text-muted-foreground ${short ? "" : "max-w-[32ch]"}`}>
+      <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-brass" />
+      <span>{t.localNote}</span>
+    </p>
   );
 }
 
@@ -126,6 +123,7 @@ export function AdminShell({
   title,
   subline,
   actions,
+  t,
   children,
 }: {
   active: AdminSectionKey | null;
@@ -133,34 +131,36 @@ export function AdminShell({
   title: string;
   subline?: ReactNode;
   actions?: ReactNode;
+  t: AdminMessages;
   children: ReactNode;
 }) {
   return (
     <div className="flex min-h-dvh flex-1 flex-col bg-background lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
       <a
         href="#main"
-        className="sr-only rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-20"
+        className="sr-only rounded-full bg-primary px-4 text-small font-semibold text-primary-foreground focus:not-sr-only focus:absolute focus:start-3 focus:top-3 focus:z-20 focus:inline-flex focus:min-h-11 focus:items-center"
       >
-        Skip to content
+        {t.skipToContent}
       </a>
 
       {/* Sidebar (desktop). */}
-      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-8 lg:px-4 lg:py-6">
-        <Brand />
-        <nav aria-label="Workspace sections">
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:gap-8 lg:overflow-y-auto lg:px-4 lg:py-6">
+        <Brand t={t} />
+        <nav aria-label={t.navLabel}>
           <NavLinks nav={nav} active={active} layout="side" />
         </nav>
-        <div className="mt-auto flex flex-col gap-4 px-1 text-[0.8125rem] leading-relaxed text-muted-foreground">
-          <p>AI suggestions are never a decision. Staff decide every claim.</p>
-          <div className="flex items-center justify-between gap-2">
+        <div className="mt-auto flex flex-col gap-4 px-1">
+          <p className="max-w-[32ch] text-caption text-muted-foreground">{t.staffDecide}</p>
+          <LocalNote t={t} />
+          <div className="flex flex-wrap items-center gap-2">
+            <LanguageSwitch tone="paper" />
             <Link
               href="/"
-              className={`-ml-1.5 inline-flex min-h-11 items-center gap-1.5 rounded-full px-1.5 font-semibold text-foreground transition-colors hover:text-forest ${focusRingClassName}`}
+              className={`inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-small font-medium text-foreground underline-offset-4 transition-colors hover:text-forest hover:underline ${focusRingClassName}`}
             >
-              <ArrowLeftIcon className="size-4" />
-              Back to home
+              <ArrowStartIcon className="size-4" />
+              {t.backHome}
             </Link>
-            <LocalAdminTag />
           </div>
         </div>
       </aside>
@@ -168,38 +168,33 @@ export function AdminShell({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar and section links (tablet and phone). */}
         <header className="flex flex-col gap-3 px-3 pb-3 pt-3 sm:px-5 lg:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <Brand />
+          <div className="flex items-start justify-between gap-3">
+            <Brand t={t} />
             <div className="flex items-center gap-1">
               <Link
                 href="/"
-                className={`hidden min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-foreground hover:text-forest sm:inline-flex ${focusRingClassName}`}
+                className={`hidden min-h-11 items-center gap-1.5 rounded-full px-3 text-small font-medium text-foreground hover:text-forest sm:inline-flex ${focusRingClassName}`}
               >
-                <ArrowLeftIcon className="size-4" />
-                Back to home
+                <ArrowStartIcon className="size-4" />
+                {t.backHome}
               </Link>
-              <LocalAdminTag />
+              <LanguageSwitch tone="paper" />
             </div>
           </div>
-          <nav aria-label="Workspace sections">
+          <nav aria-label={t.navLabel}>
             <NavLinks nav={nav} active={active} layout="top" />
           </nav>
+          <LocalNote t={t} short />
         </header>
 
         <main
           id="main"
-          className="min-w-0 flex-1 rounded-t-[1.75rem] border border-b-0 border-border bg-card lg:my-3 lg:mr-3 lg:rounded-[1.75rem] lg:border-b"
+          className="min-w-0 flex-1 rounded-t-[1.75rem] bg-card lg:my-3 lg:me-3 lg:rounded-[1.75rem]"
         >
-          <div className="flex flex-col gap-4 px-4 pb-6 pt-6 sm:px-7 sm:pt-8 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-4 px-4 pb-5 pt-6 sm:px-7 sm:pt-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
-              <h1 className="font-serif text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.015em] text-foreground sm:text-[2.6rem]">
-                {title}
-              </h1>
-              {subline ? (
-                <p className="mt-2 max-w-3xl text-[0.9375rem] leading-relaxed text-foreground/75">
-                  {subline}
-                </p>
-              ) : null}
+              <h1 className="text-heading text-foreground">{title}</h1>
+              {subline ? <p className="mt-2 max-w-[70ch] text-small text-foreground/85">{subline}</p> : null}
             </div>
             {actions ? <div className="min-w-0 shrink-0">{actions}</div> : null}
           </div>

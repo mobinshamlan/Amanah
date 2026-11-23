@@ -1,5 +1,7 @@
 import { GoogleGenAI, type GoogleGenAIRequestOptions } from "@google/genai";
 import { assertGeminiUsageAllowed } from "@/utils/limits/usageLimit";
+import { isFixtureMode } from "@/utils/fixtures/mode";
+import { fakeGeminiJson } from "@/utils/fixtures/fakeGemini";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 
@@ -209,6 +211,11 @@ export function getGeminiModel() {
   return configured || DEFAULT_GEMINI_MODEL;
 }
 
+/** True when Gemini can be called: a key is set, or development fixture mode answers instead. */
+export function isGeminiConfigured() {
+  return isFixtureMode() || Boolean(process.env.GEMINI_API_KEY?.trim());
+}
+
 function requireGeminiApiKey() {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
@@ -342,6 +349,11 @@ export async function requestJson({
   requestOptions: GoogleGenAIRequestOptions;
   onAttempt?: (attempt: GeminiAttempt) => void;
 }): Promise<unknown> {
+  // Development fixture mode: a local fake answers. No usage counters, no key, no network.
+  if (isFixtureMode()) {
+    return fakeGeminiJson({ input, schema, onAttempt });
+  }
+
   // Every Gemini call pays the durable app, IP, and report limits first.
   await assertGeminiUsageAllowed();
   const apiKey = requireGeminiApiKey();
