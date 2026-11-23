@@ -49,6 +49,85 @@
   transform-origin: calc(100% - 1.75rem) 1.5rem;
 }
 
+/*
+  The tag in depth. Three layers, one transform each, so they never fight:
+  .demo-tag-tilt leans toward the pointer, .demo-tag swings on its string,
+  .demo-tag-card turns over. Every layer keeps 3D for its children; nothing
+  between them may group (isolation, opacity, filter, clip-path), or the
+  turn flattens. The paper's clip-path lives on each face's own shape.
+*/
+.demo-tag-stage {
+  perspective: 1100px;
+}
+
+.demo-tag-tilt,
+.demo-tag,
+.demo-tag-card {
+  transform-style: preserve-3d;
+}
+
+/* A mouse or pen only, and never with motion reduced. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .demo-tag-tilt {
+    transform-origin: 50% 0;
+    transform: rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+    transition: transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+
+  .demo-tag-tilt[data-tilting] {
+    transition-duration: 160ms;
+    will-change: transform;
+  }
+}
+
+.demo-tag-card {
+  display: grid;
+  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.demo-tag-card[data-turning] {
+  will-change: transform;
+}
+
+/* Both faces share one cell; each hides when it faces away. */
+.demo-tag-face {
+  grid-area: 1 / 1;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.demo-tag-back {
+  transform: rotateY(180deg);
+}
+
+/*
+  The face turned away (inert) also leaves the hit test and the visibility
+  tree. It hides at the turn's midpoint, edge-on, so the swap never shows;
+  the face turning up appears at once.
+*/
+.demo-tag-face {
+  transition: visibility 0s;
+}
+
+.demo-tag-face[inert] {
+  visibility: hidden;
+  transition-delay: 475ms;
+}
+
+/* The tag's free edge swings out and over toward the string: the string is at the start side. */
+.demo-tag-card[data-flipped] {
+  transform: rotateY(-180deg);
+}
+
+[dir="rtl"] .demo-tag-card[data-flipped] {
+  transform: rotateY(180deg);
+}
+
+/* On the back, the stamp lands once the turn is mostly done. */
+.demo-stamp.demo-tag-stamp {
+  animation-delay: 620ms;
+}
+
 /* The desk's typing beat: three dots breathing in turn. */
 .demo-dot {
   animation: amanah-breathe 1s ease-in-out infinite;

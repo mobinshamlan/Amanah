@@ -11,6 +11,7 @@ import {
   LockIcon,
   RefreshIcon,
   SendIcon,
+  TagIcon,
 } from "@/components/icons";
 import {
   ReportKindCue,
@@ -47,6 +48,9 @@ const PROGRESS: Stage[] = ["saved", "question", "review", "decision"];
 
 const chipClassName = `demo-chip inline-flex min-h-12 max-w-full cursor-pointer items-center gap-3 rounded-full bg-paper py-1.5 pe-1.5 ps-5 text-start text-body font-semibold leading-snug text-pine-deep ${focusRingOnDarkClassName}`;
 
+// The most the tag leans toward the pointer, in degrees.
+const TILT_DEG = 6;
+
 const stripButtonClassName = `inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-paper/40 px-3.5 text-small font-semibold text-paper transition-colors hover:bg-paper/10 ${focusRingOnDarkClassName}`;
 
 export function GuidedDemo() {
@@ -55,6 +59,8 @@ export function GuidedDemo() {
   const [typing, setTyping] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [restarts, setRestarts] = useState(0);
+  // Which face of the case tag is up: the back carries the decision.
+  const [flipped, setFlipped] = useState(false);
 
   const timers = useRef<number[]>([]);
   const reducedMotion = useRef(false);
@@ -64,6 +70,11 @@ export function GuidedDemo() {
   const decisionHeadingRef = useRef<HTMLHeadingElement>(null);
   const previewHeadingRef = useRef<HTMLHeadingElement>(null);
   const tagRef = useRef<HTMLDivElement>(null);
+  const tiltRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const canTilt = useRef(false);
+  const pointer = useRef<{ x: number; y: number } | null>(null);
+  const tiltFrame = useRef(0);
 
   const clearTimers = useCallback(() => {
     for (const id of timers.current) window.clearTimeout(id);
@@ -75,10 +86,21 @@ export function GuidedDemo() {
     const sync = () => {
       reducedMotion.current = query.matches;
     };
+    // The tag leans toward a mouse or pen only, and never with motion reduced.
+    const fine = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const syncTilt = () => {
+      canTilt.current = fine.matches && !query.matches;
+    };
     sync();
+    syncTilt();
     query.addEventListener("change", sync);
+    query.addEventListener("change", syncTilt);
+    fine.addEventListener("change", syncTilt);
     return () => {
       query.removeEventListener("change", sync);
+      query.removeEventListener("change", syncTilt);
+      fine.removeEventListener("change", syncTilt);
+      window.cancelAnimationFrame(tiltFrame.current);
       clearTimers();
     };
   }, [clearTimers]);
@@ -143,15 +165,65 @@ export function GuidedDemo() {
         () => {
           setTyping(false);
           setStage("decision");
+          // The decision lands on the tag: it turns over once to show the stamp.
+          setFlipped(true);
         },
       ],
     ]);
   };
 
+  /*
+    Pointer tilt: the tag leans up to TILT_DEG toward the pointer. The angles go
+    straight onto the tilt layer as custom properties, once per frame, so a
+    pointer move never re-renders React. Physical, not mirrored: the tag leans
+    toward where the pointer actually is in either language.
+  */
+  const applyTilt = () => {
+    tiltFrame.current = 0;
+    const el = tiltRef.current;
+    const at = pointer.current;
+    if (!el || !at) return;
+    const rect = el.getBoundingClientRect();
+    const clamp = (n: number) => Math.max(-1, Math.min(1, n));
+    const nx = clamp((at.x - (rect.left + rect.width / 2)) / (rect.width / 2));
+    const ny = clamp((at.y - (rect.top + rect.height / 2)) / (rect.height / 2));
+    el.style.setProperty("--tilt-y", `${(nx * TILT_DEG).toFixed(2)}deg`);
+    el.style.setProperty("--tilt-x", `${(-ny * TILT_DEG).toFixed(2)}deg`);
+  };
+
+  const onTagPointerMove = (event: React.PointerEvent) => {
+    if (!canTilt.current || event.pointerType === "touch") return;
+    tiltRef.current?.setAttribute("data-tilting", "");
+    pointer.current = { x: event.clientX, y: event.clientY };
+    if (!tiltFrame.current) tiltFrame.current = window.requestAnimationFrame(applyTilt);
+  };
+
+  const onTagPointerLeave = () => {
+    const el = tiltRef.current;
+    pointer.current = null;
+    window.cancelAnimationFrame(tiltFrame.current);
+    tiltFrame.current = 0;
+    if (!el) return;
+    el.removeAttribute("data-tilting");
+    el.style.setProperty("--tilt-x", "0deg");
+    el.style.setProperty("--tilt-y", "0deg");
+  };
+
+  // will-change only while the tag is turning; cleared when the turn ends.
+  const flipMounted = useRef(false);
+  useEffect(() => {
+    if (!flipMounted.current) {
+      flipMounted.current = true;
+      return;
+    }
+    if (!reducedMotion.current) cardRef.current?.setAttribute("data-turning", "");
+  }, [flipped]);
+
   const restart = () => {
     clearTimers();
     setTyping(false);
     setRevealed(false);
+    setFlipped(false);
     setStage("start");
     setRestarts((n) => n + 1);
   };
@@ -218,43 +290,104 @@ export function GuidedDemo() {
         {/* On wide screens the case hangs beside the conversation as a tag on its string. */}
         <aside
           aria-label={t.tag.label}
+          onPointerMove={onTagPointerMove}
+          onPointerLeave={onTagPointerLeave}
           className="hidden lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block lg:self-start"
         >
-          <div className="sticky top-6 mx-auto w-full max-w-[22rem]">
+          <div className="demo-tag-stage sticky top-6 mx-auto w-full max-w-[22rem]">
             <span aria-hidden className="relative block h-12 w-full">
               <span className="absolute start-[1.8rem] top-0 h-full w-0.5 -translate-x-1/2 bg-brass-light/80 rtl:translate-x-1/2" />
               <span className="absolute start-[1.8rem] top-0 size-2 -translate-x-1/2 rounded-full bg-brass-light rtl:translate-x-1/2" />
             </span>
-            <div ref={tagRef} className="demo-tag relative isolate text-foreground">
-              <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-paper" />
-              <span aria-hidden className="eyelet absolute start-4 top-4 size-6 bg-pine-deep" />
-              <div className="flex flex-col gap-5 px-7 pb-7 pt-12">
-                <UmbrellaArt
-                  handle={handle}
-                  title={handle === "yellow" ? t.tag.artAltKnown : t.tag.artAlt}
-                  className="mx-auto w-44"
-                />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-subheading text-foreground">{t.tag.item}</p>
-                  <ReportKindCue kind="lost">{t.tag.kind}</ReportKindCue>
+            {/* Three layers, one transform each: lean toward the pointer, swing on the string, turn over. */}
+            <div ref={tiltRef} className="demo-tag-tilt">
+              <div ref={tagRef} className="demo-tag">
+                <div
+                  ref={cardRef}
+                  className="demo-tag-card text-foreground"
+                  data-flipped={flipped ? "" : undefined}
+                  onTransitionEnd={(event) => {
+                    if (event.target === event.currentTarget) event.currentTarget.removeAttribute("data-turning");
+                  }}
+                >
+                  <div className="demo-tag-face relative isolate" aria-hidden={flipped || undefined} inert={flipped}>
+                    <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-paper" />
+                    <span aria-hidden className="eyelet absolute start-4 top-4 size-6 bg-pine-deep" />
+                    <div className="flex flex-col gap-5 px-7 pb-7 pt-12">
+                      <UmbrellaArt
+                        handle={handle}
+                        title={handle === "yellow" ? t.tag.artAltKnown : t.tag.artAlt}
+                        className="mx-auto w-44"
+                      />
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-subheading text-foreground">{t.tag.item}</p>
+                        <ReportKindCue kind="lost">{t.tag.kind}</ReportKindCue>
+                      </div>
+                      <ul className="flex flex-col text-body">
+                        <SlipRow label={t.tag.status} value={status} />
+                        <SlipRow
+                          label={t.tag.handle}
+                          value={handle === "yellow" ? t.tag.handleKnown : t.tag.handleUnknown}
+                          muted={handle !== "yellow"}
+                        />
+                      </ul>
+                      <Progress stage={stage} />
+                      {started ? (
+                        <button type="button" onClick={restart} className={quietButtonClassName}>
+                          <RefreshIcon className="size-4" />
+                          {t.restart}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {/* The back: the same paper, stamped by staff. Its turn cancels the card's, so start is still the string side. */}
+                  <div
+                    role="group"
+                    aria-label={t.tag.back}
+                    className="demo-tag-face demo-tag-back relative isolate"
+                    aria-hidden={!flipped || undefined}
+                    inert={!flipped}
+                  >
+                    <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-paper" />
+                    <span aria-hidden className="eyelet absolute start-4 top-4 size-6 bg-pine-deep" />
+                    {stage === "decision" ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-5 px-7 pb-7 pt-12 text-center">
+                        <span className="demo-stamp demo-tag-stamp inline-flex w-fit flex-col items-center rounded-md border-[3px] border-ok-ink px-4 py-1.5 text-ok-ink">
+                          <span className="flex items-center gap-1.5 text-subheading font-bold leading-tight">
+                            <CheckIcon className="size-5" />
+                            {t.decisionStamp}
+                          </span>
+                          <span className="text-small font-semibold leading-tight">{t.decisionStampNote}</span>
+                        </span>
+                        <UmbrellaArt handle={handle} className="w-28" />
+                        <div className="flex flex-col gap-1">
+                          <p className="text-subheading text-foreground">{t.tag.item}</p>
+                          <p className="text-body text-foreground/80">{t.tag.backNote}</p>
+                        </div>
+                        <button type="button" onClick={restart} className={quietButtonClassName}>
+                          <RefreshIcon className="size-4" />
+                          {t.restart}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-                <ul className="flex flex-col text-body">
-                  <SlipRow label={t.tag.status} value={status} />
-                  <SlipRow
-                    label={t.tag.handle}
-                    value={handle === "yellow" ? t.tag.handleKnown : t.tag.handleUnknown}
-                    muted={handle !== "yellow"}
-                  />
-                </ul>
-                <Progress stage={stage} />
-                {started ? (
-                  <button type="button" onClick={restart} className={quietButtonClassName}>
-                    <RefreshIcon className="size-4" />
-                    {t.restart}
-                  </button>
-                ) : null}
               </div>
             </div>
+            {stage === "decision" ? (
+              <div className="mt-4 flex justify-center motion-safe:animate-rise">
+                <button
+                  type="button"
+                  aria-pressed={flipped}
+                  onClick={() => setFlipped((value) => !value)}
+                  className={stripButtonClassName}
+                >
+                  <TagIcon className="size-4" />
+                  {t.tag.flip}
+                </button>
+              </div>
+            ) : null}
           </div>
         </aside>
 

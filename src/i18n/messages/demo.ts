@@ -73,6 +73,10 @@ const en = {
     handleKnown: "yellow",
     artAlt: "A blue folding umbrella. The handle is blank until staff verify its color.",
     artAltKnown: "A blue folding umbrella with a yellow handle.",
+    // The tag's back face, shown when the decision lands.
+    back: "Back of the case tag",
+    backNote: "Pick it up in person at the desk.",
+    flip: "Turn the tag over",
     stages: {
       start: "Waiting for your report",
       sent: "Sending",
@@ -208,6 +212,9 @@ const ar: typeof en = {
     handleKnown: "أصفر",
     artAlt: "مظلة زرقاء تنطوي. مقبضها فاضي لين يتأكد الموظف من لونه.",
     artAltKnown: "مظلة زرقاء تنطوي مقبضها أصفر.",
+    back: "ظهر بطاقة الحالة",
+    backNote: "استلمها بنفسك من المكتب.",
+    flip: "اقلب البطاقة",
     stages: {
       start: "بانتظار بلاغك",
       sent: "جاري الإرسال",
