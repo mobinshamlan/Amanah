@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AlertIcon, ArrowRightIcon, CheckIcon, ClockIcon, InfoIcon } from "@/components/icons";
-import { Notice, focusRingClassName } from "@/components/ui";
-import { DailyBars, type BarCategory } from "@/app/admin/DailyBars";
+import { AlertIcon, ArrowEndIcon, CheckIcon, ClockIcon, InfoIcon } from "@/components/icons";
+import { Notice, focusRingClassName, textLinkClassName } from "@/components/ui";
+import { DailyBars, type BarCategory, type BarLabels, type BarPoint } from "@/app/admin/DailyBars";
 import type { RunFailure } from "@/utils/monitoring/runLog";
 import {
   type DemoExclusions,
@@ -11,75 +11,38 @@ import {
   TREND_DAYS,
   type ComparisonSeriesKey,
   type DailySeries,
-  type MatchingHealth,
   type MatchingRun,
   type MatchReview,
   type MonitoringSnapshot,
   type ReviewRate,
   type ReportSeriesKey,
 } from "@/utils/monitoring/snapshot";
+import type { Locale } from "@/i18n/config";
+import { formatDate, formatDateTime, formatNumber, intlLocale } from "@/i18n/format";
+import { getLocale, getMessages } from "@/i18n/server";
+import { adminTools, type AdminToolsMessages } from "@/i18n/messages/admin-tools";
 
 // Aggregate operational dashboard for local staff. Counts, times, and failure
 // kinds only: never report names, descriptions, locations, IDs, questions,
 // answers, tokens, or keys. Nothing here calls Gemini.
+//
+// Reading order: is matching healthy (one answer), then the four figures that
+// decide the day's work, then the two daily charts, then the recent checks and
+// the claims, then the staff approval rate.
 
-const FAILURE_LABELS: Record<RunFailure, string> = {
-  quota: "Gemini rate limit",
-  usage_limit: "App usage limit",
-  timeout: "Gemini timed out",
-  api: "Gemini error",
-  invalid_response: "AI answer failed validation",
-  config: "Gemini not configured",
-  save: "Could not save a result",
-  load: "Could not load reports",
-};
+type Messages = AdminToolsMessages["monitoring"];
 
-const SOURCE_LABELS: Record<MatchingRun["source"], string> = {
-  admin: "Staff check",
-  auto: "Automatic check",
-};
+type Ctx = { t: Messages; chart: AdminToolsMessages["chart"]; locale: Locale };
 
-const NOT_NO_MATCH =
-  "Unfinished pairs stay unchecked and are retried; they are never counted as no match.";
+/* Formatting */
 
-// Brand hues. Identity is also carried by the legend, labels, and table view.
-const REPORT_CATEGORIES: BarCategory<ReportSeriesKey>[] = [
-  { key: "lost", label: "Lost", swatch: "bg-clay" },
-  { key: "found", label: "Found", swatch: "bg-forest" },
-];
-
-const COMPARISON_CATEGORIES: BarCategory<ComparisonSeriesKey>[] = [
-  { key: "match", label: "Possible match", swatch: "bg-forest" },
-  { key: "insufficient_information", label: "Not enough information", swatch: "bg-clay" },
-  { key: "no_match", label: "No match", swatch: "bg-sage" },
-];
-
-const cardLinkClassName = `-ml-1.5 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-1.5 text-[0.9375rem] font-semibold text-foreground underline-offset-4 transition-colors hover:text-forest hover:underline ${focusRingClassName}`;
-
-const cardTitleClassName = "font-serif text-[1.5rem] font-semibold leading-tight text-foreground";
-
-// Panels on the work sheet: a step of tone, no outline.
-const panelClassName = "flex min-w-0 flex-col gap-3 rounded-[1.5rem] bg-background p-4 sm:p-5";
-
-function plural(count: number, one: string, many: string) {
-  return `${count} ${count === 1 ? one : many}`;
+function time(iso: string, locale: Locale) {
+  return formatDateTime(iso, locale);
 }
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
-
-function formatDay(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function timeAgo(iso: string) {
+function timeAgo(iso: string, locale: Locale, justNow: string) {
   const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
-  const format = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const format = new Intl.RelativeTimeFormat(intlLocale(locale), { numeric: "auto" });
   const steps: [Intl.RelativeTimeFormatUnit, number][] = [
     ["day", 86_400],
     ["hour", 3_600],
@@ -90,222 +53,225 @@ function timeAgo(iso: string) {
       return format.format(Math.round(seconds / size), unit);
     }
   }
-  return "just now";
-}
-
-function runResult(run: MatchingRun) {
-  if (run.failure) {
-    return `Failed: ${FAILURE_LABELS[run.failure]}`;
-  }
-  return run.stoppedForTime ? "Stopped early (30-second limit)" : "Completed";
+  return justNow;
 }
 
 /** A waiting time in its largest whole unit, e.g. "3 days" or "40 minutes". */
-function formatAge(ms: number) {
+function formatAge(ms: number, t: Messages) {
   const minutes = Math.floor(ms / 60_000);
   if (minutes < 1) {
-    return "under a minute";
+    return t.underMinute;
   }
   if (minutes < 60) {
-    return plural(minutes, "minute", "minutes");
+    return t.minutes(minutes);
   }
   const hours = Math.floor(minutes / 60);
   if (hours < 48) {
-    return plural(hours, "hour", "hours");
+    return t.hours(hours);
   }
-  return plural(Math.floor(hours / 24), "day", "days");
+  return t.daysAge(Math.floor(hours / 24));
 }
 
-function formatDuration(ms: number) {
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+function formatDuration(ms: number, { t, locale }: Ctx) {
+  return ms < 1000
+    ? t.ms(formatNumber(ms, locale))
+    : t.seconds(formatNumber(ms / 1000, locale, { maximumFractionDigits: 1 }));
 }
+
+/** "24 Oct" for a "2026-10-24" day key, in the visitor's language. */
+function dayLabel(key: string, locale: Locale) {
+  return new Intl.DateTimeFormat(intlLocale(locale), { day: "numeric", month: "short" }).format(
+    new Date(`${key}T12:00:00`),
+  );
+}
+
+function runResult(run: MatchingRun, t: Messages) {
+  if (run.failure) {
+    return t.resultFailed(t.failureKinds[run.failure]);
+  }
+  return run.stoppedForTime ? t.resultStopped : t.resultCompleted;
+}
+
+/* Shared pieces */
+
+const panelClassName = "flex min-w-0 flex-col gap-3 rounded-[1.5rem] bg-background p-4 sm:p-5";
+const panelTitleClassName = "text-subheading text-foreground";
+
+function Figure({ value, attention = false, size = "md" }: { value: ReactNode; attention?: boolean; size?: "md" | "lg" }) {
+  return (
+    <span
+      className={`block font-medium leading-none tabular-nums ${size === "lg" ? "text-[2.25rem]" : "text-[1.75rem]"} ${
+        attention ? "text-destructive" : "text-foreground"
+      }`}
+    >
+      {value}
+    </span>
+  );
+}
+
+/* Health */
 
 type Tone = "ok" | "problem" | "neutral";
 
-function healthMessage(snapshot: MonitoringSnapshot): { tone: Tone; title: string; body: string } {
+function healthMessage(snapshot: MonitoringSnapshot, ctx: Ctx): { tone: Tone; title: string; body: string } {
+  const { t, locale } = ctx;
   const { pairs, lastRun, lastComparisonAt } = snapshot;
   const remaining =
     pairs.unchecked > 0
-      ? `${plural(pairs.unchecked, "report pair is", "report pairs are")} not checked yet.`
+      ? t.remainingUnchecked(pairs.unchecked)
       : pairs.total > 0
-        ? "All current report pairs are checked."
+        ? t.allChecked
         : "";
-  const states: Record<MatchingHealth, () => { tone: Tone; title: string; body: string }> = {
-    not_configured: () => ({
-      tone: "problem",
-      title: "Matching is not configured",
-      body: "GEMINI_API_KEY is missing from .env.local, so no pairs can be checked. Add it and restart the dev server.",
-    }),
-    history_unavailable: () => ({
-      tone: "neutral",
-      title: "Run history is not available",
-      body: `Recorded checks could not be read, so failures and early stops are not shown. Pair counts and comparisons below still work. ${remaining}`,
-    }),
-    nothing_to_check: () => ({
-      tone: "neutral",
-      title: "Nothing to compare yet",
-      body: "Matching needs at least one lost report and one found report.",
-    }),
-    never_run: () => ({
-      tone: "neutral",
-      title: "No checks have run yet",
-      body: `${remaining} Run Check for matches from Possible matches to start.`,
-    }),
+  const ago = (iso: string) => timeAgo(iso, locale, t.justNow);
+  const fixed = t.health[snapshot.health];
+  const bodies: Record<MonitoringSnapshot["health"], () => { tone: Tone; body: string }> = {
+    not_configured: () => ({ tone: "problem", body: fixed.body }),
+    history_unavailable: () => ({ tone: "neutral", body: `${fixed.body} ${remaining}` }),
+    nothing_to_check: () => ({ tone: "neutral", body: fixed.body }),
+    never_run: () => ({ tone: "neutral", body: `${remaining} ${fixed.body}` }),
     no_recorded_checks: () => ({
       tone: "neutral",
-      title: "No checks recorded since run history began",
       body: `${
         lastComparisonAt
-          ? `The last completed comparison was ${timeAgo(lastComparisonAt)} (${formatTime(lastComparisonAt)}), before run history was recording.`
-          : "Earlier comparisons predate run history."
-      } Their results are counted below. ${remaining} New checks will appear in Recent checks.`,
+          ? t.lastComparisonBefore(ago(lastComparisonAt), time(lastComparisonAt, locale))
+          : t.earlierComparisons
+      } ${fixed.body} ${remaining}`,
     }),
     last_run_failed: () => ({
       tone: "problem",
-      title: "The last check did not finish",
       body: lastRun
-        ? `${SOURCE_LABELS[lastRun.source]} ${timeAgo(lastRun.finishedAt)}: ${
-            lastRun.failure ? FAILURE_LABELS[lastRun.failure] : "failed"
-          }. ${NOT_NO_MATCH} ${remaining}`
-        : NOT_NO_MATCH,
+        ? `${t.lastFailed(
+            t.sources[lastRun.source],
+            ago(lastRun.finishedAt),
+            lastRun.failure ? t.failureKinds[lastRun.failure] : t.failed,
+          )} ${t.notNoMatch} ${remaining}`
+        : t.notNoMatch,
     }),
     last_run_partial: () => ({
       tone: "neutral",
-      title: "The last check stopped early",
       body: lastRun
-        ? `${SOURCE_LABELS[lastRun.source]} ${timeAgo(lastRun.finishedAt)} reached the 30-second limit. ${NOT_NO_MATCH} ${remaining}`
-        : NOT_NO_MATCH,
+        ? `${t.lastPartial(t.sources[lastRun.source], ago(lastRun.finishedAt))} ${t.notNoMatch} ${remaining}`
+        : t.notNoMatch,
     }),
     working: () => ({
       tone: "ok",
-      title: "Matching is working",
       body: lastRun
-        ? `${SOURCE_LABELS[lastRun.source]} ${timeAgo(lastRun.finishedAt)} completed and checked ${plural(lastRun.checked, "pair", "pairs")}. ${remaining}`
+        ? `${t.lastWorking(t.sources[lastRun.source], ago(lastRun.finishedAt), t.pairs(lastRun.checked))} ${remaining}`
         : remaining,
     }),
   };
-  return states[snapshot.health]();
+  const { tone, body } = bodies[snapshot.health]();
+  return { tone, title: fixed.title, body: body.trim() };
 }
 
-function historyFact(snapshot: MonitoringSnapshot) {
+function historyFact(snapshot: MonitoringSnapshot, { t, locale }: Ctx) {
   const { history } = snapshot;
   if (!history.available) {
-    return "Not available";
+    return t.historyNotAvailable;
   }
   if (history.total === 0 || !history.firstAt) {
-    return "No checks recorded yet";
+    return t.historyNone;
   }
-  return `${plural(history.total, "check", "checks")} since ${formatDay(history.firstAt)}`;
+  return t.historySince(history.total, formatDate(history.firstAt, locale));
 }
 
 /** What the demo filter left out, as counts, so staff can trust the totals. */
-function DemoExcludedNote({ excluded }: { excluded: DemoExclusions }) {
+function DemoExcludedNote({ excluded, t }: { excluded: DemoExclusions; t: Messages }) {
   const parts = [
-    excluded.reports > 0 ? plural(excluded.reports, "report", "reports") : null,
-    excluded.comparisons > 0 ? plural(excluded.comparisons, "comparison", "comparisons") : null,
-    excluded.runs > 0 ? plural(excluded.runs, "check", "checks") : null,
-    excluded.claims > 0 ? plural(excluded.claims, "claim", "claims") : null,
-  ].filter(Boolean);
+    excluded.reports > 0 ? t.excludedReports(excluded.reports) : null,
+    excluded.comparisons > 0 ? t.excludedComparisons(excluded.comparisons) : null,
+    excluded.runs > 0 ? t.excludedRuns(excluded.runs) : null,
+    excluded.claims > 0 ? t.excludedClaims(excluded.claims) : null,
+  ].filter((part): part is string => Boolean(part));
   return (
-    <p className="text-sm leading-relaxed text-muted-foreground sm:pl-12">
-      {parts.length === 0
-        ? "Records marked DEMO are left out of these figures. None found."
-        : `Left out of every figure here as marked DEMO data: ${parts.join(", ")}. Nothing was deleted.`}
+    <p className="text-small text-muted-foreground">
+      {parts.length === 0 ? t.demoExcludedNone : t.demoExcluded(parts.join(t.listSeparator))}
     </p>
   );
 }
 
-function HealthSummary({ snapshot }: { snapshot: MonitoringSnapshot }) {
-  const state = healthMessage(snapshot);
+function HealthSummary({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: Ctx }) {
+  const { t, locale } = ctx;
+  const state = healthMessage(snapshot, ctx);
   const Icon = state.tone === "ok" ? CheckIcon : state.tone === "problem" ? AlertIcon : InfoIcon;
+  const facts: [string, string][] = [
+    [t.geminiKey, snapshot.geminiConfigured ? t.keyPresent : t.keyMissing],
+    [t.model, snapshot.model],
+    [t.runHistory, historyFact(snapshot, ctx)],
+    [
+      t.lastSuccessful,
+      snapshot.lastSuccessfulRun
+        ? t.lastSuccessfulValue(
+            time(snapshot.lastSuccessfulRun.finishedAt, locale),
+            formatDuration(snapshot.lastSuccessfulRun.durationMs, ctx),
+          )
+        : snapshot.history.available
+          ? t.noneRecorded
+          : t.historyNotAvailable,
+    ],
+  ];
   return (
     <section
       aria-labelledby="monitoring-health"
-      className={`rounded-[1.5rem] p-4 sm:p-6 ${
-        state.tone === "ok"
-          ? "bg-ok-soft"
-          : state.tone === "problem"
-            ? "bg-bad-soft"
-            : "bg-background"
+      className={`flex min-w-0 flex-col gap-4 rounded-[1.5rem] p-4 sm:p-6 ${
+        state.tone === "ok" ? "bg-ok-soft" : state.tone === "problem" ? "bg-bad-soft" : "bg-background"
       }`}
     >
-      <div className="flex min-w-0 flex-col gap-4">
-        <div role="status" className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
-              state.tone === "ok"
-                ? "bg-forest text-primary-foreground"
-                : state.tone === "problem"
-                  ? "bg-destructive/10 text-destructive"
-                  : "bg-muted text-forest"
-            }`}
-          >
-            <Icon className="size-5" />
-          </span>
-          <div className="min-w-0">
-            <h3
-              id="monitoring-health"
-              className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground"
-            >
-              {state.title}
-            </h3>
-            <p className="mt-1.5 max-w-2xl text-[0.9375rem] leading-relaxed text-foreground">{state.body}</p>
-          </div>
+      <div role="status" className="flex items-start gap-3">
+        <Icon
+          className={`mt-1 size-6 shrink-0 ${
+            state.tone === "ok" ? "text-ok-ink" : state.tone === "problem" ? "text-destructive" : "text-forest"
+          }`}
+        />
+        <div className="min-w-0">
+          <h3 id="monitoring-health" className="text-heading text-foreground">
+            {state.title}
+          </h3>
+          {state.body ? <p className="mt-1.5 max-w-[62ch] text-body text-foreground">{state.body}</p> : null}
         </div>
-        <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm sm:pl-12">
-          {[
-            [
-              "Gemini key",
-              snapshot.geminiConfigured
-                ? "Present (this only means a key is set, not that the service works)"
-                : "Missing",
-            ],
-            ["Model", snapshot.model],
-            ["Run history", historyFact(snapshot)],
-            [
-              "Last successful check",
-              snapshot.lastSuccessfulRun
-                ? `${formatTime(snapshot.lastSuccessfulRun.finishedAt)} · took ${formatDuration(snapshot.lastSuccessfulRun.durationMs)}`
-                : snapshot.history.available
-                  ? "None recorded"
-                  : "Not available",
-            ],
-          ].map(([label, value]) => (
-            <div key={label} className="flex min-w-0 flex-wrap gap-x-1.5">
-              <dt className="text-muted-foreground">{label}:</dt>
-              <dd className="font-medium text-foreground">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        {snapshot.history.available ? (
-          <div className="text-sm sm:pl-12">
-            {snapshot.recentFailures.length === 0 ? (
-              <p className="text-muted-foreground">No failed checks recorded.</p>
-            ) : (
-              <>
-                <p className="font-medium text-foreground">Recent failed checks</p>
-                <ul className="mt-1 flex flex-col gap-0.5 text-foreground">
-                  {snapshot.recentFailures.map((failure) => (
-                    <li key={`${failure.finishedAt}-${failure.kind}`}>
-                      {FAILURE_LABELS[failure.kind]}{" "}
-                      <span className="text-muted-foreground">
-                        · {formatTime(failure.finishedAt)} · {SOURCE_LABELS[failure.source]}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        ) : null}
-        {snapshot.demoExcluded ? <DemoExcludedNote excluded={snapshot.demoExcluded} /> : null}
       </div>
+      <dl className="grid gap-x-6 gap-y-2 text-small sm:grid-cols-2 sm:ps-9">
+        {facts.map(([label, value]) => (
+          <div key={label} className="flex min-w-0 flex-wrap gap-x-1.5">
+            <dt className="text-muted-foreground">{label}:</dt>
+            <dd className="min-w-0 break-words font-medium text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {snapshot.history.available ? (
+        <div className="text-small sm:ps-9">
+          {snapshot.recentFailures.length === 0 ? (
+            <p className="text-muted-foreground">{t.noFailed}</p>
+          ) : (
+            <>
+              <p className="font-semibold text-foreground">{t.recentFailed}</p>
+              <ul className="mt-1 flex flex-col gap-0.5 text-foreground">
+                {snapshot.recentFailures.map((failure) => (
+                  <li key={`${failure.finishedAt}-${failure.kind}`}>
+                    {/* Isolated parts keep "Gemini" and the date in order in Arabic. */}
+                    <bdi>{t.failureKinds[failure.kind]}</bdi>{" "}
+                    <span className="text-muted-foreground">
+                      · <bdi>{time(failure.finishedAt, locale)}</bdi> · <bdi>{t.sources[failure.source]}</bdi>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      ) : null}
+      {snapshot.demoExcluded ? (
+        <div className="sm:ps-9">
+          <DemoExcludedNote excluded={snapshot.demoExcluded} t={t} />
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function MetricCard({
+/* The four figures */
+
+function Kpi({
   label,
   value,
   detail,
@@ -319,17 +285,13 @@ function MetricCard({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-[1.5rem] bg-background p-4 sm:p-5">
-      <dt className="text-sm font-semibold text-muted-foreground">{label}</dt>
-      <dd
-        className={`text-[2.25rem] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-          attention ? "text-destructive" : "text-foreground"
-        }`}
-      >
-        {value}
+    <div className="flex min-w-0 flex-col gap-2 p-4 sm:p-5">
+      <dt className="text-small font-semibold text-foreground">{label}</dt>
+      <dd>
+        <Figure value={value} attention={attention} />
       </dd>
-      <dd className="text-sm leading-snug text-muted-foreground">{detail}</dd>
-      {children ? <dd className="mt-auto pt-1">{children}</dd> : null}
+      <dd className="text-small text-muted-foreground">{detail}</dd>
+      {children ? <dd className="mt-auto">{children}</dd> : null}
     </div>
   );
 }
@@ -337,94 +299,130 @@ function MetricCard({
 function Metrics({
   snapshot,
   reviewNeeded,
+  ctx,
 }: {
   snapshot: MonitoringSnapshot;
   reviewNeeded: number | null;
+  ctx: Ctx;
 }) {
+  const { t, locale } = ctx;
   const { pairs, window, claims } = snapshot;
   const checkedShare = pairs.total > 0 ? Math.round((pairs.checked / pairs.total) * 100) : 0;
   const problems = window ? window.failed + window.stoppedEarly : 0;
+  const n = (value: number) => formatNumber(value, locale);
+  const linkClass = `${textLinkClassName} text-small`;
 
   return (
-    <dl className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
-      <MetricCard
-        label="Possible report pairs not compared"
-        value={pairs.unchecked}
-        detail={`${pairs.checked} of ${plural(pairs.total, "possible pair", "possible pairs")} compared. Total = ${pairs.lostReports} lost × ${pairs.foundReports} found reports. A failed comparison stays not compared; it is never counted as no match.`}
+    <dl className="grid grid-cols-1 divide-y divide-border rounded-[1.5rem] bg-background min-[480px]:grid-cols-2 min-[480px]:divide-y-0 min-[480px]:divide-x xl:grid-cols-4">
+      <Kpi
+        label={t.kpiUnchecked}
+        value={n(pairs.unchecked)}
+        detail={t.kpiUncheckedDetail(pairs.checked, pairs.total, pairs.lostReports, pairs.foundReports)}
       >
         <div
           role="progressbar"
-          aria-label="Possible report pairs compared"
+          aria-label={t.progressLabel}
           aria-valuemin={0}
           aria-valuemax={pairs.total}
           aria-valuenow={pairs.checked}
-          className="h-2 overflow-hidden rounded-full bg-secondary"
+          className="h-1.5 overflow-hidden rounded-full bg-secondary"
         >
           <div className="h-full rounded-full bg-forest" style={{ width: `${checkedShare}%` }} />
         </div>
-      </MetricCard>
+      </Kpi>
 
-      <MetricCard
-        label={`Check problems, last ${TREND_DAYS} days`}
-        value={!window ? "—" : window.checks === 0 ? "No checks" : problems}
+      <Kpi
+        label={t.kpiProblems(TREND_DAYS)}
+        value={!window ? "—" : window.checks === 0 ? t.kpiProblemsNone : n(problems)}
         attention={problems > 0}
         detail={
           !window
-            ? "Run history is not available."
+            ? t.kpiProblemsNoHistory
             : window.checks === 0
-              ? "None recorded in this period."
-              : `${plural(window.checks, "check", "checks")}: ${window.completed} completed, ${window.failed} failed, ${window.stoppedEarly} stopped early${window.truncated ? " (latest checks only)" : ""}.`
+              ? t.kpiProblemsEmpty
+              : t.kpiProblemsDetail(window.checks, window.completed, window.failed, window.stoppedEarly, window.truncated)
         }
       />
 
-      <MetricCard
-        label="Possible matches to review"
-        value={reviewNeeded ?? "—"}
-        detail={`Saved in total: ${pairs.possible} possible, ${pairs.uncertain} not enough information`}
+      <Kpi
+        label={t.kpiReview}
+        value={reviewNeeded === null ? "—" : n(reviewNeeded)}
+        detail={t.kpiReviewDetail(pairs.possible, pairs.uncertain)}
       >
-        <Link href="/admin?section=matches" className={cardLinkClassName}>
-          Review matches
-          <ArrowRightIcon className="size-4" />
+        <Link href="/admin?section=matches" className={linkClass}>
+          {t.reviewMatches}
+          <ArrowEndIcon className="size-4" />
         </Link>
-      </MetricCard>
+      </Kpi>
 
-      <MetricCard
-        label="Claims awaiting decision"
-        value={claims ? claims.awaitingDecision : "—"}
+      <Kpi
+        label={t.kpiClaims}
+        value={claims ? n(claims.awaitingDecision) : "—"}
         attention={Boolean(claims && claims.assessmentRetry > 0)}
         detail={
           claims ? (
             <>
-              {claims.oldestWaitingMs === null
-                ? "None waiting for staff right now."
-                : `Oldest waiting for staff: ${formatAge(claims.oldestWaitingMs)}.`}
+              {claims.oldestWaitingMs === null ? t.kpiClaimsNone : t.kpiClaimsOldest(formatAge(claims.oldestWaitingMs, t))}
               <br />
-              {`${claims.assessmentRetry} ${claims.assessmentRetry === 1 ? "needs" : "need"} an AI assessment retry.`}
+              {t.kpiClaimsRetry(claims.assessmentRetry)}
             </>
           ) : (
-            "Ownership data is not available."
+            t.kpiClaimsUnavailable
           )
         }
       >
-        <Link href="/admin?section=claims" className={cardLinkClassName}>
-          Open claims
-          <ArrowRightIcon className="size-4" />
+        <Link href="/admin?section=claims" className={linkClass}>
+          {t.openClaims}
+          <ArrowEndIcon className="size-4" />
         </Link>
-      </MetricCard>
+      </Kpi>
     </dl>
   );
 }
 
-function seriesSummary<K extends string>(series: DailySeries<K>, unit: [string, string]) {
+/* Charts */
+
+function seriesSummary<K extends string>(
+  series: DailySeries<K>,
+  count: (value: number) => string,
+  unitPlural: string,
+  ctx: Ctx,
+) {
+  const { t, locale } = ctx;
   if (series.total === 0) {
-    return `No ${unit[1]} in the last ${TREND_DAYS} days.`;
+    return t.seriesNone(unitPlural, TREND_DAYS);
   }
   const active = series.points.filter((point) => point.total > 0);
-  const first = active[0].label;
-  const last = active[active.length - 1].label;
-  const range = first === last ? first : `${first} to ${last}`;
-  const base = `${plural(series.total, unit[0], unit[1])} on ${plural(series.activeDays, "day", "days")} (${range}).`;
-  return series.activeDays < MIN_TREND_DAYS ? `${base} Too few days to read a trend yet.` : base;
+  const first = dayLabel(active[0].key, locale);
+  const last = dayLabel(active[active.length - 1].key, locale);
+  const range = first === last ? first : t.seriesRange(first, last);
+  const base = t.seriesSummary(count(series.total), t.days(series.activeDays), range);
+  return series.activeDays < MIN_TREND_DAYS ? `${base} ${t.seriesTooFew}` : base;
+}
+
+function toBarPoints<K extends string>(
+  series: DailySeries<K>,
+  categories: BarCategory<K>[],
+  count: (value: number) => string,
+  ctx: Ctx,
+): BarPoint<K>[] {
+  const { chart, locale } = ctx;
+  return series.points.map((point) => {
+    const label = dayLabel(point.key, locale);
+    const parts = categories
+      .map((category) => chart.part(point.values[category.key], category.label))
+      .join(ctx.t.listSeparator);
+    const countText = count(point.total);
+    return {
+      key: point.key,
+      label,
+      short: formatNumber(Number(point.key.slice(-2)), locale),
+      values: point.values,
+      total: point.total,
+      countText,
+      description: chart.describe(label, countText, point.total > 0 ? parts : ""),
+    };
+  });
 }
 
 function ChartCard<K extends string>({
@@ -432,56 +430,72 @@ function ChartCard<K extends string>({
   description,
   series,
   categories,
-  unit,
+  count,
+  unitPlural,
   footnote,
+  ctx,
 }: {
   title: string;
   description: string;
   series: DailySeries<K>;
   categories: BarCategory<K>[];
-  unit: [string, string];
+  count: (value: number) => string;
+  unitPlural: string;
   footnote: string;
+  ctx: Ctx;
 }) {
+  const { t, chart } = ctx;
+  const labels: BarLabels = {
+    legend: chart.legend(title),
+    group: chart.group(title, series.points.length),
+    showTable: chart.showTable,
+    hideTable: chart.hideTable,
+    tableCaption: chart.tableCaption(title),
+    day: chart.day,
+    total: chart.total,
+    otherDaysNone: chart.otherDaysNone(series.points.length),
+  };
   return (
     <section className={panelClassName}>
       <div>
-        <h3 className={cardTitleClassName}>{title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <h3 className={panelTitleClassName}>{title}</h3>
+        <p className="mt-1 text-small text-muted-foreground">{description}</p>
       </div>
-      <p className="text-sm leading-relaxed text-foreground">{seriesSummary(series, unit)}</p>
+      <p className="text-small text-foreground">{seriesSummary(series, count, unitPlural, ctx)}</p>
       {series.total > 0 ? (
-        <DailyBars title={title} series={series} categories={categories} unit={unit} />
+        <DailyBars points={toBarPoints(series, categories, count, ctx)} categories={categories} labels={labels} />
       ) : (
-        <p className="rounded-2xl border border-dashed border-foreground/20 px-4 py-8 text-center text-sm text-muted-foreground">
-          Nothing to chart for this period.
+        <p className="rounded-2xl border border-dashed border-foreground/25 px-4 py-8 text-center text-small text-muted-foreground">
+          {t.nothingToChart}
         </p>
       )}
-      <p className="text-sm leading-relaxed text-muted-foreground">{footnote}</p>
+      <p className="text-small text-muted-foreground">{footnote}</p>
     </section>
   );
 }
 
-function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
+/* Recent checks */
+
+function RecentChecks({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: Ctx }) {
+  const { t, locale } = ctx;
   const { history, recentRuns, window } = snapshot;
-  const counts = (run: MatchingRun) =>
-    [
-      ["Checked", run.checked],
-      ["Possible", run.matched],
-      ["Not enough info", run.uncertain],
-      ["No match", run.noMatch],
-      ["Failed", run.failed],
-      ["Left unchecked", run.remaining ?? "—"],
-    ] as const;
+  const n = (value: number) => formatNumber(value, locale);
+  const counts = (run: MatchingRun): [string, string][] => [
+    [t.colChecked, n(run.checked)],
+    [t.colPossible, n(run.matched)],
+    [t.colUncertain, n(run.uncertain)],
+    [t.colNoMatch, n(run.noMatch)],
+    [t.colFailed, n(run.failed)],
+    [t.colRemaining, run.remaining === null ? "—" : n(run.remaining)],
+  ];
 
   let body: ReactNode;
   if (!history.available) {
-    body = <Notice>Run history could not be read, so failures and early stops cannot be shown.</Notice>;
+    body = <Notice surface="bg-card">{t.recentUnavailable}</Notice>;
   } else if (recentRuns.length === 0) {
     body = (
-      <p className="rounded-2xl border border-dashed border-foreground/20 px-4 py-6 text-sm leading-relaxed text-muted-foreground">
-        {snapshot.health === "never_run" || snapshot.health === "nothing_to_check"
-          ? "No checks have run yet."
-          : "No checks recorded since run history began. Comparisons from before then are counted in the pair totals and the comparison chart."}
+      <p className="rounded-2xl border border-dashed border-foreground/25 px-4 py-6 text-small text-muted-foreground">
+        {snapshot.health === "never_run" || snapshot.health === "nothing_to_check" ? t.recentNever : t.recentNoneSince}
       </p>
     );
   } else {
@@ -489,11 +503,12 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
     body = (
       <>
         {window ? (
-          <p className="text-sm leading-relaxed text-foreground">
-            Last {TREND_DAYS} days: {plural(window.checks, "check", "checks")}, {window.completed} completed,{" "}
-            {window.failed} failed, {window.stoppedEarly} stopped early.
+          <p className="text-small text-foreground">
+            {t.windowSummary(TREND_DAYS, window.checks, window.completed, window.failed, window.stoppedEarly)}
             {failureKinds.length > 0
-              ? ` Failures: ${failureKinds.map(([kind, n]) => `${FAILURE_LABELS[kind]} (${n})`).join(", ")}.`
+              ? ` ${t.windowFailures(
+                  failureKinds.map(([kind, count]) => `${t.failureKinds[kind]} (${n(count)})`).join(t.listSeparator),
+                )}`
               : ""}
           </p>
         ) : null}
@@ -502,13 +517,13 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
         <ol className="flex flex-col gap-2 md:hidden">
           {recentRuns.map((run, index) => (
             <li key={`${run.finishedAt}-${index}`} className="rounded-2xl bg-card p-4">
-              <p className={`text-sm font-semibold ${run.failure ? "text-destructive" : "text-foreground"}`}>
-                {runResult(run)}
+              <p className={`text-small font-semibold ${run.failure ? "text-destructive" : "text-foreground"}`}>
+                {runResult(run, t)}
               </p>
-              <p className="text-sm text-muted-foreground">
-                {formatTime(run.finishedAt)} · {SOURCE_LABELS[run.source]} · {formatDuration(run.durationMs)}
+              <p className="text-small text-muted-foreground">
+                {time(run.finishedAt, locale)} · {t.sources[run.source]} · {formatDuration(run.durationMs, ctx)}
               </p>
-              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-small">
                 {counts(run).map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-2">
                     <dt className="text-muted-foreground">{label}</dt>
@@ -523,220 +538,198 @@ function RecentChecks({ snapshot }: { snapshot: MonitoringSnapshot }) {
         {/* Wider screens: a real table. */}
         <div
           role="region"
-          aria-label="Recent checks table"
+          aria-label={t.tableLabel}
           tabIndex={0}
           className={`hidden overflow-x-auto rounded-xl md:block ${focusRingClassName}`}
         >
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">Recent matching checks, newest first</caption>
+          <table className="w-full text-start text-small">
+            <caption className="sr-only">{t.tableCaption}</caption>
             <thead className="text-muted-foreground">
               <tr className="whitespace-nowrap border-b border-border">
-                <th scope="col" className="py-2 pr-3 font-medium">Finished</th>
-                <th scope="col" className="py-2 pr-3 font-medium">Source</th>
-                <th scope="col" className="py-2 pr-3 font-medium">Result</th>
+                <th scope="col" className="py-2 pe-3 text-start font-medium">{t.colFinished}</th>
+                <th scope="col" className="py-2 pe-3 text-start font-medium">{t.colSource}</th>
+                <th scope="col" className="py-2 pe-3 text-start font-medium">{t.colResult}</th>
                 {counts(recentRuns[0]).map(([label]) => (
-                  <th key={label} scope="col" className="py-2 pr-3 text-right font-medium">
+                  <th key={label} scope="col" className="py-2 pe-3 text-end font-medium">
                     {label}
                   </th>
                 ))}
-                <th scope="col" className="py-2 text-right font-medium">Time</th>
+                <th scope="col" className="py-2 text-end font-medium">{t.colTime}</th>
               </tr>
             </thead>
             <tbody>
               {recentRuns.map((run, index) => (
                 <tr key={`${run.finishedAt}-${index}`} className="border-b border-border last:border-b-0">
-                  <td className="whitespace-nowrap py-2 pr-3 text-foreground">{formatTime(run.finishedAt)}</td>
-                  <td className="whitespace-nowrap py-2 pr-3 text-foreground">{SOURCE_LABELS[run.source]}</td>
-                  <td className={`py-2 pr-3 font-medium ${run.failure ? "text-destructive" : "text-foreground"}`}>
-                    {runResult(run)}
+                  <td className="whitespace-nowrap py-2 pe-3 text-foreground">{time(run.finishedAt, locale)}</td>
+                  <td className="whitespace-nowrap py-2 pe-3 text-foreground">{t.sources[run.source]}</td>
+                  <td className={`py-2 pe-3 font-medium ${run.failure ? "text-destructive" : "text-foreground"}`}>
+                    {runResult(run, t)}
                   </td>
                   {counts(run).map(([label, value]) => (
-                    <td key={label} className="py-2 pr-3 text-right tabular-nums text-foreground">
+                    <td key={label} className="py-2 pe-3 text-end tabular-nums text-foreground">
                       {value}
                     </td>
                   ))}
-                  <td className="whitespace-nowrap py-2 text-right tabular-nums text-muted-foreground">
-                    {formatDuration(run.durationMs)}
+                  <td className="whitespace-nowrap py-2 text-end tabular-nums text-muted-foreground">
+                    {formatDuration(run.durationMs, ctx)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Newest {plural(recentRuns.length, "check", "checks")}. An automatic check covers only the new
-          report&apos;s pairs, so its &ldquo;Left unchecked&rdquo; counts those pairs alone.
-        </p>
+        <p className="text-small text-muted-foreground">{t.recentFootnote(recentRuns.length)}</p>
       </>
     );
   }
 
   return (
     <section className={panelClassName}>
-      <h3 className={cardTitleClassName}>Recent checks</h3>
+      <h3 className={panelTitleClassName}>{t.recentTitle}</h3>
       {body}
       {snapshot.lastSuccessfulRunAt && snapshot.health === "last_run_failed" ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <p className="flex items-center gap-2 text-small text-muted-foreground">
           <ClockIcon className="size-4 shrink-0" />
-          Last check that completed: {formatTime(snapshot.lastSuccessfulRunAt)}.
+          {t.lastCompleted(time(snapshot.lastSuccessfulRunAt, locale))}
         </p>
       ) : null}
     </section>
   );
 }
 
-function Claims({ snapshot }: { snapshot: MonitoringSnapshot }) {
+/* Claims */
+
+function Claims({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: Ctx }) {
+  const { t, locale } = ctx;
   const { claims } = snapshot;
   return (
     <section className={panelClassName}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className={cardTitleClassName}>Ownership claims</h3>
-        <Link href="/admin?section=claims" className={cardLinkClassName}>
-          Open claims
-          <ArrowRightIcon className="size-4" />
+        <h3 className={panelTitleClassName}>{t.claimsTitle}</h3>
+        <Link href="/admin?section=claims" className={`${textLinkClassName} text-small`}>
+          {t.openClaims}
+          <ArrowEndIcon className="size-4" />
         </Link>
       </div>
       {claims ? (
         <>
-          <dl className="flex flex-col divide-y divide-border text-sm">
-            {[
-              ["Awaiting staff decision", claims.awaitingDecision],
-              ["AI assessment needs a retry", claims.assessmentRetry],
-              ["Waiting for owner answers", claims.awaitingAnswers],
-              ["Staff review without questions", claims.noQuestions],
-              ["Approved for ownership follow-up", claims.approved],
-              ["Rejected", claims.rejected],
-            ].map(([label, value]) => (
+          <dl className="flex flex-col divide-y divide-border text-small">
+            {(
+              [
+                [t.claimsAwaiting, claims.awaitingDecision],
+                [t.claimsRetry, claims.assessmentRetry],
+                [t.claimsAnswers, claims.awaitingAnswers],
+                [t.claimsNoQuestions, claims.noQuestions],
+                [t.claimsApproved, claims.approved],
+                [t.claimsRejected, claims.rejected],
+              ] as [string, number][]
+            ).map(([label, value]) => (
               <div key={label} className="flex items-baseline justify-between gap-3 py-2">
                 <dt className="text-foreground">{label}</dt>
-                <dd className="font-semibold tabular-nums text-foreground">{value}</dd>
+                <dd className="font-semibold tabular-nums text-foreground">{formatNumber(value, locale)}</dd>
               </div>
             ))}
           </dl>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Current state of {plural(claims.total, "claim", "claims")}. Decision counts are not a
-            measure of AI accuracy.
-          </p>
+          <p className="text-small text-muted-foreground">{t.claimsFootnote(claims.total)}</p>
         </>
       ) : (
-        <Notice>Ownership data is not available. Check that its migration is applied.</Notice>
+        <Notice surface="bg-card">{t.ownershipUnavailable}</Notice>
       )}
     </section>
   );
 }
 
-function rateText(rate: ReviewRate) {
-  return rate.rate === null ? "No reviewed claims yet" : `${rate.rate}%`;
+/* Approval rate */
+
+function rateText(rate: ReviewRate, { t, locale }: Ctx) {
+  return rate.rate === null ? t.approvalNone : formatNumber(rate.rate / 100, locale, { style: "percent" });
 }
 
-function MatchReviewPanel({ review }: { review: MatchReview | null }) {
+function MatchReviewPanel({ review, ctx }: { review: MatchReview | null; ctx: Ctx }) {
+  const { t, locale } = ctx;
+  const n = (value: number) => formatNumber(value, locale);
   return (
     <section aria-labelledby="match-review-title" className={panelClassName}>
       <div>
-        <h3 id="match-review-title" className={cardTitleClassName}>
-          Staff approval rate
+        <h3 id="match-review-title" className={panelTitleClassName}>
+          {t.approvalTitle}
         </h3>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          The share of decided ownership claims that staff approved. It reflects staff
-          decisions on AI-suggested matches. It is not verified AI accuracy.
-        </p>
+        <p className="mt-1 max-w-[62ch] text-small text-muted-foreground">{t.approvalIntro}</p>
       </div>
       {!review ? (
-        <Notice>Ownership data is not available. Check that its migration is applied.</Notice>
+        <Notice surface="bg-card">{t.ownershipUnavailable}</Notice>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-            <p
-              className={`font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-                review.rate === null ? "text-[1.5rem] text-muted-foreground" : "text-[2.75rem] text-foreground"
-              }`}
-            >
-              {rateText(review)}
-            </p>
+            {review.rate === null ? (
+              <p className="text-subheading text-muted-foreground">{rateText(review, ctx)}</p>
+            ) : (
+              <Figure value={rateText(review, ctx)} size="lg" />
+            )}
             {review.reviewed > 0 ? (
-              <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                {[
-                  ["Approved", review.approved],
-                  ["Rejected", review.rejected],
-                  ["Reviewed", review.reviewed],
-                ].map(([label, value]) => (
+              <dl className="flex flex-wrap gap-x-6 gap-y-1 text-small">
+                {(
+                  [
+                    [t.approved, review.approved],
+                    [t.rejected, review.rejected],
+                    [t.reviewed, review.reviewed],
+                  ] as [string, number][]
+                ).map(([label, value]) => (
                   <div key={label} className="flex gap-1.5">
                     <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="font-semibold tabular-nums text-foreground">{value}</dd>
+                    <dd className="font-semibold tabular-nums text-foreground">{n(value)}</dd>
                   </div>
                 ))}
               </dl>
             ) : null}
           </div>
           {review.reviewed > 0 && review.smallSample ? (
-            <p className="text-sm font-medium text-wait-ink">
-              Small sample: only {plural(review.reviewed, "decision", "decisions")} so far. Do not
-              read a trend into this yet.
+            <p className="flex items-start gap-2 text-small font-medium text-wait-ink">
+              <ClockIcon className="mt-0.5 size-4 shrink-0" />
+              {t.smallSample(review.reviewed)}
             </p>
           ) : null}
 
           <div>
-            <h4 className="text-base font-semibold text-foreground">By AI similarity score</h4>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Bands group the AI&apos;s similarity scores. They are not calibrated confidence
-              levels.
-            </p>
+            <h4 className="text-body font-semibold text-foreground">{t.bandsTitle}</h4>
+            <p className="mt-1 text-small text-muted-foreground">{t.bandsIntro}</p>
           </div>
-          <ul className="grid gap-3 md:grid-cols-3">
+          <ul className="grid divide-y divide-border rounded-2xl bg-card md:grid-cols-3 md:divide-x md:divide-y-0">
             {review.bands.map((band) => (
-              <li key={band.key} className="flex min-w-0 flex-col gap-1.5 rounded-2xl bg-card p-4">
-                <p className="text-sm font-semibold text-foreground">Score {band.label}</p>
-                <p
-                  className={`font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-                    band.rate === null ? "text-base text-muted-foreground" : "text-[2rem] text-foreground"
-                  }`}
-                >
-                  {band.rate === null ? "No reviewed claims" : `${band.rate}%`}
-                </p>
-                <p className="text-sm leading-snug text-muted-foreground">
-                  {band.reviewed === 0
-                    ? "No data in this band."
-                    : `${band.approved} approved, ${band.rejected} rejected · ${plural(band.reviewed, "decision", "decisions")}`}
+              <li key={band.key} className="flex min-w-0 flex-col gap-1.5 p-4">
+                <p className="text-small font-semibold text-foreground">{t.band(t.bandLabels[band.key])}</p>
+                {band.rate === null ? (
+                  <p className="text-small text-muted-foreground">{t.bandNone}</p>
+                ) : (
+                  <Figure value={formatNumber(band.rate / 100, locale, { style: "percent" })} />
+                )}
+                <p className="text-small text-muted-foreground">
+                  {band.reviewed === 0 ? t.bandEmpty : t.bandDetail(band.approved, band.rejected, band.reviewed)}
                 </p>
                 {band.reviewed > 0 && band.smallSample ? (
-                  <p className="text-sm font-medium text-wait-ink">
-                    Small sample (under {MIN_RELIABLE_REVIEWS}). Not a trend.
-                  </p>
+                  <p className="text-small font-medium text-wait-ink">{t.bandSmall(MIN_RELIABLE_REVIEWS)}</p>
                 ) : null}
               </li>
             ))}
           </ul>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Counts only claims with a current approved or rejected decision. Pending claims, claims
-            reset to pending
-            {review.unscored > 0
-              ? `, and ${plural(review.unscored, "decided claim", "decided claims")} with no similarity score (in the total, not in a band)`
-              : ", and unscored claims"}{" "}
-            are left out of the bands. This is not independently verified ground-truth accuracy:
-            staff decisions can be wrong, and rejected claims may still be the right item.
-          </p>
+          <p className="max-w-[72ch] text-small text-muted-foreground">{t.approvalFootnote(review.unscored)}</p>
         </>
       )}
     </section>
   );
 }
 
-function DemoBanner({ demo }: { demo: boolean }) {
+/* Demo */
+
+function DemoBanner({ demo, t }: { demo: boolean; t: Messages }) {
+  const link = `font-semibold text-foreground underline underline-offset-4 ${focusRingClassName}`;
   if (demo) {
     return (
-      <Notice role="status" surface="bg-clay/15">
-        <span className="font-semibold text-clay-ink">DEMO DATA</span>
-        <span className="font-normal">
-          {" "}
-          Synthetic figures for local layout checks. Nothing was read from or
-          written to the database, and Gemini was not called.{" "}
-          <Link
-            href="/admin?section=monitoring&demo=0"
-            className={`font-semibold text-foreground underline underline-offset-4 ${focusRingClassName}`}
-          >
-            Show real data
-          </Link>
-        </span>
+      <Notice role="status" tone="warning" title={t.demoTitle}>
+        {t.demoBody}{" "}
+        <Link href="/admin?section=monitoring&demo=0" className={link}>
+          {t.demoShowReal}
+        </Link>
       </Notice>
     );
   }
@@ -744,19 +737,16 @@ function DemoBanner({ demo }: { demo: boolean }) {
     return null;
   }
   return (
-    <p className="text-sm leading-relaxed text-muted-foreground">
-      Local development only.{" "}
-      <Link
-        href="/admin?section=monitoring&demo=1"
-        className={`font-semibold text-foreground underline underline-offset-4 ${focusRingClassName}`}
-      >
-        Preview with demo data
+    <p className="text-small text-muted-foreground">
+      {t.devOnly}{" "}
+      <Link href="/admin?section=monitoring&demo=1" className={link}>
+        {t.demoPreview}
       </Link>
     </p>
   );
 }
 
-export function MonitoringPanel({
+export async function MonitoringPanel({
   snapshot,
   reviewNeeded,
   demo = false,
@@ -767,36 +757,57 @@ export function MonitoringPanel({
   // Development-only synthetic snapshot; never mixed with live counts.
   demo?: boolean;
 }) {
+  const [locale, messages] = await Promise.all([getLocale(), getMessages(adminTools)]);
+  const ctx: Ctx = { t: messages.monitoring, chart: messages.chart, locale };
+  const { t } = ctx;
+
+  // Brand hues on the data only. Lost and found also differ in the legend and
+  // the table; brass is a fill here, never text.
+  const reportCategories: BarCategory<ReportSeriesKey>[] = [
+    { key: "lost", label: t.lost, swatch: "bg-brass" },
+    { key: "found", label: t.found, swatch: "bg-forest" },
+  ];
+  const comparisonCategories: BarCategory<ComparisonSeriesKey>[] = [
+    { key: "match", label: t.possibleMatch, swatch: "bg-forest" },
+    { key: "insufficient_information", label: t.notEnoughInfo, swatch: "bg-brass" },
+    { key: "no_match", label: t.noMatch, swatch: "bg-sage" },
+  ];
+
   return (
     <div className="flex flex-col gap-5">
-      <DemoBanner demo={demo} />
-      <HealthSummary snapshot={snapshot} />
-      <Metrics snapshot={snapshot} reviewNeeded={reviewNeeded} />
-      <MatchReviewPanel review={snapshot.matchReview} />
+      <DemoBanner demo={demo} t={t} />
+      <HealthSummary snapshot={snapshot} ctx={ctx} />
+      <Metrics snapshot={snapshot} reviewNeeded={reviewNeeded} ctx={ctx} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <ChartCard
-          title="Reports per day"
-          description={`Lost and found reports saved in the last ${TREND_DAYS} days.`}
+          title={t.reportsTitle}
+          description={t.reportsIntro(TREND_DAYS)}
           series={snapshot.reportsDaily}
-          categories={REPORT_CATEGORIES}
-          unit={["report", "reports"]}
-          footnote="Counts reports that still exist, by the day they were saved."
+          categories={reportCategories}
+          count={t.reports}
+          unitPlural={t.reportsPlural}
+          footnote={t.reportsFootnote}
+          ctx={ctx}
         />
         <ChartCard
-          title="Comparison results per day"
-          description={`Completed comparisons by AI result in the last ${TREND_DAYS} days.`}
+          title={t.comparisonsTitle}
+          description={t.comparisonsIntro(TREND_DAYS)}
           series={snapshot.comparisonsDaily}
-          categories={COMPARISON_CATEGORIES}
-          unit={["comparison", "comparisons"]}
-          footnote="Only completed comparisons are stored per pair. Failed comparisons appear in Recent checks, never as no match."
+          categories={comparisonCategories}
+          count={t.comparisons}
+          unitPlural={t.comparisonsPlural}
+          footnote={t.comparisonsFootnote}
+          ctx={ctx}
         />
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <RecentChecks snapshot={snapshot} />
-        <Claims snapshot={snapshot} />
+      <div className="grid items-start gap-5 min-[1600px]:grid-cols-[minmax(0,1fr)_20rem]">
+        <RecentChecks snapshot={snapshot} ctx={ctx} />
+        <Claims snapshot={snapshot} ctx={ctx} />
       </div>
+
+      <MatchReviewPanel review={snapshot.matchReview} ctx={ctx} />
     </div>
   );
 }

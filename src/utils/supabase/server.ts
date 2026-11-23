@@ -1,7 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isFixtureMode } from "@/utils/fixtures/mode";
 
 export async function createClient() {
+  if (isFixtureMode()) {
+    throw new Error("Supabase is disabled in local fixture mode.");
+  }
   const cookieStore = await cookies();
 
   return createServerClient(

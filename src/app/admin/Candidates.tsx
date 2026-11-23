@@ -1,16 +1,45 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition, type ReactNode, type RefObject } from "react";
 import { createCandidate, reviewCandidate } from "@/app/admin/actions";
 import {
+  CheckIcon,
+  ChevronDownIcon,
+  PlusIcon,
+  QuestionIcon,
+  XIcon,
+} from "@/components/icons";
+import {
+  FieldError,
   Notice,
+  ReportKindCue,
   Spinner,
-  fieldClassName,
+  StatusChip,
+  focusRingClassName,
+  hintClassName,
+  labelClassName,
   primaryButtonClassName,
+  quietButtonClassName,
   rejectButtonClassName,
+  secondaryButtonClassName,
+  selectClassName,
   textareaClassName,
 } from "@/components/ui";
-import { CANDIDATE_NOTE_MAX, STAFF_CANDIDATE_MODEL, type CandidateListItem } from "@/utils/matching/candidates";
+import { useLocale, useMessages } from "@/i18n/LocaleProvider";
+import { localizeClue } from "@/i18n/messages/clues";
+import { adminTools } from "@/i18n/messages/admin-tools";
+import {
+  CANDIDATE_NOTE_MAX,
+  STAFF_CANDIDATE_MODEL,
+  type CandidateListItem,
+} from "@/utils/matching/candidates";
+
+// Potential candidates: pairs the AI could not decide on. Staff compare the two
+// reports side by side and save a note for the next person. Nothing here
+// reaches the owner: a review is a staff log entry, and a manually added pair
+// is stored as "not enough information", never as a possible match.
+
+const summaryClassName = `-ms-2 inline-flex min-h-11 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-small font-semibold text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`;
 
 function ErrorMessage({ message }: { message: string | null }) {
   return message ? (
@@ -20,16 +49,58 @@ function ErrorMessage({ message }: { message: string | null }) {
   ) : null;
 }
 
-function DetailList({ title, items, emptyText }: { title: string; items: string[]; emptyText: string }) {
+/** One side of the pair. Lost and found differ by cue shape and icon, not colour. */
+function ReportColumn({
+  kind,
+  report,
+}: {
+  kind: "lost" | "found";
+  report: CandidateListItem["lost"];
+}) {
+  const t = useMessages(adminTools).shared;
   return (
-    <div className="rounded-2xl bg-card p-4">
-      <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+    <div className="flex min-w-0 flex-col gap-2 rounded-2xl bg-card p-4">
+      <ReportKindCue kind={kind} className="w-fit">
+        {kind === "lost" ? t.lost : t.foundPrivate}
+      </ReportKindCue>
+      <h4 dir="auto" className="text-subheading break-words text-start text-foreground">
+        {report.item_name}
+      </h4>
+      <p dir="auto" className="text-body break-words text-start text-foreground">
+        {report.description}
+      </p>
+      <p className="text-small break-words text-muted-foreground">{t.location(report.location)}</p>
+    </div>
+  );
+}
+
+/** Shared clues, differences, or one-sided details, each with its own glyph. */
+function ClueList({
+  title,
+  items,
+  emptyText,
+  icon,
+}: {
+  title: string;
+  items: string[];
+  emptyText: string;
+  icon: ReactNode;
+}) {
+  const { locale } = useLocale();
+  return (
+    <div className="min-w-0">
+      <h5 className="text-small font-semibold text-foreground">{title}</h5>
       {items.length === 0 ? (
-        <p className="mt-1 text-sm text-muted-foreground">{emptyText}</p>
+        <p className="mt-1 text-small text-muted-foreground">{emptyText}</p>
       ) : (
-        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-foreground">
+        <ul className="mt-1.5 flex flex-col gap-1.5">
           {items.map((item) => (
-            <li key={item}>{item}</li>
+            <li key={item} className="flex items-start gap-2 text-small text-foreground">
+              <span aria-hidden className="mt-1 shrink-0">
+                {icon}
+              </span>
+              <bdi className="min-w-0 break-words">{localizeClue(item, locale)}</bdi>
+            </li>
           ))}
         </ul>
       )}
@@ -37,146 +108,203 @@ function DetailList({ title, items, emptyText }: { title: string; items: string[
   );
 }
 
-function ReportColumn({ label, report }: { label: string; report: CandidateListItem["lost"] }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1 rounded-2xl bg-card p-4">
-      <p className="text-[0.8125rem] font-semibold text-muted-foreground">{label}</p>
-      <h3 className="font-serif text-xl font-semibold leading-snug text-foreground">{report.item_name}</h3>
-      <p className="text-sm leading-relaxed text-foreground">{report.description}</p>
-      <p className="text-sm leading-relaxed text-muted-foreground">Location: {report.location}</p>
-    </div>
-  );
-}
-
-function CandidateActions({ item }: { item: CandidateListItem }) {
+function CandidateActions({
+  item,
+  onDismissed,
+}: {
+  item: CandidateListItem;
+  onDismissed: (message: string) => void;
+}) {
+  const t = useMessages(adminTools);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState("");
   const [note, setNote] = useState("");
   const [isPending, startTransition] = useTransition();
   const noteId = `candidate-note-${item.id}`;
+  const helpId = `candidate-help-${item.id}`;
 
   function submit(action: "ownership_review" | "dismissed") {
     setError(null);
+    setStatus("");
     startTransition(async () => {
       try {
         const result = await reviewCandidate(item.lostReportId, item.foundReportId, action, note);
         if (!result.ok) {
           setError(result.message);
+          return;
         }
+        setNote("");
+        if (action === "dismissed") {
+          // The pair moves to the dismissed list, so the panel announces it.
+          onDismissed(t.candidates.savedDismissed);
+          return;
+        }
+        setStatus(t.candidates.savedWorth);
       } catch {
-        setError("The review could not be saved. Please try again.");
+        setError(t.candidates.saveFailed);
       }
     });
   }
 
   return (
     <form
-      className="flex flex-col gap-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-      }}
+      className="flex flex-col gap-3 rounded-2xl bg-card p-4"
+      onSubmit={(event) => event.preventDefault()}
     >
-      <div className="flex flex-col gap-2">
-        <label htmlFor={noteId} className="text-sm font-medium text-foreground">
-          Note <span className="font-normal text-muted-foreground">(optional)</span>
-        </label>
-        <textarea
-          id={noteId}
-          value={note}
-          maxLength={CANDIDATE_NOTE_MAX}
-          onChange={(event) => setNote(event.target.value)}
-          placeholder="What should the next staff member know?"
-          className={textareaClassName}
-        />
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          className={primaryButtonClassName}
-          disabled={isPending}
-          onClick={() => submit("ownership_review")}
-        >
-          {isPending ? <Spinner /> : null}
-          Worth ownership review
-        </button>
-        <button
-          type="button"
-          className={rejectButtonClassName}
-          disabled={isPending}
-          onClick={() => submit("dismissed")}
-        >
-          Not the same item
-        </button>
-      </div>
+      <fieldset className="flex min-w-0 flex-col gap-3" disabled={isPending} aria-describedby={helpId}>
+        <legend className="text-subheading text-foreground">{t.candidates.actionsLegend}</legend>
+        <p id={helpId} className="text-small text-foreground">
+          {t.candidates.actionsHelp}
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={noteId} className={labelClassName}>
+            {t.candidates.noteLabel}{" "}
+            <span className="font-normal text-muted-foreground">({t.shared.optional})</span>
+          </label>
+          <textarea
+            id={noteId}
+            value={note}
+            rows={2}
+            maxLength={CANDIDATE_NOTE_MAX}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder={t.candidates.notePlaceholder}
+            className={`${textareaClassName} min-h-20`}
+          />
+          <p className={`${hintClassName} tabular-nums`}>{t.shared.characters(note.length, CANDIDATE_NOTE_MAX)}</p>
+        </div>
+        <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap">
+          <button
+            type="button"
+            className={primaryButtonClassName}
+            onClick={() => submit("ownership_review")}
+          >
+            {isPending ? <Spinner /> : <CheckIcon className="size-4" />}
+            {t.candidates.worth}
+          </button>
+          <button type="button" className={rejectButtonClassName} onClick={() => submit("dismissed")}>
+            <XIcon className="size-4" />
+            {t.candidates.dismiss}
+          </button>
+        </div>
+      </fieldset>
+      <p role="status" className={`text-small font-medium text-ok-ink ${status ? "" : "sr-only"}`}>
+        {status}
+      </p>
       <ErrorMessage message={error} />
+      <details className="group/how">
+        <summary className={summaryClassName}>
+          <QuestionIcon className="size-4 shrink-0 text-forest" />
+          {t.candidates.howTitle}
+          <ChevronDownIcon className="size-4 transition-transform group-open/how:rotate-180" />
+        </summary>
+        <p className="mt-1 max-w-[62ch] text-small text-foreground">{t.candidates.howVerificationStarts}</p>
+      </details>
     </form>
   );
 }
 
-function CandidateCard({ item }: { item: CandidateListItem }) {
+function CandidateCard({
+  item,
+  onDismissed,
+}: {
+  item: CandidateListItem;
+  onDismissed: (message: string) => void;
+}) {
+  const t = useMessages(adminTools).candidates;
   const staffAdded = item.model === STAFF_CANDIDATE_MODEL;
-  const marked = item.review?.action === "ownership_review";
+  const review = item.review;
 
   return (
-    <li className="flex flex-col gap-4 rounded-[1.5rem] bg-secondary/70 p-4 sm:p-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <div>
-          <p className="font-serif text-2xl font-semibold leading-tight text-foreground">
-            {item.lost.item_name}
-            <span className="mx-2 font-sans text-base font-medium text-muted-foreground">and</span>
-            {item.found.item_name}
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {staffAdded ? "Added by staff" : item.score === null ? "Not scored" : `AI similarity ${item.score}/100`}
-            {staffAdded ? null : ". A low score can still be a candidate."}
-          </p>
+    <li className="@container flex min-w-0 flex-col gap-4 rounded-[1.5rem] bg-background p-4 sm:p-5">
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <h3 className="min-w-0 text-heading break-words text-foreground">
+            <bdi>{item.lost.item_name}</bdi>
+            {t.pairJoin}
+            <bdi>{item.found.item_name}</bdi>
+          </h3>
+          {review ? (
+            <StatusChip
+              tone={review.action === "ownership_review" ? "info" : "neutral"}
+              icon={
+                review.action === "ownership_review" ? (
+                  <CheckIcon className="size-3.5" />
+                ) : (
+                  <XIcon className="size-3.5" />
+                )
+              }
+            >
+              {review.action === "ownership_review" ? t.reviewedWorth : t.reviewedDismissed}
+            </StatusChip>
+          ) : null}
         </div>
-      </div>
-
-      <p className="rounded-2xl bg-background px-4 py-3 text-sm leading-relaxed text-foreground">
-        Possible candidate, not a confirmed match. Staff still decide. This does not verify ownership or approve a handover.
-      </p>
-      {marked ? (
-        <p className="text-sm leading-relaxed text-foreground">
-          Marked for ownership review. Ownership questions and any handover stay on their own steps.
-          {item.review?.note ? ` Note: ${item.review.note}` : null}
+        <p className="text-small text-muted-foreground">
+          {staffAdded ? t.staffAdded : item.score === null ? t.notScored : t.score(item.score)}{" "}
+          <span className="text-foreground">{t.whatThisIs}</span>
         </p>
-      ) : null}
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <ReportColumn label="Lost" report={item.lost} />
-        <ReportColumn label="Found (private)" report={item.found} />
+        <ReportColumn kind="lost" report={item.lost} />
+        <ReportColumn kind="found" report={item.found} />
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <DetailList title="Overlap" items={item.comparison.overlap} emptyText="No shared clue recorded." />
-        <DetailList title="Differences" items={item.comparison.differences} emptyText="No difference recorded." />
-        <DetailList title="Unknown" items={item.comparison.unknown} emptyText="Nothing left unknown in the saved result." />
+      <div className="grid gap-4 rounded-2xl bg-card p-4 lg:grid-cols-3">
+        <ClueList
+          title={t.sharedClues}
+          items={item.comparison.overlap}
+          emptyText={t.noShared}
+          icon={<CheckIcon className="size-4 text-forest" />}
+        />
+        <ClueList
+          title={t.differences}
+          items={item.comparison.differences}
+          emptyText={t.noDifferences}
+          icon={<XIcon className="size-4 text-destructive" />}
+        />
+        <ClueList
+          title={t.unknown}
+          items={item.comparison.unknown}
+          emptyText={t.noUnknown}
+          icon={<QuestionIcon className="size-4 text-muted-foreground" />}
+        />
       </div>
 
-      <p className="text-sm leading-relaxed text-foreground">
-        <span className="font-medium">{staffAdded ? "Staff note: " : "Saved result: "}</span>
+      <p className="text-small break-words text-foreground">
+        <span className="font-semibold">{staffAdded ? t.staffNote : t.savedResult}: </span>
         {item.explanation}
       </p>
 
-      {item.review?.action === "dismissed" ? (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Dismissed as not the same item.{item.review.note ? ` Note: ${item.review.note}` : null} A later review stays in the log.
+      {review?.note ? (
+        <p className="text-small break-words text-foreground">
+          {t.reviewNote(review.note)} <span className="text-muted-foreground">{t.reviewLogged}</span>
         </p>
       ) : null}
 
-      <CandidateActions item={item} />
+      <CandidateActions item={item} onDismissed={onDismissed} />
     </li>
   );
 }
 
 function AddCandidateForm({
+  id,
   lostReports,
   foundReports,
+  headingRef,
+  onSaved,
+  onClose,
 }: {
+  id: string;
   lostReports: { id: string; item_name: string }[];
   foundReports: { id: string; item_name: string }[];
+  headingRef: RefObject<HTMLHeadingElement | null>;
+  onSaved: (message: string) => void;
+  onClose: () => void;
 }) {
+  const t = useMessages(adminTools);
+  const ids = useId();
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [lostId, setLostId] = useState("");
   const [foundId, setFoundId] = useState("");
   const [note, setNote] = useState("");
@@ -184,6 +312,11 @@ function AddCandidateForm({
   const ready = lostReports.length > 0 && foundReports.length > 0;
 
   function submit() {
+    if (!lostId || !foundId) {
+      setFieldError(t.candidates.addPickBoth);
+      return;
+    }
+    setFieldError(null);
     setError(null);
     startTransition(async () => {
       try {
@@ -195,15 +328,17 @@ function AddCandidateForm({
         setLostId("");
         setFoundId("");
         setNote("");
+        onSaved(t.candidates.addSaved);
       } catch {
-        setError("The candidate could not be saved. Please try again.");
+        setError(t.candidates.addFailed);
       }
     });
   }
 
   return (
     <form
-      className="flex flex-col gap-3 rounded-[1.5rem] bg-secondary/70 p-4 sm:p-5"
+      id={id}
+      className="@container flex flex-col gap-4 rounded-[1.5rem] bg-background p-4 sm:p-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (ready) {
@@ -211,27 +346,29 @@ function AddCandidateForm({
         }
       }}
     >
-      <div>
-        <h2 className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground">Add a candidate</h2>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Choose a lost report and a found report yourself when the AI did not surface the pair. This still does not confirm a match.
-        </p>
+      <div className="flex flex-col gap-1">
+        <h3 ref={headingRef} tabIndex={-1} className="text-subheading text-foreground outline-none">
+          {t.candidates.addTitle}
+        </h3>
+        <p className="max-w-[62ch] text-small text-foreground">{t.candidates.addIntro}</p>
       </div>
       {ready ? (
-        <>
+        <fieldset className="flex min-w-0 flex-col gap-4" disabled={isPending}>
+          <legend className="sr-only">{t.candidates.addTitle}</legend>
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="candidate-lost" className="text-sm font-medium text-foreground">
-                Lost report
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`${ids}-lost`} className={labelClassName}>
+                {t.candidates.addLost}
               </label>
               <select
-                id="candidate-lost"
+                id={`${ids}-lost`}
                 value={lostId}
                 onChange={(event) => setLostId(event.target.value)}
-                className={fieldClassName}
-                required
+                className={selectClassName}
+                aria-invalid={Boolean(fieldError && !lostId)}
+                aria-describedby={fieldError ? `${ids}-pick-error` : undefined}
               >
-                <option value="">Choose a lost report</option>
+                <option value="">{t.candidates.chooseLost}</option>
                 {lostReports.map((report) => (
                   <option key={report.id} value={report.id}>
                     {report.item_name}
@@ -239,18 +376,19 @@ function AddCandidateForm({
                 ))}
               </select>
             </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="candidate-found" className="text-sm font-medium text-foreground">
-                Found report
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`${ids}-found`} className={labelClassName}>
+                {t.candidates.addFound}
               </label>
               <select
-                id="candidate-found"
+                id={`${ids}-found`}
                 value={foundId}
                 onChange={(event) => setFoundId(event.target.value)}
-                className={fieldClassName}
-                required
+                className={selectClassName}
+                aria-invalid={Boolean(fieldError && !foundId)}
+                aria-describedby={fieldError ? `${ids}-pick-error` : undefined}
               >
-                <option value="">Choose a found report</option>
+                <option value="">{t.candidates.chooseFound}</option>
                 {foundReports.map((report) => (
                   <option key={report.id} value={report.id}>
                     {report.item_name}
@@ -259,28 +397,43 @@ function AddCandidateForm({
               </select>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="new-candidate-note" className="text-sm font-medium text-foreground">
-              Note <span className="font-normal text-muted-foreground">(optional)</span>
+          {fieldError ? (
+            <FieldError id={`${ids}-pick-error`} role="alert">
+              {fieldError}
+            </FieldError>
+          ) : null}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={`${ids}-note`} className={labelClassName}>
+              {t.candidates.addNote}{" "}
+              <span className="font-normal text-muted-foreground">({t.shared.optional})</span>
             </label>
             <textarea
-              id="new-candidate-note"
+              id={`${ids}-note`}
               value={note}
+              rows={2}
               maxLength={CANDIDATE_NOTE_MAX}
               onChange={(event) => setNote(event.target.value)}
-              placeholder="Why is this pair worth checking?"
-              className={textareaClassName}
+              className={`${textareaClassName} min-h-20`}
             />
+            <p className={`${hintClassName} tabular-nums`}>{t.shared.characters(note.length, CANDIDATE_NOTE_MAX)}</p>
           </div>
-          <button type="submit" className={primaryButtonClassName} disabled={isPending}>
-            {isPending ? <Spinner /> : null}
-            Add candidate
+          <div className="flex flex-col gap-2 @md:flex-row @md:flex-wrap">
+            <button type="submit" className={primaryButtonClassName}>
+              {isPending ? <Spinner /> : <PlusIcon className="size-4" />}
+              {t.candidates.addSubmit}
+            </button>
+            <button type="button" className={quietButtonClassName} onClick={onClose}>
+              {t.shared.cancel}
+            </button>
+          </div>
+        </fieldset>
+      ) : (
+        <>
+          <p className="text-small text-foreground">{t.candidates.addNeeds}</p>
+          <button type="button" className={`${quietButtonClassName} self-start`} onClick={onClose}>
+            {t.candidates.addClose}
           </button>
         </>
-      ) : (
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          A manual candidate needs at least one lost report and one found report.
-        </p>
       )}
       <ErrorMessage message={error} />
     </form>
@@ -300,47 +453,107 @@ export function CandidatesPanel({
   foundReports: { id: string; item_name: string }[];
   reviewsState: "ok" | "not_set_up" | "error";
 }) {
+  const t = useMessages(adminTools).candidates;
+  const [addOpen, setAddOpen] = useState(false);
+  const [panelStatus, setPanelStatus] = useState("");
+  const addHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const queueHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const toggleRef = useRef<HTMLButtonElement | null>(null);
+  const formId = "add-candidate-form";
+
+  function openForm() {
+    setPanelStatus("");
+    setAddOpen(true);
+    // The form mounts on the next paint; move focus to its heading then.
+    requestAnimationFrame(() => addHeadingRef.current?.focus());
+  }
+
+  function announceDismissed(message: string) {
+    setPanelStatus(message);
+    requestAnimationFrame(() => queueHeadingRef.current?.focus());
+  }
+
+  function closeForm() {
+    setAddOpen(false);
+    requestAnimationFrame(() => toggleRef.current?.focus());
+  }
+
   return (
-    <div id="candidates" className="flex scroll-mt-6 flex-col gap-4">
-      {reviewsState === "not_set_up" ? (
-        <Notice tone="info">
-          The candidate list is ready. Marking or dismissing a pair needs the report_candidate_reviews migration applied locally.
-        </Notice>
-      ) : null}
+    <div id="candidates" className="flex scroll-mt-6 flex-col gap-5">
+      {reviewsState === "not_set_up" ? <Notice tone="warning">{t.notSetUp}</Notice> : null}
       {reviewsState === "error" ? (
         <Notice tone="error" role="alert">
-          Could not load earlier candidate reviews. Please try again.
+          {t.loadError}
         </Notice>
       ) : null}
 
-      <AddCandidateForm lostReports={lostReports} foundReports={foundReports} />
+      <section aria-labelledby="open-candidates-heading" className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2
+              ref={queueHeadingRef}
+              id="open-candidates-heading"
+              tabIndex={-1}
+              className="text-heading tabular-nums text-foreground outline-none"
+            >
+              {t.queueCount(open.length, open.filter((item) => !item.review).length)}
+            </h2>
+            <p className="max-w-[62ch] text-small text-foreground/85">{t.queueIntro}</p>
+          </div>
+          {addOpen ? null : (
+            <button
+              ref={toggleRef}
+              type="button"
+              className={secondaryButtonClassName}
+              aria-expanded={addOpen}
+              aria-controls={formId}
+              onClick={openForm}
+            >
+              <PlusIcon className="size-4" />
+              {t.addToggle}
+            </button>
+          )}
+        </div>
 
-      <section aria-labelledby="open-candidates-heading" className="flex flex-col gap-3">
-        <h2 id="open-candidates-heading" className="font-serif text-[1.75rem] font-semibold leading-tight text-foreground">
-          To review{" "}
-          <span className="font-sans text-lg font-medium tabular-nums text-muted-foreground">{open.length}</span>
-        </h2>
+        <div role="status">{panelStatus ? <Notice tone="success">{panelStatus}</Notice> : null}</div>
+        {addOpen ? (
+          <AddCandidateForm
+            id={formId}
+            lostReports={lostReports}
+            foundReports={foundReports}
+            headingRef={addHeadingRef}
+            onSaved={(message) => {
+              setAddOpen(false);
+              setPanelStatus(message);
+              requestAnimationFrame(() => toggleRef.current?.focus());
+            }}
+            onClose={closeForm}
+          />
+        ) : null}
+
         {open.length === 0 ? (
-          <p className="rounded-[1.5rem] border border-dashed border-foreground/20 px-5 py-8 text-[0.9375rem] leading-relaxed text-foreground/70">
-            No potential candidates to review. A pair appears here when the saved result says there is not enough information, the item types match, and the reports share a real clue.
+          <p className="rounded-[1.5rem] border border-dashed border-foreground/25 px-5 py-8 text-small text-foreground">
+            {t.empty}
           </p>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {open.map((item) => (
-              <CandidateCard key={item.id} item={item} />
+          <ul className="flex flex-col gap-4">
+            {/* Pairs nobody has reviewed yet come first; the order is otherwise kept. */}
+            {[...open.filter((item) => !item.review), ...open.filter((item) => item.review)].map((item) => (
+              <CandidateCard key={item.id} item={item} onDismissed={announceDismissed} />
             ))}
           </ul>
         )}
       </section>
 
       {dismissed.length > 0 ? (
-        <details className="rounded-[1.5rem] bg-secondary/70 px-4 py-1.5 sm:px-5">
-          <summary className="-ml-2 inline-flex min-h-11 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-left text-[0.9375rem] font-semibold text-foreground outline-none [&::-webkit-details-marker]:hidden">
-            Dismissed ({dismissed.length})
+        <details className="group/dismissed rounded-[1.5rem] bg-background px-4 py-1.5 sm:px-5">
+          <summary className={summaryClassName}>
+            {t.dismissedTitle(dismissed.length)}
+            <ChevronDownIcon className="size-4 transition-transform group-open/dismissed:rotate-180" />
           </summary>
-          <ul className="mb-4 mt-3 flex flex-col gap-3">
+          <ul className="mb-4 mt-3 flex flex-col gap-4">
             {dismissed.map((item) => (
-              <CandidateCard key={item.id} item={item} />
+              <CandidateCard key={item.id} item={item} onDismissed={announceDismissed} />
             ))}
           </ul>
         </details>

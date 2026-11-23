@@ -1,4 +1,4 @@
-import { getGeminiModel } from "@/utils/gemini/compareReports";
+import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import {
   buildMonitoringSnapshot,
   MATCHING_RUN_COLUMNS,
@@ -106,7 +106,7 @@ export async function loadMonitoringSnapshot(
   const { input, excluded } = excludeDemoData(
     {
       now: new Date(),
-      geminiConfigured: Boolean(process.env.GEMINI_API_KEY?.trim()),
+      geminiConfigured: isGeminiConfigured(),
       model: getGeminiModel(),
       reports,
       pairChecks: (checksResult.data ?? []) as MonitoringInput["pairChecks"],

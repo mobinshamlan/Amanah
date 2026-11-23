@@ -28,7 +28,7 @@ import {
   createAdminClient,
   isLocalAdminEnabled,
 } from "@/utils/supabase/admin";
-import { getGeminiModel } from "@/utils/gemini/compareReports";
+import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import { currentIpKey } from "@/utils/limits/clientIp";
 import { runWithUsageScope } from "@/utils/limits/usageScope";
 import {
@@ -39,6 +39,14 @@ import {
   type CandidateReport,
 } from "@/utils/matching/candidates";
 import { loadFailureRow, recordMatchingRun } from "@/utils/monitoring/runLog";
+import { getMessages } from "@/i18n/server";
+import { adminTools, type AdminToolsMessages } from "@/i18n/messages/admin-tools";
+
+// Every message returned to the browser comes from the staff-tools catalogue in
+// the visitor's language. Validation, limits and access checks are unchanged.
+function messages() {
+  return getMessages(adminTools);
+}
 
 export type RunMatchingResult =
   | { ok: true; summary: MatchingRunSummary }
@@ -55,20 +63,17 @@ function tryCreateAdminClient() {
 }
 
 export async function runMatching(): Promise<RunMatchingResult> {
+  const t = (await messages()).actions;
   if (!isLocalAdminEnabled()) {
-    return { ok: false, message: "Not available." };
+    return { ok: false, message: t.notAvailable };
   }
 
   if (runInProgress) {
-    return { ok: false, message: "A matching run is already in progress." };
+    return { ok: false, message: t.runInProgress };
   }
 
-  if (!process.env.GEMINI_API_KEY?.trim()) {
-    return {
-      ok: false,
-      message:
-        "Gemini is not configured. Add GEMINI_API_KEY to .env.local, then restart the dev server.",
-    };
+  if (!isGeminiConfigured()) {
+    return { ok: false, message: t.geminiNotConfigured };
   }
 
   runInProgress = true;
@@ -76,11 +81,7 @@ export async function runMatching(): Promise<RunMatchingResult> {
   try {
     const supabase = tryCreateAdminClient();
     if (!supabase) {
-      return {
-        ok: false,
-        message:
-          "Admin is not configured. Add SUPABASE_SECRET_KEY to .env.local, then restart the dev server.",
-      };
+      return { ok: false, message: t.adminNotConfigured };
     }
 
     const loadStartedAt = performance.now();
@@ -100,7 +101,7 @@ export async function runMatching(): Promise<RunMatchingResult> {
         supabase,
         loadFailureRow("admin", { durationMs: loadMs, model: getGeminiModel() }),
       );
-      return { ok: false, message: "Could not load reports. Nothing was checked." };
+      return { ok: false, message: t.loadFailed };
     }
 
     const summary = await runWithUsageScope({ ipKey: await currentIpKey(), reportId: null }, () =>
@@ -131,27 +132,20 @@ export type OwnershipActionResult = { ok: true } | { ok: false; message: string 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const ASSESSMENT_RETRY_MESSAGES: Record<string, string> = {
-  busy: "Amanah is busy right now. The answers are saved. Please try again later.",
-  failed: "The AI assessment did not finish. The answers are saved. You can try again.",
-  unavailable:
-    "The AI assessment is not available. Check GEMINI_API_KEY and that the ownership migration is applied.",
-  not_ready: "The owner has not answered every question yet.",
-};
-
 /** Retries a missing AI assessment. It is a recommendation only. */
 export async function retryOwnershipAssessment(
   verificationId: string,
 ): Promise<OwnershipActionResult> {
+  const t = (await messages()).actions;
   if (!isLocalAdminEnabled()) {
-    return { ok: false, message: "Not available." };
+    return { ok: false, message: t.notAvailable };
   }
   if (typeof verificationId !== "string" || !UUID_PATTERN.test(verificationId)) {
-    return { ok: false, message: "Unknown verification." };
+    return { ok: false, message: t.unknownVerification };
   }
   const deps = createOwnershipDeps();
   if (!deps) {
-    return { ok: false, message: ASSESSMENT_RETRY_MESSAGES.unavailable };
+    return { ok: false, message: t.retry.unavailable };
   }
   const result = await runWithUsageScope({ ipKey: await currentIpKey(), reportId: null }, () =>
     retryAssessment(deps, verificationId),
@@ -160,44 +154,36 @@ export async function retryOwnershipAssessment(
   if (result === "saved" || result === "already_assessed") {
     return { ok: true };
   }
-  return { ok: false, message: ASSESSMENT_RETRY_MESSAGES[result] };
+  return { ok: false, message: t.retry[result] };
 }
-
-const DECISION_MESSAGES: Record<Exclude<DecisionResult, "saved" | "invalid">, string> = {
-  already_decided:
-    "This claim already has a decision. Reset it to pending review first.",
-  not_decided: "This claim is already pending review.",
-  changed:
-    "Another staff action was saved for this claim first. The page has been refreshed; check it and try again.",
-  failed: "The decision could not be saved. Please try again.",
-};
 
 /** Shared checks for staff decision actions (local admin only). */
 function decisionDeps(
   verificationId: unknown,
+  t: AdminToolsMessages["actions"],
 ): { ok: true; deps: OwnershipDeps } | { ok: false; message: string } {
   if (!isLocalAdminEnabled()) {
-    return { ok: false, message: "Not available." };
+    return { ok: false, message: t.notAvailable };
   }
   if (typeof verificationId !== "string" || !UUID_PATTERN.test(verificationId)) {
-    return { ok: false, message: "Unknown verification." };
+    return { ok: false, message: t.unknownVerification };
   }
   const deps = createOwnershipDeps();
   if (!deps) {
-    return {
-      ok: false,
-      message:
-        "Admin is not configured. Add SUPABASE_SECRET_KEY to .env.local, then restart the dev server.",
-    };
+    return { ok: false, message: t.adminNotConfigured };
   }
   return { ok: true, deps };
 }
 
-function decisionResult(result: DecisionResult, invalidMessage: string): OwnershipActionResult {
+function decisionResult(
+  result: DecisionResult,
+  invalidMessage: string,
+  t: AdminToolsMessages["actions"],
+): OwnershipActionResult {
   if (result === "saved") {
     return { ok: true };
   }
-  return { ok: false, message: result === "invalid" ? invalidMessage : DECISION_MESSAGES[result] };
+  return { ok: false, message: result === "invalid" ? invalidMessage : t.decision[result] };
 }
 
 /**
@@ -210,16 +196,14 @@ export async function decideOwnership(
   decision: string,
   note: string,
 ): Promise<OwnershipActionResult> {
-  const checked = decisionDeps(verificationId);
+  const t = (await messages()).actions;
+  const checked = decisionDeps(verificationId, t);
   if (!checked.ok) {
     return checked;
   }
   const result = await recordDecision(checked.deps, verificationId, decision, note);
   revalidatePath("/admin");
-  return decisionResult(
-    result,
-    `Choose approve or reject, and keep the note under ${DECISION_NOTE_MAX} characters.`,
-  );
+  return decisionResult(result, t.decisionInvalid(DECISION_NOTE_MAX), t);
 }
 
 /**
@@ -230,21 +214,15 @@ export async function resetOwnershipDecision(
   verificationId: string,
   note: string,
 ): Promise<OwnershipActionResult> {
-  const checked = decisionDeps(verificationId);
+  const t = (await messages()).actions;
+  const checked = decisionDeps(verificationId, t);
   if (!checked.ok) {
     return checked;
   }
   const result = await resetDecision(checked.deps, verificationId, note);
   revalidatePath("/admin");
-  return decisionResult(result, `Keep the reason under ${DECISION_NOTE_MAX} characters.`);
+  return decisionResult(result, t.resetInvalid(DECISION_NOTE_MAX), t);
 }
-
-const FOLLOWUP_MESSAGES: Record<Exclude<FollowupResult, "saved" | "invalid">, string> = {
-  already_asked: "A follow-up question was already asked on this claim. Only one is allowed.",
-  already_decided: "This claim already has a decision, so a follow-up can no longer be asked.",
-  not_set_up: "Follow-up questions are not set up yet. Apply the ownership_followups migration, then refresh.",
-  failed: "The follow-up question could not be saved. Please try again.",
-};
 
 /**
  * Staff asks one optional follow-up question on an undecided claim. The owner
@@ -255,11 +233,12 @@ export async function askOwnershipFollowup(
   verificationId: string,
   question: string,
 ): Promise<OwnershipActionResult> {
-  const checked = decisionDeps(verificationId);
+  const t = (await messages()).actions;
+  const checked = decisionDeps(verificationId, t);
   if (!checked.ok) {
     return checked;
   }
-  const result = await askFollowup(checked.deps, verificationId, question);
+  const result: FollowupResult = await askFollowup(checked.deps, verificationId, question);
   revalidatePath("/admin");
   if (result === "saved") {
     return { ok: true };
@@ -267,20 +246,18 @@ export async function askOwnershipFollowup(
   return {
     ok: false,
     message:
-      result === "invalid"
-        ? `Write a question of up to ${FOLLOWUP_QUESTION_MAX} characters.`
-        : FOLLOWUP_MESSAGES[result],
+      result === "invalid" ? t.followupInvalid(FOLLOWUP_QUESTION_MAX) : t.followup[result],
   };
 }
 
-function candidateGate() {
+function candidateGate(t: AdminToolsMessages["actions"]) {
   const gate = staffReviewGate(isLocalAdminEnabled());
   if (!gate.ok) {
-    return gate;
+    return { ok: false as const, message: t.notAvailable };
   }
   const admin = tryCreateAdminClient();
   if (!admin) {
-    return { ok: false as const, message: "Admin is not configured." };
+    return { ok: false as const, message: t.adminNotConfiguredShort };
   }
   return { ok: true as const, admin };
 }
@@ -304,19 +281,20 @@ export async function reviewCandidate(
   action: string,
   note: string,
 ): Promise<OwnershipActionResult> {
-  const checked = candidateGate();
+  const t = (await messages()).actions;
+  const checked = candidateGate(t);
   if (!checked.ok) {
     return checked;
   }
   if (!isUuid(lostReportId) || !isUuid(foundReportId) || lostReportId === foundReportId) {
-    return { ok: false, message: "That pair is not in the candidate list." };
+    return { ok: false, message: t.candidateNotListed };
   }
   if (action !== "ownership_review" && action !== "dismissed") {
-    return { ok: false, message: "Choose ownership review or not the same item." };
+    return { ok: false, message: t.candidateAction };
   }
   const parsedNote = candidateNote(note);
   if (!parsedNote.ok) {
-    return { ok: false, message: `Keep the note under ${CANDIDATE_NOTE_MAX} characters.` };
+    return { ok: false, message: t.candidateNoteTooLong(CANDIDATE_NOTE_MAX) };
   }
 
   const existing = await checked.admin
@@ -327,10 +305,10 @@ export async function reviewCandidate(
     .maybeSingle();
   if (existing.error) {
     console.error("Candidate: lookup failed", existing.error.code);
-    return { ok: false, message: "The review could not be saved. Please try again." };
+    return { ok: false, message: t.candidateReviewFailed };
   }
   if (!existing.data) {
-    return { ok: false, message: "That pair is not in the candidate list." };
+    return { ok: false, message: t.candidateNotListed };
   }
 
   const inserted = await checked.admin.from("report_candidate_reviews").insert({
@@ -342,12 +320,9 @@ export async function reviewCandidate(
   if (inserted.error) {
     console.error("Candidate: review failed", inserted.error.code);
     if (missingCandidateTable(inserted.error.code)) {
-      return {
-        ok: false,
-        message: "Candidate reviews are not set up yet. Apply the report_candidate_reviews migration locally, then refresh.",
-      };
+      return { ok: false, message: t.candidateReviewsNotSetUp };
     }
-    return { ok: false, message: "The review could not be saved. Please try again." };
+    return { ok: false, message: t.candidateReviewFailed };
   }
 
   console.info(`Candidate: ${action} saved`);
@@ -364,16 +339,17 @@ export async function createCandidate(
   foundReportId: string,
   note: string,
 ): Promise<OwnershipActionResult> {
-  const checked = candidateGate();
+  const t = (await messages()).actions;
+  const checked = candidateGate(t);
   if (!checked.ok) {
     return checked;
   }
   if (!isUuid(lostReportId) || !isUuid(foundReportId) || lostReportId === foundReportId) {
-    return { ok: false, message: "Choose one lost report and one found report." };
+    return { ok: false, message: t.candidateChooseBoth };
   }
   const parsedNote = candidateNote(note);
   if (!parsedNote.ok) {
-    return { ok: false, message: `Keep the note under ${CANDIDATE_NOTE_MAX} characters.` };
+    return { ok: false, message: t.candidateNoteTooLong(CANDIDATE_NOTE_MAX) };
   }
 
   const loaded = await checked.admin
@@ -382,7 +358,7 @@ export async function createCandidate(
     .in("id", [lostReportId, foundReportId]);
   if (loaded.error) {
     console.error("Candidate: reports failed", loaded.error.code);
-    return { ok: false, message: "The candidate could not be saved. Please try again." };
+    return { ok: false, message: t.candidateCreateFailed };
   }
   const rows = (loaded.data ?? []) as {
     id: string;
@@ -394,7 +370,7 @@ export async function createCandidate(
   const lost = rows.find((row) => row.id === lostReportId && row.report_type === "lost");
   const found = rows.find((row) => row.id === foundReportId && row.report_type === "found");
   if (!lost || !found) {
-    return { ok: false, message: "Choose one lost report and one found report." };
+    return { ok: false, message: t.candidateChooseBoth };
   }
 
   const lostReport: CandidateReport = {
@@ -415,9 +391,9 @@ export async function createCandidate(
   if (inserted.error) {
     console.error("Candidate: create failed", inserted.error.code);
     if (inserted.error.code === "23505") {
-      return { ok: false, message: "This pair is already saved." };
+      return { ok: false, message: t.candidateDuplicate };
     }
-    return { ok: false, message: "The candidate could not be saved. Please try again." };
+    return { ok: false, message: t.candidateCreateFailed };
   }
 
   console.info("Candidate: manual pair saved");

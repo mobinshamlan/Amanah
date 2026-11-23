@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AMANAH desk renders</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
+  canvas { display: block; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/*
+  AMANAH – original 3D still-life renders of a small lost-property counter.
+  Scenes: ?scene=hero | mobile | compare | question | handover
+  No text, letters or numbers appear anywhere in the artwork (the page mirrors the hero for RTL).
+*/
+
+// ---------------------------------------------------------------- utils
+function makeRng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s += 0x6D2B79F5; let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const rng = makeRng(7);
+const jitter = (a) => (rng() - 0.5) * 2 * a;
+const deg = (d) => d * Math.PI / 180;
+
+function hexToRgba(hex, a) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function speckle(ctx, w, h, R, amount) {
+  const img = ctx.getImageData(0, 0, w, h); const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (R() - 0.5) * amount;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+function finishTex(c, repeat = [1, 1]) {
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeat[0], repeat[1]);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+// ---------------------------------------------------------------- procedural textures
+function woodTexture({ base, dark, light, size = 1024, rings = 110, seed = 1, repeat = [1, 1], vertical = false }) {
+  const c = makeCanvas(size, size), ctx = c.getContext('2d'); const R = makeRng(seed);
+  ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
+  if (vertical) { ctx.translate(size, 0); ctx.rotate(Math.PI / 2); }
+  for (let i = 0; i < 16; i++) {
+    const y = R() * size, h = size * (0.04 + R() * 0.18);
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    const col = R() < 0.5 ? dark : light;
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, hexToRgba(col, 0.12)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(-size, y, size * 3, h);
+  }
+  ctx.lineCap = 'round';
+  for (let i = 0; i < rings; i++) {
+    const y0 = R() * size, amp = 2 + R() * 9, freq = 0.0015 + R() * 0.004, phase = R() * Math.PI * 2;
+    ctx.strokeStyle = hexToRgba(R() < 0.72 ? dark : light, 0.05 + R() * 0.13);
+    ctx.lineWidth = 0.6 + R() * 2.4;
+    ctx.beginPath();
+    for (let x = -size; x <= size * 2; x += 8) {
+      const y = y0 + Math.sin(x * freq + phase) * amp + Math.sin(x * freq * 3.1 + phase * 2) * amp * 0.3;
+      if (x === -size) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  speckle(ctx, size, size, R, 9);
+  return finishTex(c, repeat);
+}
+function fibreTexture({ base, size = 1024, seed = 3, noise = 10, fibres = 500, fibreAlpha = 0.07, blotches = 0, repeat = [1, 1] }) {
+  const c = makeCanvas(size, size), ctx = c.getContext('2d'); const R = makeRng(seed);
+  ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < blotches; i++) {
+    const x = R() * size, y = R() * size, r = size * (0.05 + R() * 0.2);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexToRgba(R() < 0.5 ? '#000000' : '#ffffff', 0.05)); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  ctx.lineCap = 'round';
+  for (let i = 0; i < fibres; i++) {
+    const x = R() * size, y = R() * size, a = R() * Math.PI, l = 6 + R() * 26;
+    ctx.strokeStyle = hexToRgba(R() < 0.5 ? '#000000' : '#ffffff', fibreAlpha * (0.4 + R()));
+    ctx.lineWidth = 0.6 + R();
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); ctx.stroke();
+  }
+  speckle(ctx, size, size, R, noise);
+  return finishTex(c, repeat);
+}
+
+// ---------------------------------------------------------------- materials
+const COL = {
+  pine: '#1F4A40', pineDark: '#163A33', paper: '#F5F0E6', kraft: '#C9A67A',
+  oak: '#96704A', oakDark: '#66462A', oakLight: '#B58D62', brass: '#B08D57',
+};
+const TEX = {
+  oak: woodTexture({ base: COL.oak, dark: COL.oakDark, light: COL.oakLight, seed: 11 }),
+  oakSide: woodTexture({ base: COL.oak, dark: COL.oakDark, light: COL.oakLight, seed: 12, repeat: [1, 0.15] }),
+  pine: fibreTexture({ base: COL.pine, seed: 21, noise: 5, fibres: 0, blotches: 12 }),
+  pineDark: fibreTexture({ base: COL.pineDark, seed: 22, noise: 5, fibres: 0, blotches: 8 }),
+  paper: fibreTexture({ base: COL.paper, seed: 31, noise: 7, fibres: 700, fibreAlpha: 0.05 }),
+  kraft: fibreTexture({ base: COL.kraft, seed: 41, noise: 14, fibres: 900, fibreAlpha: 0.08, blotches: 14 }),
+  wall: fibreTexture({ base: '#F4ECDD', seed: 51, noise: 6, fibres: 0, blotches: 10, repeat: [3, 2] }),
+  floor: fibreTexture({ base: '#CFC5B4', seed: 61, noise: 9, fibres: 300, fibreAlpha: 0.04, blotches: 20, repeat: [3, 3] }),
+};
+const MAT = {
+  pine: new THREE.MeshStandardMaterial({ map: TEX.pine, roughness: 0.58, metalness: 0 }),
+  pineDark: new THREE.MeshStandardMaterial({ map: TEX.pineDark, roughness: 0.6, metalness: 0 }),
+  cavity: new THREE.MeshStandardMaterial({ color: 0x0B1F1B, roughness: 0.9, metalness: 0 }),
+  oak: new THREE.MeshStandardMaterial({ map: TEX.oak, roughness: 0.6, metalness: 0 }),
+  oakSide: new THREE.MeshStandardMaterial({ map: TEX.oakSide, roughness: 0.5, metalness: 0 }),
+  brass: new THREE.MeshStandardMaterial({ color: 0xB08D57, metalness: 0.9, roughness: 0.35 }),
+  brassDark: new THREE.MeshStandardMaterial({ color: 0x8E6F40, metalness: 0.9, roughness: 0.45 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0xC9C3B6, metalness: 0.9, roughness: 0.3 }),
+  paper: new THREE.MeshStandardMaterial({ map: TEX.paper, roughness: 0.92, metalness: 0 }),
+  paperPlain: new THREE.MeshStandardMaterial({ color: 0xF5F0E6, roughness: 0.92, metalness: 0 }),
+  kraft: new THREE.MeshStandardMaterial({ map: TEX.kraft, roughness: 0.88, metalness: 0 }),
+  kraftPlain: new THREE.MeshStandardMaterial({ color: 0xC9A67A, roughness: 0.88, metalness: 0 }),
+  string: new THREE.MeshStandardMaterial({ color: 0xEDE3CF, roughness: 0.95, metalness: 0 }),
+  ink: new THREE.MeshStandardMaterial({ color: 0x8A857C, roughness: 0.8, metalness: 0 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x2B2521, roughness: 0.45, metalness: 0 }),
+  leather: new THREE.MeshStandardMaterial({ color: 0x4A3A2E, roughness: 0.6, metalness: 0 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x4F3F39, roughness: 0.85, metalness: 0 }),
+  white: new THREE.MeshStandardMaterial({ color: 0xECE6DA, roughness: 0.42, metalness: 0 }),
+  wood: new THREE.MeshStandardMaterial({ color: 0xD9BC92, roughness: 0.7, metalness: 0 }),
+  graphite: new THREE.MeshStandardMaterial({ color: 0x3A3A3A, roughness: 0.45, metalness: 0.4 }),
+  glass: new THREE.MeshPhysicalMaterial({ color: 0xDCE6E4, metalness: 0, roughness: 0.06, transparent: true, opacity: 0.32, side: THREE.DoubleSide, envMapIntensity: 1.5 }),
+  wall: new THREE.MeshStandardMaterial({ map: TEX.wall, roughness: 0.95, metalness: 0 }),
+  floor: new THREE.MeshStandardMaterial({ map: TEX.floor, roughness: 0.85, metalness: 0 }),
+  shadowCatcher: new THREE.ShadowMaterial({ color: 0x2B1F14, opacity: 0.38 }),
+};
+
+function mesh(geo, mat, { pos = [0, 0, 0], rot = [0, 0, 0], scale, cast = true, receive = true } = {}) {
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(...pos); m.rotation.set(...rot);
+  if (scale) m.scale.set(...(Array.isArray(scale) ? scale : [scale, scale, scale]));
+  m.castShadow = cast; m.receiveShadow = receive;
+  return m;
+}
+function rbox(w, h, d, r, mat, opts) { return mesh(new RoundedBoxGeometry(w, h, d, 5, r), mat, opts); }
+function box(w, h, d, mat, opts) { return mesh(new THREE.BoxGeometry(w, h, d), mat, opts); }
+function extrude(shape, depth, mat, { bevel = 0, curveSegments = 24 } = {}) {
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth, curveSegments, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.8, bevelSegments: 3,
+  });
+  return geo;
+}
+// lay a shape-extruded mesh flat: shape X -> world X, shape Y -> world -Z, extrude -> +Y
+function flat(geo, mat, y, bevel = 0) {
+  const m = mesh(geo, mat, { rot: [-Math.PI / 2, 0, 0], pos: [0, y + bevel, 0] });
+  return m;
+}
+function group(children, { pos = [0, 0, 0], rot = [0, 0, 0] } = {}) {
+  const g = new THREE.Group(); g.position.set(...pos); g.rotation.set(...rot);
+  children.forEach((c) => g.add(c));
+  return g;
+}
+
+// ---------------------------------------------------------------- shapes
+function keyholePath(cx, cy, r, slotLen, slotW0, slotW1) {
+  // circle "over" a tapered slot running toward +x
+  const p = new THREE.Path();
+  const phi = Math.asin(slotW0 / r);
+  p.absarc(cx, cy, r, phi, Math.PI * 2 - phi, false);
+  const ex = cx + slotLen;
+  p.lineTo(ex, cy - slotW1);
+  p.absarc(ex, cy, slotW1, -Math.PI / 2, Math.PI / 2, false);
+  p.lineTo(cx + r * Math.cos(phi), cy + r * Math.sin(phi));
+  return p;
+}
+function keyholeShape(scale = 1) {
+  const s = new THREE.Shape();
+  const p = keyholePath(0, 0, 0.0055 * scale, 0.016 * scale, 0.0032 * scale, 0.0018 * scale);
+  s.curves = p.curves; return s;
+}
+function tagShape(L = 0.12, W = 0.06, cut = 0.014) {
+  const s = new THREE.Shape();
+  s.moveTo(cut, 0); s.lineTo(L - 0.004, 0); s.quadraticCurveTo(L, 0, L, 0.004);
+  s.lineTo(L, W - 0.004); s.quadraticCurveTo(L, W, L - 0.004, W);
+  s.lineTo(cut, W); s.lineTo(0, W - cut); s.lineTo(0, cut); s.closePath();
+  s.holes.push(keyholePath(0.019, W / 2, 0.0072, 0.019, 0.0038, 0.002));
+  return s;
+}
+function keyShape(len = 0.068, headR = 0.0155, sw = 0.0045) {
+  const s = new THREE.Shape();
+  const th = Math.asin(sw / headR), hx = headR * Math.cos(th);
+  s.moveTo(hx, sw);
+  s.absarc(0, 0, headR, th, Math.PI * 2 - th, false);
+  const teeth = [
+    [0.032, -sw], [0.035, -sw - 0.0045], [0.039, -sw - 0.0045], [0.041, -sw - 0.0015], [0.046, -sw - 0.0015],
+    [0.048, -sw - 0.0055], [0.053, -sw - 0.0055], [0.055, -sw - 0.0025], [0.061, -sw - 0.0025], [0.063, -sw - 0.0008],
+  ];
+  teeth.forEach(([x, y]) => s.lineTo(x, y));
+  s.lineTo(len - 0.003, -sw - 0.0008); s.quadraticCurveTo(len, -sw, len, -sw + 0.003);
+  s.lineTo(len, sw - 0.002); s.quadraticCurveTo(len, sw, len - 0.003, sw);
+  s.lineTo(hx, sw);
+  const hole = new THREE.Path(); hole.absarc(-headR + 0.0065, 0, 0.0038, 0, Math.PI * 2, true);
+  s.holes.push(hole);
+  // small decorative inner cut in the bow (common on house keys)
+  const cut2 = new THREE.Path(); cut2.absarc(0.004, 0, 0.0028, 0, Math.PI * 2, true);
+  s.holes.push(cut2);
+  return s;
+}
+function slipShape(W = 0.11, H = 0.15, tooth = 0.0075, depthZ = 0.0045) {
+  const s = new THREE.Shape();
+  s.moveTo(0, H); s.lineTo(W, H);
+  s.lineTo(W, depthZ);
+  const n = Math.round(W / tooth);
+  for (let i = 0; i <= n; i++) {
+    const x = W - (i / n) * W;
+    s.lineTo(x, i % 2 === 0 ? depthZ : 0);
+  }
+  s.lineTo(0, depthZ); s.closePath();
+  return s;
+}
+function strokeOutline(points, width) {
+  // thick polyline -> closed outline with round caps
+  const half = width / 2, left = [], right = [];
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i], a = points[Math.max(0, i - 1)], b = points[Math.min(points.length - 1, i + 1)];
+    const t = new THREE.Vector2().subVectors(b, a).normalize();
+    const nrm = new THREE.Vector2(-t.y, t.x);
+    left.push(new THREE.Vector2().copy(p).addScaledVector(nrm, half));
+    right.push(new THREE.Vector2().copy(p).addScaledVector(nrm, -half));
+  }
+  const cap = (centre, from, steps) => {
+    const out = []; const a0 = Math.atan2(from.y - centre.y, from.x - centre.x);
+    for (let i = 1; i < steps; i++) { const a = a0 - Math.PI * (i / steps); out.push(new THREE.Vector2(centre.x + Math.cos(a) * half, centre.y + Math.sin(a) * half)); }
+    return out;
+  };
+  const end = points[points.length - 1], start = points[0];
+  const outline = [...left, ...cap(end, left[left.length - 1], 10), ...right.reverse(), ...cap(start, right[right.length - 1], 10)];
+  return outline;
+}
+function questionMarkPath(scale) {
+  const pts = [];
+  const c = new THREE.Vector2(0, 0.62), r = 0.3;
+  for (let a = 190; a >= -70; a -= 8) pts.push(new THREE.Vector2(c.x + Math.cos(deg(a)) * r, c.y + Math.sin(deg(a)) * r));
+  pts.push(new THREE.Vector2(0.055, 0.28), new THREE.Vector2(0.01, 0.22), new THREE.Vector2(0, 0.16), new THREE.Vector2(0, 0.08));
+  const outline = strokeOutline(pts, 0.15).map((v) => v.multiplyScalar(scale));
+  const hook = new THREE.Path(); hook.setFromPoints(outline); hook.closePath();
+  const dot = new THREE.Path(); dot.absarc(0, -0.12 * scale, 0.085 * scale, 0, Math.PI * 2, true);
+  return [hook, dot];
+}
+
+// ---------------------------------------------------------------- objects
+function makeKeys() {
+  const g = new THREE.Group();
+  const ringR = 0.0135;
+  const ring = mesh(new THREE.TorusGeometry(ringR, 0.0014, 16, 64), MAT.brass, { rot: [Math.PI / 2, 0, 0], pos: [0, 0.0022, 0] });
+  g.add(ring);
+  const keyGeo = extrude(keyShape(), 0.0022, MAT.brass, { bevel: 0.0004 });
+  const headR = 0.0155, hx = headR - 0.0065;
+  [[-38, 0.0004, 0.068], [26, 0.0028, 0.062]].forEach(([angleDeg, y, len], i) => {
+    const a = deg(angleDeg);
+    const k = flat(keyGeo, MAT.brass, y, 0.0004);
+    const d = ringR + hx;
+    k.position.x = Math.cos(a) * d; k.position.z = -Math.sin(a) * d;
+    k.rotation.y = a;
+    g.add(k);
+  });
+  return g;
+}
+function makeString(points, radius = 0.0011, mat = MAT.string, closed = false) {
+  const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)), closed, 'centripetal');
+  return mesh(new THREE.TubeGeometry(curve, 96, radius, 8, closed), mat);
+}
+function makeTightString(points, radius = 0.0012, mat = MAT.string) {
+  const vs = points.map((p) => new THREE.Vector3(...p));
+  const path = new THREE.CurvePath();
+  for (let i = 0; i < vs.length; i++) path.add(new THREE.LineCurve3(vs[i], vs[(i + 1) % vs.length]));
+  return mesh(new THREE.TubeGeometry(path, vs.length * 4, radius, 8, true), mat);
+}
+function makeTag({ withString = true, stringPoints } = {}) {
+  const g = new THREE.Group();
+  const L = 0.12, W = 0.06;
+  const tag = flat(extrude(tagShape(L, W), 0.0014, MAT.kraft, { bevel: 0.0002, curveSegments: 32 }), MAT.kraft, 0, 0.0002);
+  g.add(tag);
+  // brass eyelet ring through the keyhole, resting nearly flat
+  const ring = mesh(new THREE.TorusGeometry(0.0085, 0.001, 12, 48), MAT.brass, { pos: [0.021, 0.002, -W / 2], rot: [deg(78), 0, 0] });
+  g.add(ring);
+  if (withString) {
+    const pts = stringPoints || [
+      [0.012, 0.0036, -W / 2 + 0.0015], [0.004, 0.0028, -W / 2 - 0.003], [-0.01, 0.0014, -W / 2 - 0.01], [-0.024, 0.0012, -W / 2 - 0.013],
+      [-0.04, 0.0012, -W / 2 - 0.009], [-0.048, 0.0012, -W / 2 + 0.002], [-0.042, 0.0012, -W / 2 + 0.013], [-0.028, 0.0012, -W / 2 + 0.017],
+      [-0.014, 0.0012, -W / 2 + 0.012], [-0.002, 0.0024, -W / 2 + 0.004], [0.012, 0.0036, -W / 2 - 0.0015],
+    ];
+    pts.forEach((pt, i) => { if (i > 0 && i < pts.length - 1) { pt[0] += jitter(0.0025); pt[2] += jitter(0.0025); } });
+    g.add(makeString(pts, 0.0013));
+    g.add(mesh(new THREE.SphereGeometry(0.0022, 12, 12), MAT.string, { pos: [0.009, 0.0036, -W / 2] }));
+  }
+  return g;
+}
+function makeBell() {
+  const g = new THREE.Group();
+  const base = new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0), new THREE.Vector2(0.047, 0), new THREE.Vector2(0.049, 0.003), new THREE.Vector2(0.048, 0.007), new THREE.Vector2(0.040, 0.0085), new THREE.Vector2(0, 0.0085),
+  ], 64);
+  g.add(mesh(base, MAT.pineDark));
+  const dome = new THREE.LatheGeometry([
+    new THREE.Vector2(0.0, 0.009), new THREE.Vector2(0.040, 0.009), new THREE.Vector2(0.0425, 0.013), new THREE.Vector2(0.0415, 0.02),
+    new THREE.Vector2(0.036, 0.032), new THREE.Vector2(0.027, 0.043), new THREE.Vector2(0.016, 0.051), new THREE.Vector2(0.008, 0.055), new THREE.Vector2(0.0045, 0.057), new THREE.Vector2(0.0045, 0.064), new THREE.Vector2(0, 0.064),
+  ], 72);
+  g.add(mesh(dome, MAT.brass));
+  g.add(mesh(new THREE.CylinderGeometry(0.0038, 0.0038, 0.014, 24), MAT.brass, { pos: [0, 0.069, 0] }));
+  g.add(mesh(new THREE.SphereGeometry(0.0075, 24, 18), MAT.brass, { pos: [0, 0.081, 0] }));
+  return g;
+}
+function makeGlasses() {
+  const g = new THREE.Group();
+  const rim = new THREE.TorusGeometry(0.0175, 0.0014, 12, 48);
+  const lens = new THREE.CircleGeometry(0.0165, 32);
+  [-0.0215, 0.0215].forEach((x) => {
+    g.add(mesh(rim, MAT.dark, { pos: [x, 0.0014, 0], rot: [Math.PI / 2, 0, 0], scale: [1.18, 1, 1] }));
+    g.add(mesh(lens, MAT.glass, { pos: [x, 0.0014, 0], rot: [-Math.PI / 2, 0, 0], scale: [1.18, 1, 1], cast: false }));
+  });
+  g.add(mesh(new THREE.TorusGeometry(0.0045, 0.0012, 8, 24, Math.PI), MAT.dark, { pos: [0, 0.0014, -0.003], rot: [Math.PI / 2, 0, 0] }));
+  // folded temples lying across the lenses
+  g.add(box(0.1, 0.002, 0.0025, MAT.dark, { pos: [0.004, 0.004, 0.012], rot: [0, deg(-7), 0] }));
+  g.add(box(0.1, 0.002, 0.0025, MAT.dark, { pos: [-0.004, 0.0062, 0.0135], rot: [0, deg(6), 0] }));
+  // hinges
+  [-0.044, 0.044].forEach((x) => g.add(mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 0.0045, 12), MAT.dark, { pos: [x, 0.003, 0.0045] })));
+  return g;
+}
+function makeWatch() {
+  const g = new THREE.Group();
+  const caseGeo = new THREE.CylinderGeometry(0.019, 0.019, 0.0065, 48);
+  g.add(mesh(caseGeo, MAT.steel, { pos: [0, 0.0033, 0] }));
+  g.add(mesh(new THREE.TorusGeometry(0.0175, 0.0014, 12, 64), MAT.steel, { pos: [0, 0.0068, 0], rot: [Math.PI / 2, 0, 0] }));
+  g.add(mesh(new THREE.CircleGeometry(0.0165, 48), MAT.paperPlain, { pos: [0, 0.0066, 0], rot: [-Math.PI / 2, 0, 0], cast: false }));
+  [[deg(-30), 0.013], [deg(120), 0.009]].forEach(([a, len]) => {
+    const hand = box(0.0013, 0.0004, len, MAT.dark, { pos: [0, 0, -len / 2] });
+    const pivot = new THREE.Group(); pivot.position.set(0, 0.0069, 0); pivot.rotation.y = a; pivot.add(hand); g.add(pivot);
+  });
+  g.add(mesh(new THREE.CylinderGeometry(0.0012, 0.0012, 0.0006, 12), MAT.dark, { pos: [0, 0.0069, 0] }));
+  g.add(mesh(new THREE.CylinderGeometry(0.0018, 0.0018, 0.004, 12), MAT.steel, { pos: [0.021, 0.0033, 0], rot: [0, 0, Math.PI / 2] }));
+  // straps
+  g.add(rbox(0.017, 0.0024, 0.055, 0.001, MAT.leather, { pos: [0, 0.0012, 0.044] }));
+  g.add(rbox(0.017, 0.0024, 0.05, 0.001, MAT.leather, { pos: [0, 0.0012, -0.0415] }));
+  g.add(mesh(new THREE.TorusGeometry(0.009, 0.0012, 8, 24), MAT.steel, { pos: [0, 0.0024, -0.064], rot: [Math.PI / 2, 0, 0], scale: [1, 1, 0.6] }));
+  return g;
+}
+function makeNotebook() {
+  const g = new THREE.Group();
+  g.add(rbox(0.088, 0.013, 0.126, 0.0025, MAT.pineDark, { pos: [0, 0.0065, 0] }));
+  g.add(box(0.0855, 0.0105, 0.1225, MAT.paperPlain, { pos: [0.0025, 0.0065, 0] }));
+  g.add(box(0.0075, 0.0145, 0.126, MAT.dark, { pos: [0.028, 0.0065, 0] }));
+  return g;
+}
+function makeEarbudCase() {
+  const g = new THREE.Group();
+  g.add(rbox(0.054, 0.023, 0.05, 0.011, MAT.white, { pos: [0, 0.0115, 0] }));
+  g.add(box(0.056, 0.0008, 0.052, MAT.ink, { pos: [0, 0.0135, 0] }));
+  g.add(mesh(new THREE.CylinderGeometry(0.0018, 0.0018, 0.03, 12), MAT.steel, { pos: [0, 0.0135, -0.0255], rot: [0, 0, Math.PI / 2] }));
+  return g;
+}
+function makeParcel(w = 0.14, h = 0.09, d = 0.11) {
+  const g = new THREE.Group();
+  g.add(rbox(w, h, d, 0.004, MAT.kraft, { pos: [0, h / 2, 0] }));
+  const r = 0.0012, o = 0.0008;
+  const loopA = [[-w / 2 - o, h + o, 0.004], [w / 2 + o, h + o, 0.004], [w / 2 + o, -o, 0.004], [-w / 2 - o, -o, 0.004]];
+  const loopB = [[0.003, h + o, -d / 2 - o], [0.003, h + o, d / 2 + o], [0.003, -o, d / 2 + o], [0.003, -o, -d / 2 - o]];
+  g.add(makeTightString(loopA, r));
+  g.add(makeTightString(loopB, r));
+  g.add(mesh(new THREE.SphereGeometry(0.0038, 12, 12), MAT.string, { pos: [0, h + 0.002, 0] }));
+  g.add(makeString([[0, h + 0.002, 0], [0.012, h + 0.006, 0.01], [0.028, h + 0.0015, 0.02]], r));
+  g.add(makeString([[0, h + 0.002, 0], [-0.01, h + 0.005, -0.012], [-0.022, h + 0.0015, -0.03]], r));
+  return g;
+}
+function makeCubbies({ cols = 3, rows = 2, cell = 0.3, cellH = 0.25, depth = 0.3, t = 0.02 }) {
+  const g = new THREE.Group();
+  const W = cols * cell + (cols + 1) * t, H = rows * cellH + (rows + 1) * t;
+  g.add(box(W, H, t, MAT.pineDark, { pos: [W / 2, H / 2, -depth + t / 2] }));
+  for (let i = 0; i <= cols; i++) g.add(box(t, H, depth, MAT.pine, { pos: [i * (cell + t) + t / 2, H / 2, -depth / 2] }));
+  for (let j = 0; j <= rows; j++) g.add(box(W, t, depth, MAT.pine, { pos: [W / 2, j * (cellH + t) + t / 2, -depth / 2] }));
+  const parcels = [
+    [0, 0, 0.17, 0.11, 0.12], [1, 0, 0.19, 0.085, 0.14], [2, 0, 0.13, 0.13, 0.11], [3, 0, 0.21, 0.09, 0.17],
+    [2, 1, 0.14, 0.14, 0.12], [0, 1, 0.22, 0.07, 0.2],
+  ].filter(([c, r]) => c < cols && r < rows);
+  parcels.forEach(([c, r, w, h, d]) => {
+    const p = makeParcel(w, h, d);
+    p.position.set(t + c * (cell + t) + cell / 2 + jitter(0.01), t + r * (cellH + t), -depth / 2 + jitter(0.03));
+    p.rotation.y = jitter(deg(9));
+    g.add(p);
+  });
+  return g;
+}
+function makeCounter({ pull = 0.22 } = {}) {
+  const g = new THREE.Group();
+  const W = 2.6, H = 0.86, D = 0.6, TOPY = 0.9;
+  g.add(rbox(W, H - 0.08, D, 0.01, MAT.pine, { pos: [0, 0.08 + (H - 0.08) / 2, 0] }));
+  g.add(box(W - 0.06, 0.08, D - 0.06, MAT.pineDark, { pos: [0, 0.04, 0] }));
+  const top = rbox(W + 0.08, 0.04, D + 0.07, 0.006, MAT.oak, { pos: [0, TOPY - 0.02, 0] });
+  g.add(top);
+  // drawer fronts (top row), the right one is pulled open
+  const dw = 0.54, dh = 0.085, dy = TOPY - 0.04 - 0.016 - dh / 2;
+  const xs = [-0.6, 0.0, 0.6];
+  xs.forEach((x, i) => {
+    const open = i === 2;
+    if (open) {
+      g.add(box(dw + 0.016, dh + 0.016, 0.004, MAT.cavity, { pos: [x, dy, D / 2 - 0.001] }));
+      const drawer = new THREE.Group();
+      drawer.add(rbox(dw, dh, 0.022, 0.004, MAT.pine, { pos: [0, 0, D / 2 + 0.011] }));
+      drawer.add(mesh(new THREE.CylinderGeometry(0.009, 0.0075, 0.02, 24), MAT.brass, { pos: [0, 0, D / 2 + 0.032], rot: [Math.PI / 2, 0, 0] }));
+      const inner = dw - 0.04, idepth = 0.5, ih = 0.05, bt = 0.01;
+      const by = -dh / 2 + 0.012;
+      drawer.add(box(inner, bt, idepth, MAT.oakSide, { pos: [0, by, D / 2 - idepth / 2] }));
+      drawer.add(box(0.012, ih, idepth, MAT.oakSide, { pos: [-inner / 2 + 0.006, by - bt / 2 + ih / 2, D / 2 - idepth / 2] }));
+      drawer.add(box(0.012, ih, idepth, MAT.oakSide, { pos: [inner / 2 - 0.006, by - bt / 2 + ih / 2, D / 2 - idepth / 2] }));
+      drawer.add(box(inner, ih, 0.012, MAT.oakSide, { pos: [0, by - bt / 2 + ih / 2, D / 2 - idepth + 0.006] }));
+      // kraft liner sheet on the drawer floor
+      drawer.add(box(inner - 0.02, 0.0008, idepth - 0.03, MAT.kraft, { pos: [0.004, by + bt / 2 + 0.0004, D / 2 - idepth / 2 + 0.01], rot: [0, deg(0.6), 0] }));
+      drawer.position.set(x, dy, pull);
+      drawer.userData.floorY = by + bt / 2 + 0.0008;
+      drawer.userData.frontZ = D / 2;
+      g.add(drawer);
+      g.userData.drawer = drawer;
+    } else {
+      g.add(rbox(dw, dh, 0.016, 0.004, MAT.pine, { pos: [x, dy, D / 2 + 0.006] }));
+      g.add(box(dw + 0.016, dh + 0.016, 0.002, MAT.cavity, { pos: [x, dy, D / 2 - 0.0005] }));
+      g.add(mesh(new THREE.CylinderGeometry(0.009, 0.0075, 0.02, 24), MAT.brass, { pos: [x, dy, D / 2 + 0.022], rot: [Math.PI / 2, 0, 0] }));
+    }
+  });
+  // lower panel grooves
+  const py = (dy - dh / 2 - 0.02 + 0.08) / 2;
+  g.add(box(W - 0.1, 0.004, 0.003, MAT.cavity, { pos: [0, dy - dh / 2 - 0.03, D / 2 - 0.0005] }));
+  [-0.33, 0.33].forEach((x) => g.add(box(0.004, dy - dh / 2 - 0.03 - 0.1, 0.003, MAT.cavity, { pos: [x, py, D / 2 - 0.0005] })));
+  g.userData.topY = TOPY; g.userData.W = W; g.userData.D = D;
+  return g;
+}
+function makeSlab(w = 0.6, d = 0.44) {
+  const g = new THREE.Group();
+  g.add(rbox(w, 0.03, d, 0.006, MAT.oak, { pos: [0, 0.015, 0] }));
+  g.add(box(w - 0.04, 0.02, d - 0.04, MAT.pine, { pos: [0, -0.01, 0] }));
+  return g;
+}
+function makeSlip(mat, bars) {
+  const g = new THREE.Group();
+  g.add(flat(extrude(slipShape(), 0.0009, mat, { curveSegments: 4 }), mat, 0));
+  // abstract grey bars instead of writing
+  bars.forEach(([x, z, w, t]) => g.add(box(w, 0.0005, t, MAT.ink, { pos: [x, 0.00115, -z], cast: false })));
+  return g;
+}
+function makeMagnifier() {
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.TorusGeometry(0.031, 0.0032, 16, 72), MAT.brass, { pos: [0, 0.0032, 0], rot: [Math.PI / 2, 0, 0] }));
+  g.add(mesh(new THREE.CircleGeometry(0.029, 48), MAT.glass, { pos: [0, 0.0032, 0], rot: [-Math.PI / 2, 0, 0], cast: false }));
+  g.add(mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.016, 24), MAT.brass, { pos: [0.041, 0.0032, 0], rot: [0, 0, Math.PI / 2] }));
+  g.add(mesh(new THREE.CylinderGeometry(0.0055, 0.0045, 0.075, 24), MAT.pineDark, { pos: [0.086, 0.0045, 0], rot: [0, 0, Math.PI / 2] }));
+  g.add(mesh(new THREE.SphereGeometry(0.0055, 20, 16), MAT.brass, { pos: [0.1235, 0.0045, 0] }));
+  return g;
+}
+function makePadlock() {
+  const g = new THREE.Group();
+  const w = 0.038, h = 0.032, t = 0.015;
+  g.add(rbox(w, h, t, 0.004, MAT.brass, { pos: [0, h / 2, 0] }));
+  g.add(mesh(new THREE.TorusGeometry(0.0115, 0.0028, 16, 40, Math.PI), MAT.steel, { pos: [0, h + 0.006, 0] }));
+  [-0.0115, 0.0115].forEach((x) => g.add(mesh(new THREE.CylinderGeometry(0.0028, 0.0028, 0.016, 16), MAT.steel, { pos: [x, h - 0.002, 0] })));
+  // keyhole motif on the face
+  const kh = mesh(extrude(keyholeShape(0.55), 0.0006, MAT.dark), MAT.dark, { pos: [0, h * 0.42, t / 2 - 0.0002], rot: [0, 0, -Math.PI / 2] });
+  g.add(kh);
+  return g;
+}
+function makeQuestionCard() {
+  const g = new THREE.Group();
+  const W = 0.15, H = 0.105;
+  const s = new THREE.Shape();
+  const r = 0.005;
+  s.moveTo(r, 0); s.lineTo(W - r, 0); s.quadraticCurveTo(W, 0, W, r); s.lineTo(W, H - r); s.quadraticCurveTo(W, H, W - r, H);
+  s.lineTo(r, H); s.quadraticCurveTo(0, H, 0, H - r); s.lineTo(0, r); s.quadraticCurveTo(0, 0, r, 0);
+  const [hook, dot] = questionMarkPath(0.08);
+  const shift = (p) => { p.curves.forEach((c) => { ['v0', 'v1', 'v2', 'v3'].forEach((k) => { if (c[k]) { c[k].x += W / 2; c[k].y += H * 0.24; } }); if (c.aX !== undefined) { c.aX += W / 2; c.aY += H * 0.24; } }); return p; };
+  s.holes.push(shift(hook), shift(dot));
+  const card = mesh(extrude(s, 0.0013, MAT.paper, { curveSegments: 12 }), MAT.paper, { pos: [-W / 2, 0.006, 0.0007], rot: [deg(-14), 0, 0] });
+  g.add(card);
+  // brass holder
+  const holder = new THREE.Group();
+  holder.add(rbox(0.064, 0.012, 0.03, 0.0025, MAT.brass, { pos: [0, 0.006, 0.006] }));
+  holder.add(box(0.064, 0.013, 0.0035, MAT.brass, { pos: [0, 0.016, 0.003], rot: [deg(-14), 0, 0] }));
+  g.add(holder);
+  return g;
+}
+function makePencil(len = 0.15) {
+  const g = new THREE.Group();
+  const r = 0.0036;
+  g.add(mesh(new THREE.CylinderGeometry(r, r, len, 6), MAT.pine, { pos: [0, r, 0], rot: [0, 0, Math.PI / 2] }));
+  g.add(mesh(new THREE.CylinderGeometry(0.0012, r * 0.98, 0.014, 24), MAT.wood, { pos: [len / 2 + 0.007, r, 0], rot: [0, 0, -Math.PI / 2] }));
+  g.add(mesh(new THREE.CylinderGeometry(0.0002, 0.0012, 0.004, 12), MAT.graphite, { pos: [len / 2 + 0.016, r, 0], rot: [0, 0, -Math.PI / 2] }));
+  g.add(mesh(new THREE.CylinderGeometry(r * 1.02, r * 1.02, 0.012, 24), MAT.brass, { pos: [-len / 2 - 0.003, r, 0], rot: [0, 0, Math.PI / 2] }));
+  g.add(mesh(new THREE.CylinderGeometry(r * 0.98, r * 0.98, 0.009, 24), MAT.kraftPlain, { pos: [-len / 2 - 0.0135, r, 0], rot: [0, 0, Math.PI / 2] }));
+  return g;
+}
+function makeStamp() {
+  const g = new THREE.Group();
+  g.add(rbox(0.04, 0.012, 0.03, 0.002, MAT.pineDark, { pos: [0, 0.006, 0] }));
+  g.add(box(0.036, 0.004, 0.026, MAT.rubber, { pos: [0, -0.002, 0] }));
+  const handle = new THREE.LatheGeometry([
+    new THREE.Vector2(0, 0.012), new THREE.Vector2(0.009, 0.012), new THREE.Vector2(0.0055, 0.02), new THREE.Vector2(0.005, 0.034),
+    new THREE.Vector2(0.0085, 0.044), new THREE.Vector2(0.0095, 0.052), new THREE.Vector2(0.007, 0.058), new THREE.Vector2(0, 0.06),
+  ], 48);
+  g.add(mesh(handle, MAT.brass));
+  return g;
+}
+
+// ---------------------------------------------------------------- lights / env
+function setupLights(scene, { keyPos, target, range, intensity = 3.4, fill = 0.9, bounce = 0.45, samples = 3, spread = 0.025, mapSize = 4096 }) {
+  const tgt = new THREE.Vector3(...target), origin = new THREE.Vector3(...keyPos);
+  const dir = new THREE.Vector3().subVectors(origin, tgt).normalize();
+  const u = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+  const v = new THREE.Vector3().crossVectors(u, dir).normalize();
+  const dist = origin.distanceTo(tgt);
+  for (let i = 0; i < samples; i++) {
+    const a = (i / samples) * Math.PI * 2 + 0.4;
+    const off = samples === 1 ? new THREE.Vector3() : new THREE.Vector3().addScaledVector(u, Math.cos(a) * spread * dist).addScaledVector(v, Math.sin(a) * spread * dist);
+    const key = new THREE.DirectionalLight(0xFFD8AE, intensity / samples);
+    key.position.copy(origin).add(off);
+    key.target.position.copy(tgt);
+    key.castShadow = true;
+    key.shadow.mapSize.set(mapSize, mapSize);
+    const c = key.shadow.camera; c.left = -range; c.right = range; c.top = range; c.bottom = -range; c.near = 0.2; c.far = dist * 2 + range * 2;
+    key.shadow.bias = -0.00003; key.shadow.normalBias = range * 0.0012;
+    scene.add(key, key.target);
+  }
+  const hemi = new THREE.HemisphereLight(0xFFF1DE, 0x8A7D6A, fill);
+  scene.add(hemi);
+  const b = new THREE.DirectionalLight(0xFFE9D2, bounce);
+  b.position.set(target[0] + 2.5, target[1] + 1, target[2] + 3);
+  b.target.position.set(...target);
+  scene.add(b, b.target);
+}
+
+// off-camera wall with a window opening: shapes the key light into a warm window-shaped pool
+function makeWindowOccluder(target, keyPos, { w = 1.3, h = 1.1, dx = 0, dy = 0, mullion = 0.045 }) {
+  const tgt = new THREE.Vector3(...target), dir = new THREE.Vector3(...keyPos).sub(tgt).normalize();
+  const shape = new THREE.Shape(); shape.moveTo(-6, -6); shape.lineTo(6, -6); shape.lineTo(6, 6); shape.lineTo(-6, 6); shape.closePath();
+  const hole = new THREE.Path(); hole.moveTo(dx - w / 2, dy - h / 2); hole.lineTo(dx + w / 2, dy - h / 2); hole.lineTo(dx + w / 2, dy + h / 2); hole.lineTo(dx - w / 2, dy + h / 2); hole.closePath();
+  shape.holes.push(hole);
+  const mat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, side: THREE.DoubleSide });
+  const g = new THREE.Group();
+  g.add(mesh(new THREE.ShapeGeometry(shape), mat, { receive: false }));
+  g.add(mesh(new THREE.BoxGeometry(mullion, h, 0.02), mat, { pos: [dx, dy, 0], receive: false }));
+  g.add(mesh(new THREE.BoxGeometry(w, mullion, 0.02), mat, { pos: [dx, dy + h * 0.12, 0], receive: false }));
+  g.position.copy(tgt).addScaledVector(dir, 2.2);
+  g.lookAt(tgt);
+  return g;
+}
+
+// ---------------------------------------------------------------- scene builders
+function buildHero(scene, { mobile = false }) {
+  const counter = makeCounter({ pull: 0.27 });
+  counter.position.set(0.3, 0, 0);
+  scene.add(counter);
+  const topY = counter.userData.topY;
+  const PS = 1.35; // props slightly oversized for readability
+
+  // room
+  const wallZ = -0.78;
+  scene.add(mesh(new THREE.PlaneGeometry(12, 12), MAT.floor, { rot: [-Math.PI / 2, 0, 0], cast: false }));
+  scene.add(mesh(new THREE.PlaneGeometry(12, 6), MAT.wall, { pos: [0, 3, wallZ], cast: false }));
+  scene.add(box(12, 0.09, 0.012, MAT.paperPlain, { pos: [0, 0.045, wallZ + 0.006], cast: false }));
+
+  // pigeonhole cubbies on the wall behind the cluster
+  // pigeonhole unit standing on the back of the counter
+  const cub = makeCubbies({ cols: 3, rows: 1, cell: 0.24, cellH: 0.17, depth: 0.18, t: 0.014 });
+  cub.position.set(1.04, topY, -0.14);
+  scene.add(cub);
+
+  // objects on the counter
+  const keys = makeKeys();
+  keys.position.set(0.88, topY, 0.25); keys.rotation.y = deg(30); keys.scale.setScalar(PS);
+  scene.add(keys);
+  const tag = makeTag({});
+  tag.position.set(0.98, topY, 0.1); tag.rotation.y = deg(-14); tag.scale.setScalar(PS);
+  scene.add(tag);
+  const bell = makeBell();
+  bell.position.set(1.27, topY, 0.0); bell.scale.setScalar(PS);
+  scene.add(bell);
+
+  // open drawer contents (drawer-local coordinates; front edge at frontZ)
+  const drawer = counter.userData.drawer;
+  const fy = drawer.userData.floorY, fz = drawer.userData.frontZ;
+  const glasses = makeGlasses(); glasses.position.set(-0.15, fy, fz - 0.16); glasses.rotation.y = deg(14);
+  const watch = makeWatch(); watch.position.set(0.0, fy, fz - 0.15); watch.rotation.y = deg(-24);
+  const notebook = makeNotebook(); notebook.position.set(0.16, fy, fz - 0.17); notebook.rotation.y = deg(5);
+  const buds = makeEarbudCase(); buds.position.set(-0.15, fy, fz - 0.27); buds.rotation.y = deg(-30);
+  [glasses, watch, notebook, buds].forEach((o) => { o.scale.setScalar(1.15); drawer.add(o); });
+
+  const keyPos = [-2.0, 3.3, 2.2], lightTarget = [1.0, 0.86, 0.0];
+  scene.add(makeWindowOccluder(lightTarget, keyPos, { w: 1.4, h: 1.2, dx: 0.2, dy: 0.05, mullion: 0.07 }));
+
+  const camera = new THREE.PerspectiveCamera(mobile ? 36 : 32, 1, 0.05, 40);
+  if (mobile) {
+    camera.position.set(0.52, 1.5, 1.04);
+    camera.lookAt(1.04, 0.84, 0.04);
+  } else {
+    camera.position.set(0.16, 1.38, 1.14);
+    camera.lookAt(0.8, 0.88, 0.02);
+  }
+  setupLights(scene, { keyPos, target: lightTarget, range: 1.9, intensity: 3.2, fill: 0.85, bounce: 0.4, samples: 5, spread: 0.006 });
+  return camera;
+}
+
+function buildGuideBase(scene) {
+  const slab = makeSlab(0.42, 0.32);
+  scene.add(slab);
+  const catcher = mesh(new THREE.PlaneGeometry(4, 4), MAT.shadowCatcher, { rot: [-Math.PI / 2, 0, 0], pos: [0, -0.02, 0], cast: false });
+  scene.add(catcher);
+  const camera = new THREE.PerspectiveCamera(27, 1, 0.05, 20);
+  camera.position.set(-0.27, 0.52, 0.6);
+  camera.lookAt(0.0, 0.03, -0.01);
+  setupLights(scene, { keyPos: [-1.2, 1.8, 1.1], target: [0, 0.03, 0], range: 0.55, intensity: 3.4 });
+  return camera;
+}
+function buildCompare(scene) {
+  const cam = buildGuideBase(scene);
+  const y = 0.03;
+  const barsA = [[0.05, 0.12, 0.05, 0.004], [0.05, 0.1, 0.07, 0.0022], [0.05, 0.088, 0.06, 0.0022], [0.05, 0.076, 0.07, 0.0022], [0.05, 0.064, 0.045, 0.0022], [0.05, 0.045, 0.06, 0.0022], [0.05, 0.033, 0.03, 0.0022]];
+  const barsB = [[0.05, 0.12, 0.045, 0.004], [0.05, 0.1, 0.07, 0.0022], [0.05, 0.088, 0.05, 0.0022], [0.05, 0.076, 0.065, 0.0022], [0.05, 0.064, 0.07, 0.0022], [0.05, 0.045, 0.05, 0.0022], [0.05, 0.033, 0.04, 0.0022]];
+  const a = makeSlip(MAT.kraft, barsA); a.position.set(-0.15, y, 0.065); a.rotation.y = deg(6);
+  const b = makeSlip(MAT.paper, barsB); b.position.set(-0.005, y, 0.075); b.rotation.y = deg(-4);
+  scene.add(a, b);
+  const mag = makeMagnifier(); mag.position.set(-0.045, y + 0.0009, -0.01); mag.rotation.y = deg(-32); mag.scale.setScalar(1.1);
+  scene.add(mag);
+  const lock = makePadlock(); lock.position.set(0.15, y, 0.04); lock.rotation.y = deg(-28); lock.scale.setScalar(1.2);
+  scene.add(lock);
+  return cam;
+}
+function buildQuestion(scene) {
+  const cam = buildGuideBase(scene);
+  const y = 0.03;
+  const card = makeQuestionCard(); card.position.set(0.0, y, 0.025); card.rotation.y = deg(-8);
+  scene.add(card);
+  const pencil = makePencil(0.16); pencil.position.set(-0.005, y, 0.125); pencil.rotation.y = deg(-7);
+  scene.add(pencil);
+  return cam;
+}
+function buildHandover(scene) {
+  const cam = buildGuideBase(scene);
+  const y = 0.03;
+  const parcel = makeParcel(0.15, 0.09, 0.12); parcel.position.set(-0.04, y, -0.03); parcel.rotation.y = deg(-18);
+  scene.add(parcel);
+  const tag = makeTag({ stringPoints: [[0.012, 0.0036, -0.0285], [-0.01, 0.01, -0.04], [-0.03, 0.04, -0.055], [-0.035, 0.07, -0.062], [-0.03, 0.092, -0.06]] });
+  tag.position.set(-0.03, y, 0.11); tag.rotation.y = deg(-22);
+  scene.add(tag);
+  const bell = makeBell(); bell.position.set(0.15, y, 0.0);
+  scene.add(bell);
+  const stamp = makeStamp(); stamp.position.set(0.14, y + 0.02, 0.13); stamp.rotation.set(0, deg(20), Math.PI / 2);
+  scene.add(stamp);
+  return cam;
+}
+
+// ---------------------------------------------------------------- main
+const SCENES = {
+  hero: { w: 2560, h: 1440, transparent: false, build: (s) => buildHero(s, {}) },
+  mobile: { w: 1200, h: 1000, transparent: false, build: (s) => buildHero(s, { mobile: true }) },
+  compare: { w: 1200, h: 900, transparent: true, build: buildCompare },
+  question: { w: 1200, h: 900, transparent: true, build: buildQuestion },
+  handover: { w: 1200, h: 900, transparent: true, build: buildHandover },
+};
+const params = new URLSearchParams(location.search);
+const name = params.get('scene') || 'hero';
+const cfg = SCENES[name] || SCENES.hero;
+const W = Number(params.get('w')) || cfg.w, H = Number(params.get('h')) || cfg.h;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: cfg.transparent, preserveDrawingBuffer: true, premultipliedAlpha: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = Number(params.get('exposure')) || 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+if (cfg.transparent) renderer.setClearColor(0x000000, 0); else renderer.setClearColor(0xF5F0E6, 1);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = Number(params.get('env')) || 0.5;
+
+const camera = cfg.build(scene);
+camera.aspect = W / H; camera.updateProjectionMatrix();
+
+renderer.render(scene, camera);
+let frames = 0;
+function tick() { renderer.render(scene, camera); if (++frames < 3) requestAnimationFrame(tick); else { document.title = 'done'; window.__done = true; } }
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
