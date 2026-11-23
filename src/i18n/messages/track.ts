@@ -48,7 +48,7 @@ const en = {
     noMatch: {
       title: "No match so far",
       intro:
-        "We compared your report with every found item reported so far and nothing looks like it. Each new found-item report is compared with yours, so come back to this link from time to time.",
+        "We compared your report with every found item reported so far. Each new one is compared with yours, so check this link now and then.",
     },
     uncertain: {
       title: "No confirmed match so far",
@@ -75,7 +75,7 @@ const en = {
     question: {
       title: "Answer a few questions about your item",
       intro:
-        "There is a possible match. Answer from memory, in your own words. Staff review your answers and decide.",
+        "There is a possible match. Answer from memory, in your own words; staff review and decide.",
     },
     followup: {
       title: "Staff have a question for you",
@@ -116,6 +116,14 @@ const en = {
     title: "Save your private link",
     intro:
       "This link is the only way back to your report. There are no accounts or messages, so keep it before you close this page.",
+  },
+
+  /* The case tag: the report's status and its four stages, on a paper tag. */
+  tag: {
+    title: "Your report",
+    stage: "Stage",
+    status: "Status",
+    approvedNote: "Not handed over yet",
   },
 
   /* The private link card. */
@@ -320,7 +328,7 @@ const ar: typeof en = {
     noMatch: {
       title: "ما لقينا تطابق للحين",
       intro:
-        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها، وما في شي يشبهه. كل بلاغ جديد عن غرض ملقى نقارنه ببلاغك، فارجع لهذا الرابط بين فترة وفترة.",
+        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. أي بلاغ جديد نقارنه ببلاغك، فارجع لرابطك بين فترة وفترة.",
     },
     uncertain: {
       title: "ما تأكد تطابق للحين",
@@ -345,7 +353,7 @@ const ar: typeof en = {
     },
     question: {
       title: "جاوب على أسئلة بسيطة عن غرضك",
-      intro: "في احتمال تطابق. جاوب من ذاكرتك وبكلامك، والموظف هو اللي يراجع إجاباتك ويقرر.",
+      intro: "في احتمال تطابق. جاوب من ذاكرتك وبكلامك، والموظف يراجع ويقرر.",
     },
     followup: {
       title: "الموظف عنده سؤال لك",
@@ -381,6 +389,13 @@ const ar: typeof en = {
     context: "تم حفظ بلاغك",
     title: "احفظ رابطك الخاص",
     intro: "هذا الرابط هو طريقك الوحيد لبلاغك. ما عندنا حسابات ولا رسائل، فاحفظه قبل ما تسكّر الصفحة.",
+  },
+
+  tag: {
+    title: "بلاغك",
+    stage: "المرحلة",
+    status: "الحالة",
+    approvedNote: "ما تسلّم بعد",
   },
 
   link: {

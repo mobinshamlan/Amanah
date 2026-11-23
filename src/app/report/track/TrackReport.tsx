@@ -2,40 +2,56 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  JourneySteps,
-  LostActions,
-  TrackingLinkCard,
+  MoreActions,
+  RetryAction,
   lostHeadline,
+  sceneFor,
   statusMessage,
   type OwnershipStage,
 } from "@/app/report/SubmissionConfirmation";
+import { CaseTag } from "@/app/report/track/parts/CaseTag";
+import { LinkTag } from "@/app/report/track/parts/LinkTag";
+import { SceneNote, TrackScene } from "@/app/report/track/parts/TrackScene";
 import { OwnershipVerification } from "@/app/report/track/OwnershipVerification";
 import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { ArrowEndIcon, LinkIcon } from "@/components/icons";
-import {
-  LoadingRow,
-  Notice,
-  PageHeading,
-  PageShell,
-  primaryButtonClassName,
-  secondaryButtonClassName,
-  textLinkClassName,
-} from "@/components/ui";
+import { ArrowEndIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
+import { SiteFooter, SiteHeader } from "@/components/site-header";
+import { LoadingRow, primaryButtonClassName, textLinkClassName } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { common } from "@/i18n/messages/common";
 import { track } from "@/i18n/messages/track";
 
+/** A plain paper slip torn from the desk's pad, for the screens without a status. */
+function Slip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section
+      aria-label={label}
+      className="track-paper relative isolate px-5 pb-10 pt-6 sm:px-8 sm:pt-7"
+    >
+      <span aria-hidden className="edge-torn absolute inset-0 -z-10 bg-card" />
+      {children}
+    </section>
+  );
+}
+
 function Opening() {
   const t = useMessages(track);
   return (
-    <div aria-busy="true" className="mx-auto w-full max-w-3xl">
-      <PageHeading context={t.pageContext} title={t.opening.title} intro={t.opening.intro} />
-      <div className="mt-8">
-        <LoadingRow>{t.loadingStatus}</LoadingRow>
-      </div>
+    <div aria-busy="true">
+      <TrackScene
+        art="compare"
+        mark="lens"
+        title={t.opening.title}
+        intro={t.opening.intro}
+        sheet={
+          <Slip label={t.opening.title}>
+            <LoadingRow>{t.loadingStatus}</LoadingRow>
+          </Slip>
+        }
+      />
     </div>
   );
 }
@@ -43,30 +59,37 @@ function Opening() {
 /** Someone tapped "Check my report" without their link: explain how to find it. */
 function NoLink() {
   const t = useMessages(track);
+  const c = useMessages(common);
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <PageHeading context={t.pageContext} title={t.noLink.title} intro={t.noLink.intro} />
-      <section aria-label={t.noLink.title} className="edge-torn mt-8 max-w-xl bg-card px-5 pt-6 sm:px-7">
-        <ul className="flex flex-col gap-3">
-          {t.noLink.places.map((place) => (
-            <li key={place} className="flex items-start gap-3 text-body text-foreground">
-              <LinkIcon className="mt-1 size-5 shrink-0 text-forest" />
-              <span className="min-w-0">{place}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <p className="mt-6 max-w-[58ch] text-small text-foreground/80">{t.noLink.lostLink}</p>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-        <Link href="/report/lost" className={primaryButtonClassName}>
-          {t.actions.reportLost}
-        </Link>
-        <Link href="/" className={textLinkClassName}>
-          {useMessages(common).backHome}
-          <ArrowEndIcon className="size-4" />
-        </Link>
-      </div>
-    </div>
+    <TrackScene
+      art="compare"
+      mark="link"
+      title={t.noLink.title}
+      intro={t.noLink.intro}
+      sheet={
+        <Slip label={t.noLink.title}>
+          <ul className="flex flex-col gap-4">
+            {t.noLink.places.map((place) => (
+              <li key={place} className="flex items-start gap-3 text-body text-foreground">
+                <LinkIcon className="mt-1 size-5 shrink-0 text-brass-ink" />
+                <span className="min-w-0">{place}</span>
+              </li>
+            ))}
+          </ul>
+          <span aria-hidden className="perforation my-5 block text-foreground/20" />
+          <p className="max-w-[58ch] text-small text-foreground/80">{t.noLink.lostLink}</p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+            <Link href="/report/lost" className={primaryButtonClassName}>
+              {t.actions.reportLost}
+            </Link>
+            <Link href="/" className={textLinkClassName}>
+              {c.backHome}
+              <ArrowEndIcon className="size-4" />
+            </Link>
+          </div>
+        </Slip>
+      }
+    />
   );
 }
 
@@ -75,20 +98,29 @@ function BrokenLink() {
   const t = useMessages(track);
   const c = useMessages(common);
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <PageHeading context={t.pageContext} title={t.broken.title} intro={t.broken.intro} />
-      <Notice tone="error" className="mt-8">
-        <span className="font-normal">{t.broken.help}</span>
-      </Notice>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-        <Link href="/report/lost" className={primaryButtonClassName}>
-          {t.actions.reportLost}
-        </Link>
-        <Link href="/" className={secondaryButtonClassName}>
-          {c.backHome}
-        </Link>
-      </div>
-    </div>
+    <TrackScene
+      art="compare"
+      mark="x"
+      title={t.broken.title}
+      intro={t.broken.intro}
+      sheet={
+        <Slip label={t.broken.title}>
+          <p className="flex items-start gap-3 text-body text-foreground">
+            <UserIcon className="mt-1 size-5 shrink-0 text-forest" />
+            <span className="min-w-0">{t.broken.help}</span>
+          </p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+            <Link href="/report/lost" className={primaryButtonClassName}>
+              {t.actions.reportLost}
+            </Link>
+            <Link href="/" className={textLinkClassName}>
+              {c.backHome}
+              <ArrowEndIcon className="size-4" />
+            </Link>
+          </div>
+        </Slip>
+      }
+    />
   );
 }
 
@@ -198,114 +230,103 @@ export default function TrackReport() {
   const headline = matching ? lostHeadline(t, matching, isContinuing, ownership) : null;
   const decided = ownership === "approved" || ownership === "rejected";
 
-  return (
-    <PageShell width="wide">
-      {/* Always mounted so screen readers announce each status change. */}
-      <p role="status" className="sr-only">
-        {!linkReady || statusLoading
-          ? t.loadingStatus
-          : linkMissing
-            ? t.noLink.title
-            : !linkWorks
-              ? t.broken.title
-              : matching
-                ? statusMessage("lost", matching, isContinuing, t, ownership)
-                : ""}
-      </p>
-
-      {!linkReady || (linkWorks && statusLoading) ? (
-        <Opening />
-      ) : linkMissing ? (
-        <NoLink />
-      ) : !linkWorks ? (
-        <BrokenLink />
-      ) : matching && headline ? (
-        <div className="lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-x-16">
-          {/* 1. The heading: the status, or "save your link" right after saving. */}
-          <div className="lg:col-start-1 lg:row-start-1">
-            {justSaved ? (
-              <PageHeading
-                context={t.saved.context}
-                saved
-                title={t.saved.title}
-                intro={t.saved.intro}
-                headingRef={headingRef}
-              />
-            ) : (
-              <PageHeading
-                context={t.pageContext}
-                title={headline.title}
-                intro={
-                  headline.extra ? (
-                    <>
-                      {headline.intro} {headline.extra}
-                    </>
-                  ) : (
-                    headline.intro
-                  )
-                }
-                headingRef={headingRef}
-              />
-            )}
+  function statusView() {
+    if (!matching || !headline) return <Opening />;
+    const scene = sceneFor(headline, ownership);
+    const verification =
+      showVerification && credential ? (
+        <OwnershipVerification
+          key={credential}
+          credential={credential}
+          onStageChange={setOwnershipStage}
+          headlineShown={!justSaved}
+        />
+      ) : null;
+    const caseTag = (
+      <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
+        {justSaved ? (
+          // Right after saving, the heading is about the link; the status lives here.
+          <div aria-busy={isContinuing}>
+            <p className="text-subheading text-foreground">{headline.title}</p>
+            <p className="mt-1 text-body text-foreground/85">
+              {headline.intro} {headline.extra}
+            </p>
           </div>
+        ) : null}
+        <RetryAction view={matching} waiting={isContinuing} canRetry={canRetry} onRetry={retryChecks} />
+      </CaseTag>
+    );
 
-          {/* 2. What to do now. */}
-          <div className="mt-8 flex min-w-0 flex-col gap-5 lg:col-start-1 lg:row-start-2">
-            {justSaved && linkUrl ? <TrackingLinkCard url={linkUrl} focal /> : null}
-
-            {justSaved ? (
-              // The live status, under the link: a titled block of its own.
-              <section
-                aria-labelledby="live-status-title"
-                aria-busy={isContinuing}
-                className="rounded-[1.75rem] bg-card p-5 sm:p-7"
-              >
-                <h2 id="live-status-title" className="text-heading text-foreground">
-                  {headline.title}
-                </h2>
-                <p className="mt-3 max-w-[58ch] text-body text-foreground">{headline.intro}</p>
-                {headline.extra ? <p className="mt-2 text-body text-foreground">{headline.extra}</p> : null}
-              </section>
-            ) : null}
-
+    return (
+      <TrackScene
+        art={scene.art}
+        mark={justSaved ? "link" : scene.mark}
+        title={justSaved ? t.saved.title : headline.title}
+        intro={
+          justSaved ? (
+            t.saved.intro
+          ) : headline.extra ? (
+            <>
+              {headline.intro} {headline.extra}
+            </>
+          ) : (
+            headline.intro
+          )
+        }
+        headingRef={headingRef}
+        sheet={
+          <>
+            {justSaved && linkUrl ? <LinkTag url={linkUrl} focal /> : null}
+            {verification}
+            {caseTag}
+          </>
+        }
+        aside={
+          <>
             {headline.tone === "match" ? (
-              <Notice>
-                <span className="font-normal">{t.aiNote}</span>
-              </Notice>
+              <SceneNote icon={<ShieldIcon className="size-4" />}>{t.aiNote}</SceneNote>
             ) : null}
-
-            {showVerification && credential ? (
-              <OwnershipVerification
-                key={credential}
-                credential={credential}
-                onStageChange={setOwnershipStage}
-                headlineShown={!justSaved}
-              />
-            ) : null}
-
-            {decided ? null : <p className="max-w-[58ch] text-small text-foreground/80">{t.staffContact}</p>}
-          </div>
-
-          {/* 3. The progress slip and the link, beside the status on wide screens. */}
-          <div className="mt-8 flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-6">
-            <JourneySteps view={matching} waiting={isContinuing} ownership={ownership} />
-            {!justSaved && linkUrl ? <TrackingLinkCard url={linkUrl} /> : null}
-          </div>
-
-          {/* 4. Actions. */}
-          <div className="mt-8 lg:col-start-1 lg:row-start-3">
-            <LostActions
-              view={matching}
+            {!justSaved && linkUrl ? <LinkTag url={linkUrl} /> : null}
+            {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+            <MoreActions
               waiting={isContinuing}
-              canRetry={canRetry}
-              onRetry={retryChecks}
+              reportAnotherLabel={t.actions.reportAnotherLost}
               onReportAnother={() => router.push("/report/lost")}
             />
-          </div>
-        </div>
-      ) : (
-        <Opening />
-      )}
-    </PageShell>
+          </>
+        }
+      />
+    );
+  }
+
+  return (
+    <>
+      <SiteHeader tone="pine" />
+      <main id="main" className="flex-1">
+        {/* Always mounted so screen readers announce each status change. */}
+        <p role="status" className="sr-only">
+          {!linkReady || statusLoading
+            ? t.loadingStatus
+            : linkMissing
+              ? t.noLink.title
+              : !linkWorks
+                ? t.broken.title
+                : matching
+                  ? statusMessage("lost", matching, isContinuing, t, ownership)
+                  : ""}
+        </p>
+
+        {!linkReady || (linkWorks && statusLoading) ? (
+          <Opening />
+        ) : linkMissing ? (
+          <NoLink />
+        ) : !linkWorks ? (
+          <BrokenLink />
+        ) : (
+          statusView()
+        )}
+      </main>
+      <SiteFooter />
+    </>
   );
 }

@@ -20,7 +20,7 @@ import { FillChip } from "@/app/report/form/FillChips";
 import { FormStage } from "@/app/report/form/FormStage";
 import "@/app/report/form/form-stage.css";
 import { KeyholeGlyph, LensIcon, LockIcon, TagIcon } from "@/components/icons";
-import { BackLink, SiteFooter, SiteHeader } from "@/components/site-header";
+import { SiteFooter, SiteHeader } from "@/components/site-header";
 import {
   FieldError,
   Notice,
@@ -315,7 +315,7 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
 
   return (
     <>
-      <SiteHeader tone={showConfirmation ? "paper" : "pine"} />
+      <SiteHeader tone="pine" />
       <main id="main" className="flex-1">
         {/* Always mounted so screen readers announce each status change. */}
         <p role="status" className="sr-only">
@@ -327,38 +327,33 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
         </p>
 
         {matching ? (
-          <div className="mx-auto flex w-full max-w-3xl flex-col px-4 pb-20 pt-6 sm:px-8 sm:pb-28 sm:pt-10">
-            <BackLink />
-            {reportType === "found" ? (
-              <FoundConfirmation
-                view={matching}
-                isContinuing={isContinuing}
-                canRetry={canRetry}
-                onRetry={retryChecks}
-                onReportAnother={startAnotherReport}
-                headingRef={confirmationHeadingRef}
-              />
-            ) : (
-              <LostConfirmation
-                context={t.savedContext}
-                saved
-                title={k.savedTitle}
-                intro={k.savedIntro}
-                view={matching}
-                isContinuing={isContinuing}
-                canRetry={canRetry}
-                onRetry={retryChecks}
-                onReportAnother={startAnotherReport}
-                headingRef={confirmationHeadingRef}
-              >
-                {credential ? null : (
-                  <Notice className="mt-4">
-                    <span className="font-normal">{t.noTrackingLink}</span>
-                  </Notice>
-                )}
-              </LostConfirmation>
-            )}
-          </div>
+          reportType === "found" ? (
+            <FoundConfirmation
+              view={matching}
+              isContinuing={isContinuing}
+              canRetry={canRetry}
+              onRetry={retryChecks}
+              onReportAnother={startAnotherReport}
+              headingRef={confirmationHeadingRef}
+            />
+          ) : (
+            <LostConfirmation
+              title={k.savedTitle}
+              intro={k.savedIntro}
+              view={matching}
+              isContinuing={isContinuing}
+              canRetry={canRetry}
+              onRetry={retryChecks}
+              onReportAnother={startAnotherReport}
+              headingRef={confirmationHeadingRef}
+            >
+              {credential ? null : (
+                <Notice>
+                  <span className="font-normal">{t.noTrackingLink}</span>
+                </Notice>
+              )}
+            </LostConfirmation>
+          )
         ) : (
           /*
             One grid. Row one is the pine band (its background is a grid item
