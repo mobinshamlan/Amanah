@@ -15,12 +15,14 @@
 }
 
 /*
-  Paper pieces cast a soft shadow on the counter. The shape (tag cut or torn
-  edge) lives on a decorative child, so the shadow follows it and focus rings
-  on the content are never clipped.
+  The status headline: the site's title voice, one step smaller, so every
+  status fits in two lines beside its sheet.
 */
-.track-paper {
-  filter: drop-shadow(0 12px 22px rgb(16 32 28 / 0.16)) drop-shadow(0 2px 3px rgb(16 32 28 / 0.1));
+.track-title {
+  font-size: clamp(1.875rem, 1.35rem + 1.6vw, 2.75rem);
+  line-height: var(--leading-title);
+  letter-spacing: var(--tracking-title);
+  font-weight: 600;
 }
 
 /* The tag's string, from the counter rail to its eyelet. */

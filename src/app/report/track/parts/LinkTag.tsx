@@ -1,18 +1,23 @@
 "use client";
 
 import { useRef, useState, useSyncExternalStore } from "react";
-import { CheckIcon, CopyIcon, LinkIcon, LockIcon, SendIcon } from "@/components/icons";
-import { fieldClassName, primaryButtonClassName, secondaryButtonClassName } from "@/components/ui";
+import { CheckIcon, ChevronDownIcon, CopyIcon, LinkIcon, LockIcon, SendIcon } from "@/components/icons";
+import {
+  fieldClassName,
+  focusRingClassName,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+} from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { track } from "@/i18n/messages/track";
 
 const subscribeNever = () => () => {};
 
 /**
- * The owner's private link. Right after saving it is the focal claim tag on
- * the counter (brass, with its eyelet): copy, send it to yourself, or
- * bookmark. On later visits it is a compact strip under the desk, so the
- * status leads.
+ * The owner's private link. Right after saving it is the one claim tag on the
+ * counter (brass, with its eyelet): copy it, with the other ways to keep it
+ * behind a disclosure. On later visits it is a compact strip under the desk,
+ * so the status leads. Both carry the warning that the link is the key.
  */
 export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }) {
   const t = useMessages(track);
@@ -76,19 +81,35 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
     <button
       type="button"
       onClick={() => void copyLink()}
-      className={focal ? primaryButtonClassName : `${secondaryButtonClassName} shrink-0`}
+      className={`${focal ? primaryButtonClassName : secondaryButtonClassName} shrink-0`}
     >
       {copyState === "copied" ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
       {copyState === "copied" ? t.link.copied : t.link.copy}
     </button>
   );
 
+  // The live region is always mounted so the result is announced; the visible
+  // line only takes room once there is something to say.
   const status = (
-    <p
-      aria-live="polite"
-      className={`min-h-6 text-small font-medium ${copyState === "copied" ? "text-forest" : "text-wait-ink"}`}
-    >
-      {statusText}
+    <>
+      <p aria-live="polite" className="sr-only">
+        {statusText}
+      </p>
+      {statusText ? (
+        <p
+          aria-hidden
+          className={`text-small font-medium ${copyState === "copied" ? "text-forest" : "text-wait-ink"}`}
+        >
+          {statusText}
+        </p>
+      ) : null}
+    </>
+  );
+
+  const warning = (
+    <p className="flex items-start gap-2 text-small text-foreground/85">
+      <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
+      <span>{t.link.keepPrivate}</span>
     </p>
   );
 
@@ -104,6 +125,7 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
           {copyButton}
         </div>
         {status}
+        {warning}
       </section>
     );
   }
@@ -115,7 +137,7 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
       <section
         id="private-link"
         aria-labelledby="tracking-link-title"
-        className="track-tag track-paper relative isolate scroll-mt-6 text-foreground"
+        className="track-tag relative isolate scroll-mt-6 text-foreground"
       >
         <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-brass-soft" />
         <span aria-hidden className="eyelet absolute start-4 top-4 size-6 bg-pine-deep" />
@@ -126,22 +148,30 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
             </h2>
             <p className="mt-2 max-w-[52ch] text-body text-foreground/85">{t.link.focalBody}</p>
           </div>
-          {input}
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {input}
             {copyButton}
-            {canShare ? (
-              <button type="button" onClick={() => void shareLink()} className={secondaryButtonClassName}>
-                <SendIcon className="size-4" />
-                {t.link.share}
-              </button>
-            ) : null}
           </div>
           {status}
+          {warning}
           <span aria-hidden className="perforation block text-brass-ink/30" />
-          <p className="flex items-start gap-2 text-small text-foreground/85">
-            <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
-            <span>{t.link.keepPrivate}</span>
-          </p>
+          <details className="group/save">
+            <summary
+              className={`-ms-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 rounded-full px-2 text-small font-semibold text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`}
+            >
+              {t.link.moreWays}
+              <ChevronDownIcon className="size-4 transition-transform group-open/save:rotate-180" />
+            </summary>
+            <div className="mt-2 flex flex-col items-start gap-3">
+              {canShare ? (
+                <button type="button" onClick={() => void shareLink()} className={secondaryButtonClassName}>
+                  <SendIcon className="size-4" />
+                  {t.link.share}
+                </button>
+              ) : null}
+              <p className="text-small text-foreground/85">{t.link.bookmarkHint}</p>
+            </div>
+          </details>
         </div>
       </section>
     </div>

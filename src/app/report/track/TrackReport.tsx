@@ -19,9 +19,8 @@ import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { ArrowEndIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
-import { LoadingRow, primaryButtonClassName, textLinkClassName } from "@/components/ui";
+import { LoadingRow, textLinkClassName } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
-import { common } from "@/i18n/messages/common";
 import { track } from "@/i18n/messages/track";
 
 /** A plain paper slip torn from the desk's pad, for the screens without a status. */
@@ -29,7 +28,7 @@ function Slip({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section
       aria-label={label}
-      className="track-paper relative isolate px-5 pb-10 pt-6 sm:px-8 sm:pt-7"
+      className="relative isolate px-5 pb-10 pt-6 sm:px-8 sm:pt-7"
     >
       <span aria-hidden className="edge-torn absolute inset-0 -z-10 bg-card" />
       {children}
@@ -59,11 +58,11 @@ function Opening() {
 /** Someone tapped "Check my report" without their link: explain how to find it. */
 function NoLink() {
   const t = useMessages(track);
-  const c = useMessages(common);
   return (
     <TrackScene
       art="compare"
       mark="link"
+      stage="recovery"
       title={t.noLink.title}
       intro={t.noLink.intro}
       sheet={
@@ -71,22 +70,18 @@ function NoLink() {
           <ul className="flex flex-col gap-4">
             {t.noLink.places.map((place) => (
               <li key={place} className="flex items-start gap-3 text-body text-foreground">
-                <LinkIcon className="mt-1 size-5 shrink-0 text-brass-ink" />
+                <LinkIcon className="mt-1 size-5 shrink-0 text-forest" />
                 <span className="min-w-0">{place}</span>
               </li>
             ))}
           </ul>
           <span aria-hidden className="perforation my-5 block text-foreground/20" />
+          {/* Reporting again is the fallback, after the ways to find the link. */}
           <p className="max-w-[58ch] text-small text-foreground/80">{t.noLink.lostLink}</p>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-            <Link href="/report/lost" className={primaryButtonClassName}>
-              {t.actions.reportLost}
-            </Link>
-            <Link href="/" className={textLinkClassName}>
-              {c.backHome}
-              <ArrowEndIcon className="size-4" />
-            </Link>
-          </div>
+          <Link href="/report/lost" className={`${textLinkClassName} mt-3`}>
+            {t.actions.reportLost}
+            <ArrowEndIcon className="size-4" />
+          </Link>
         </Slip>
       }
     />
@@ -96,11 +91,11 @@ function NoLink() {
 /** A malformed or unknown credential, or a found report's credential. */
 function BrokenLink() {
   const t = useMessages(track);
-  const c = useMessages(common);
   return (
     <TrackScene
       art="compare"
       mark="x"
+      stage="recovery"
       title={t.broken.title}
       intro={t.broken.intro}
       sheet={
@@ -109,15 +104,11 @@ function BrokenLink() {
             <UserIcon className="mt-1 size-5 shrink-0 text-forest" />
             <span className="min-w-0">{t.broken.help}</span>
           </p>
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-            <Link href="/report/lost" className={primaryButtonClassName}>
-              {t.actions.reportLost}
-            </Link>
-            <Link href="/" className={textLinkClassName}>
-              {c.backHome}
-              <ArrowEndIcon className="size-4" />
-            </Link>
-          </div>
+          <span aria-hidden className="perforation my-5 block text-foreground/20" />
+          <Link href="/report/lost" className={textLinkClassName}>
+            {t.actions.reportLost}
+            <ArrowEndIcon className="size-4" />
+          </Link>
         </Slip>
       }
     />
@@ -242,30 +233,65 @@ export default function TrackReport() {
           headlineShown={!justSaved}
         />
       ) : null;
-    const caseTag = (
-      <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
-        {justSaved ? (
-          // Right after saving, the heading is about the link; the status lives here.
-          <div aria-busy={isContinuing}>
-            <p className="text-subheading text-foreground">{headline.title}</p>
-            <p className="mt-1 text-body text-foreground/85">
-              {headline.intro} {headline.extra}
-            </p>
-          </div>
-        ) : null}
-        <RetryAction view={matching} waiting={isContinuing} canRetry={canRetry} onRetry={retryChecks} />
-      </CaseTag>
-    );
+    const task =
+      justSaved ||
+      ownership === "loading" ||
+      ownership === "question" ||
+      ownership === "followup" ||
+      ownership === "retry";
+    const retry = <RetryAction view={matching} waiting={isContinuing} canRetry={canRetry} onRetry={retryChecks} />;
+
+    if (justSaved) {
+      // Right after saving, the page is about keeping the link: one tag on the
+      // counter. The status follows under it, in plain words.
+      return (
+        <TrackScene
+          art={scene.art}
+          mark="check"
+          stage="task"
+          title={t.saved.title}
+          intro={t.saved.intro}
+          headingRef={headingRef}
+          sheet={
+            <>
+              {linkUrl ? <LinkTag url={linkUrl} focal /> : null}
+              {verification}
+            </>
+          }
+          aside={
+            <>
+              <section aria-labelledby="saved-status-title" aria-busy={isContinuing} className="flex flex-col gap-3">
+                <h2 id="saved-status-title" className="text-subheading text-foreground">
+                  {headline.title}
+                </h2>
+                <p className="max-w-[52ch] text-body text-foreground/85">
+                  {headline.intro} {headline.extra}
+                </p>
+                {retry}
+              </section>
+              {headline.tone === "match" ? (
+                <SceneNote icon={<ShieldIcon className="size-4" />}>{t.aiNote}</SceneNote>
+              ) : null}
+              <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>
+              <MoreActions
+                waiting={isContinuing}
+                reportAnotherLabel={t.actions.reportAnotherLost}
+                onReportAnother={() => router.push("/report/lost")}
+              />
+            </>
+          }
+        />
+      );
+    }
 
     return (
       <TrackScene
         art={scene.art}
-        mark={justSaved ? "link" : scene.mark}
-        title={justSaved ? t.saved.title : headline.title}
+        mark={scene.mark}
+        stage={task ? "task" : "status"}
+        title={headline.title}
         intro={
-          justSaved ? (
-            t.saved.intro
-          ) : headline.extra ? (
+          headline.extra ? (
             <>
               {headline.intro} {headline.extra}
             </>
@@ -276,9 +302,10 @@ export default function TrackReport() {
         headingRef={headingRef}
         sheet={
           <>
-            {justSaved && linkUrl ? <LinkTag url={linkUrl} focal /> : null}
             {verification}
-            {caseTag}
+            <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
+              {retry}
+            </CaseTag>
           </>
         }
         aside={
@@ -286,7 +313,7 @@ export default function TrackReport() {
             {headline.tone === "match" ? (
               <SceneNote icon={<ShieldIcon className="size-4" />}>{t.aiNote}</SceneNote>
             ) : null}
-            {!justSaved && linkUrl ? <LinkTag url={linkUrl} /> : null}
+            {linkUrl ? <LinkTag url={linkUrl} /> : null}
             {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
             <MoreActions
               waiting={isContinuing}

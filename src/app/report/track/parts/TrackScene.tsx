@@ -19,12 +19,12 @@ import "@/app/report/track/parts/track.css";
 
 /*
   Every after-report screen is the next scene at the lost-property desk, laid
-  out like the report forms: the pine wall carries the status in plain words
-  and the desk render for this moment; the one thing to act on sits on the
-  counter beside it (or under it on phones); anything secondary waits below
-  the desk.
+  out like the report forms: the pine wall carries the status in plain words;
+  the one thing to act on sits on the counter beside it, crossing the wall's
+  edge, with the desk render for this moment resting on the same edge.
+  On phones a task (a question, a fresh save) comes straight after the intro
+  and the render waits for wider screens; anything secondary sits below.
 */
-
 export type SceneArt = "compare" | "question" | "handover";
 export type SceneMark = "lens" | "pause" | "question" | "hand" | "check" | "x" | "link";
 
@@ -58,12 +58,8 @@ function Mark({ mark }: { mark: SceneMark }) {
   return (
     <span
       aria-hidden
-      className={`flex size-11 shrink-0 items-center justify-center rounded-full ${
-        filled
-          ? "bg-paper text-pine-deep"
-          : mark === "question"
-            ? "bg-brass-light text-pine-deep"
-            : "border-2 border-dashed border-paper/70 text-paper"
+      className={`hidden size-10 shrink-0 items-center justify-center rounded-full sm:flex ${
+        filled ? "bg-paper text-pine-deep" : "border-2 border-dashed border-paper/70 text-paper"
       }`}
     >
       {glyph}
@@ -79,6 +75,7 @@ export function TrackScene({
   headingRef,
   sheet,
   aside,
+  stage = "status",
 }: {
   art: SceneArt;
   mark: SceneMark;
@@ -89,19 +86,25 @@ export function TrackScene({
   sheet: ReactNode;
   // Secondary: the compact link, a note, the quieter actions.
   aside?: ReactNode;
+  // "task": the sheet asks for something, so phones skip the render.
+  // "recovery": a short help screen with a smaller render, wide screens only.
+  stage?: "status" | "task" | "recovery";
 }) {
   const c = useMessages(common);
+  const artOnPhones = stage === "status";
   return (
     <section className="relative isolate overflow-x-clip pb-20 sm:pb-28">
       <div
-        className={`${frameClassName} grid gap-x-12 gap-y-0 pt-3 sm:pt-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:pt-8`}
+        className={`${frameClassName} grid gap-x-12 gap-y-0 pt-3 sm:pt-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:grid-rows-[auto_auto_1fr] lg:gap-x-16 lg:pt-8`}
       >
         <span
           aria-hidden
-          className="track-band-bg pointer-events-none relative -z-10 col-span-full row-start-1 -mt-3 self-stretch sm:-mt-5 lg:-mt-8"
+          className={`track-band-bg pointer-events-none relative -z-10 col-span-full -mt-3 self-stretch sm:-mt-5 lg:row-[1/2] lg:-mt-8 ${
+            artOnPhones ? "row-[1/3]" : "row-[1/2]"
+          }`}
         />
 
-        <header className="col-start-1 row-start-1 flex min-w-0 flex-col items-start text-paper">
+        <header className="col-start-1 row-start-1 flex min-w-0 flex-col items-start pb-10 text-paper lg:pb-12">
           <Link
             href="/"
             className={`-ms-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-2 text-sm font-medium text-paper/80 transition-colors hover:text-paper ${focusRingOnDarkClassName}`}
@@ -109,40 +112,50 @@ export function TrackScene({
             <ArrowStartIcon className="size-4" />
             {c.backHome}
           </Link>
-          <div className="mt-4 flex items-start gap-4 motion-safe:animate-rise sm:mt-6">
-            <span className="mt-1 sm:mt-2">
+          <div className="mt-4 flex items-start motion-safe:animate-rise sm:mt-6 sm:gap-4">
+            <span className="mt-1 sm:mt-1.5">
               <Mark mark={mark} />
             </span>
             <h1
               ref={headingRef}
               tabIndex={headingRef ? -1 : undefined}
-              className="max-w-[16ch] text-balance text-title text-paper outline-none"
+              className="track-title max-w-[24ch] text-balance text-paper outline-none"
             >
               {title}
             </h1>
           </div>
-          <p className="mt-4 max-w-[44ch] text-lead text-paper/90 motion-safe:animate-rise motion-safe:[animation-delay:90ms]">
+          <p className="mt-4 max-w-[46ch] text-lead text-paper/90 motion-safe:animate-rise motion-safe:[animation-delay:90ms]">
             {intro}
           </p>
-          <div className="track-desk relative mt-4 h-44 w-full max-w-[22rem] self-center overflow-hidden sm:h-56 sm:max-w-[26rem] lg:-mb-24 lg:mt-6 lg:h-auto lg:max-w-[30rem] lg:self-start lg:overflow-visible">
-            <Image
-              src={ART[art]}
-              alt=""
-              width={1200}
-              height={900}
-              priority
-              sizes="(min-width: 1024px) 36vw, (min-width: 640px) 26rem, 22rem"
-              className="h-full w-full object-cover object-[50%_42%] lg:h-auto lg:object-contain"
-            />
-          </div>
         </header>
 
-        <div className="track-sheet relative -mt-7 flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-12">
+        {/* The desk render rests on the wall's edge, the same edge the sheet crosses. */}
+        <div
+          className={`track-desk relative col-start-1 row-start-2 -mt-6 mb-0 h-44 w-full max-w-[22rem] self-start justify-self-center overflow-hidden sm:h-56 sm:max-w-[26rem] lg:-mt-16 lg:block lg:h-auto lg:justify-self-start lg:overflow-visible ${
+            artOnPhones ? "" : "hidden"
+          } ${stage === "recovery" ? "lg:max-w-[20rem]" : "lg:max-w-[27rem]"}`}
+        >
+          <Image
+            src={ART[art]}
+            alt=""
+            width={1200}
+            height={900}
+            priority={artOnPhones}
+            sizes="(min-width: 1024px) 27rem, (min-width: 640px) 26rem, 22rem"
+            className="h-full w-full object-cover object-[50%_42%] lg:h-auto lg:object-contain"
+          />
+        </div>
+
+        <div
+          className={`track-sheet relative flex min-w-0 flex-col gap-6 lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-20 ${
+            artOnPhones ? "-mt-7" : "-mt-7 row-start-2"
+          }`}
+        >
           {sheet}
         </div>
 
         {aside ? (
-          <div className="flex min-w-0 flex-col gap-6 pt-10 lg:col-start-1 lg:row-start-2 lg:pt-32">{aside}</div>
+          <div className="flex min-w-0 flex-col gap-6 pt-10 lg:col-start-1 lg:row-start-3 lg:pt-8">{aside}</div>
         ) : null}
       </div>
     </section>

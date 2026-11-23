@@ -187,13 +187,15 @@ export function sceneFor(
   ownership?: OwnershipStage | null,
 ): { art: SceneArt; mark: SceneMark } {
   switch (ownership) {
+    // The handover parcel only once staff approve; waiting and a rejection
+    // stay at the questions and the comparison.
     case "staff_review":
     case "answers_received":
-      return { art: "handover", mark: "hand" };
+      return { art: "question", mark: "hand" };
     case "approved":
       return { art: "handover", mark: "check" };
     case "rejected":
-      return { art: "handover", mark: "x" };
+      return { art: "compare", mark: "x" };
   }
   if (headline.tone === "match") return { art: "question", mark: "question" };
   if (headline.tone === "notice") return { art: "compare", mark: "pause" };
@@ -281,8 +283,9 @@ export const FOUND_DROP_OFF_GUIDANCE = track.en.found.nextBody;
 export const STAFF_CONTACT_NOTE = track.en.staffContact;
 
 /**
- * The finder's thank-you: their part is done, and the one next step is the
- * hand-in tag on the counter. Nothing about matches, ever.
+ * The finder's confirmation: the headline is the one thing left to do (hand
+ * the item in), the thanks follows, and the tag says what happens after.
+ * Nothing about matches, ever.
  */
 export function FoundConfirmation({
   view,
@@ -300,7 +303,7 @@ export function FoundConfirmation({
   return (
     <TrackScene
       art="handover"
-      mark="check"
+      mark="hand"
       title={t.found.title}
       intro={t.found.intro}
       headingRef={headingRef}
@@ -308,7 +311,7 @@ export function FoundConfirmation({
         <div className="relative w-full max-w-[32rem] pt-10">
           <span aria-hidden className="track-string absolute top-0 h-[4.25rem] w-0.5 -translate-x-1/2 bg-brass-light rtl:translate-x-1/2" />
           <span aria-hidden className="track-string absolute top-0 size-2 -translate-x-1/2 rounded-full bg-brass-light rtl:translate-x-1/2" />
-          <section aria-labelledby="hand-in-title" aria-busy={isContinuing} className="track-tag track-paper relative isolate">
+          <section aria-labelledby="hand-in-title" aria-busy={isContinuing} className="track-tag relative isolate">
             <span aria-hidden className="shape-tag absolute inset-0 -z-10 bg-card" />
             <span aria-hidden className="eyelet absolute start-4 top-4 size-6 bg-pine-deep" />
             <div className="flex flex-col gap-4 px-6 pb-7 pt-12 sm:px-8">

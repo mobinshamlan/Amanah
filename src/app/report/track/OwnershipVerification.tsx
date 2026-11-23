@@ -52,6 +52,14 @@ const settledTone: Record<Settled, "ok" | "bad" | "wait"> = {
   rejected: "bad",
 };
 
+// The question may be in either language. Name it only when its script says
+// so; otherwise leave the page's language in place.
+function questionLang(text: string): "ar" | "en" | undefined {
+  if (/[\u0600-\u06FF]/.test(text)) return "ar";
+  if (/[A-Za-z]/.test(text)) return "en";
+  return undefined;
+}
+
 function QuestionProgress({ number, total }: { number: number; total: number }) {
   return (
     <div aria-hidden className="flex w-24 gap-1.5">
@@ -205,7 +213,7 @@ export function OwnershipVerification({
       tabIndex={-1}
       className="flex items-center gap-2 text-subheading text-foreground outline-none"
     >
-      <QuestionIcon className="size-5 shrink-0 text-brass-ink" />
+      <QuestionIcon className="size-5 shrink-0 text-forest" />
       {text}
     </h2>
   );
@@ -216,7 +224,7 @@ export function OwnershipVerification({
     <section
       aria-labelledby="verification-title"
       aria-busy={loading || saving}
-      className="track-paper relative isolate px-5 pb-10 pt-6 motion-safe:animate-rise sm:px-8 sm:pt-7"
+      className="relative isolate px-5 pb-10 pt-6 motion-safe:animate-rise sm:px-8 sm:pt-7"
     >
       <span aria-hidden className="edge-torn absolute inset-0 -z-10 bg-card" />
       <p role="status" className="sr-only">
@@ -251,18 +259,25 @@ export function OwnershipVerification({
         </div>
       ) : asking && view ? (
         <>
+          {/* The question leads; where it sits in the set is a caption above it. */}
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            {heading(
-              view.state === "question" ? t.verify.progress(view.number, view.total) : t.verify.followupTitle,
-            )}
+            <p className="text-small font-semibold text-muted-foreground">
+              {view.state === "question" ? t.verify.progress(view.number, view.total) : t.verify.followupTitle}
+            </p>
             {view.state === "question" ? <QuestionProgress number={view.number} total={view.total} /> : null}
           </div>
-          <span aria-hidden className="perforation mt-4 block text-foreground/20" />
-          <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="mt-5 flex flex-col gap-3">
+          <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="mt-3 flex flex-col gap-3">
             {/* The question and the answer may be in either language. No suggestions: they would hint the answer. */}
-            <label htmlFor="ownership-answer" dir="auto" className="text-heading text-foreground">
-              {view.question}
-            </label>
+            <h2
+              id="verification-title"
+              ref={headingRef}
+              tabIndex={-1}
+              dir="auto"
+              lang={questionLang(view.question)}
+              className="text-heading text-foreground outline-none"
+            >
+              <label htmlFor="ownership-answer">{view.question}</label>
+            </h2>
             <p id="ownership-answer-intro" className="max-w-[58ch] text-small text-foreground/80">
               {view.state === "followup" ? t.verify.followupIntro : t.verify.questionIntro}
             </p>

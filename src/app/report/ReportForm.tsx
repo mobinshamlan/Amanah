@@ -14,7 +14,7 @@ import {
   LostConfirmation,
   statusMessage,
 } from "@/app/report/SubmissionConfirmation";
-import { trackingHref } from "@/app/report/tracking";
+import { rememberJustSaved, trackingHref } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { FillChip } from "@/app/report/form/FillChips";
 import { FormStage } from "@/app/report/form/FormStage";
@@ -279,6 +279,7 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
         // The private tracking link follows matching from here, and keeps
         // working after a refresh or when the browser is reopened.
         leavingPage = true;
+        rememberJustSaved(result.credential);
         window.location.assign(trackingHref(result.credential));
       } else if (result.credential) {
         sessionStorage.setItem(storageKey(reportType), result.credential);

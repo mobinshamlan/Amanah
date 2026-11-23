@@ -164,7 +164,7 @@ const en = {
     followupReview: "Review and send",
     followupPreviewTitle: "Send this question to the owner?",
     followupPreviewHelp:
-      "The owner will see exactly this on their tracking page. One question only; it cannot be edited or withdrawn once sent. Sending does not approve or reject the claim.",
+      "Does this question reveal a detail the claimant hasn't given? If so, ask neutrally, for example: \"Describe any distinctive details you remember.\" The owner will see exactly this on their tracking page. One question only; it cannot be edited or withdrawn once sent. Sending does not approve or reject the claim.",
     followupSend: "Send to the owner",
     followupEdit: "Edit the question",
     sending: "Sending…",
@@ -588,7 +588,7 @@ const ar: typeof en = {
     followupReview: "راجع وأرسل",
     followupPreviewTitle: "ترسل هذا السؤال للمالك؟",
     followupPreviewHelp:
-      "المالك سيشوف هذا النص بالضبط في صفحة متابعته. سؤال واحد فقط، وما يمكن تعديله أو سحبه بعد الإرسال. الإرسال لا يعتمد الطلب ولا يرفضه.",
+      "هل يكشف السؤال تفصيلًا ما ذكره صاحب الطلب؟ إذا كذا، اسأل بصيغة محايدة، مثل: «اوصف أي تفاصيل مميزة تتذكرها.» المالك بيشوف هذا النص بالضبط في صفحة متابعته. سؤال واحد فقط، وما يمكن تعديله أو سحبه بعد الإرسال. الإرسال لا يعتمد الطلب ولا يرفضه.",
     followupSend: "أرسل للمالك",
     followupEdit: "عدّل السؤال",
     sending: "جاري الإرسال…",
