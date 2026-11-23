@@ -21,7 +21,7 @@ import "@/app/report/track/parts/track.css";
   Every after-report screen is the next scene at the lost-property desk, laid
   out like the report forms: the pine wall carries the status in plain words;
   the one thing to act on sits on the counter beside it, crossing the wall's
-  edge, with the desk render for this moment resting on the same edge.
+  edge, with the desk render for this moment standing on the same edge.
   On phones a task (a question, a fresh save) comes straight after the intro
   and the render waits for wider screens; anything secondary sits below.
 */
@@ -87,7 +87,7 @@ export function TrackScene({
   // Secondary: the compact link, a note, the quieter actions.
   aside?: ReactNode;
   // "task": the sheet asks for something, so phones skip the render.
-  // "recovery": a short help screen with a smaller render, wide screens only.
+  // "recovery": a short help screen; the render shows on wide screens only.
   stage?: "status" | "task" | "recovery";
 }) {
   const c = useMessages(common);
@@ -104,7 +104,7 @@ export function TrackScene({
           }`}
         />
 
-        <header className="col-start-1 row-start-1 flex min-w-0 flex-col items-start pb-10 text-paper lg:pb-12">
+        <header className="col-start-1 row-start-1 flex min-w-0 flex-col items-start pb-10 text-paper lg:pb-[19%]">
           <Link
             href="/"
             className={`-ms-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-2 text-sm font-medium text-paper/80 transition-colors hover:text-paper ${focusRingOnDarkClassName}`}
@@ -129,11 +129,18 @@ export function TrackScene({
           </p>
         </header>
 
-        {/* The desk render rests on the wall's edge, the same edge the sheet crosses. */}
+        {/*
+          The desk render stands on the counter line, like the homepage's
+          scenes: on wide screens it fills its column, its empty sky is cropped
+          away, and the wall's edge crosses the board's far side. The header's
+          bottom padding and the render's pull-up are both a share of the
+          column's width, so the line meets the board at every width. The
+          board's cropped edge faces the page margin in both directions.
+        */}
         <div
-          className={`track-desk relative col-start-1 row-start-2 -mt-6 mb-0 h-44 w-full max-w-[22rem] self-start justify-self-center overflow-hidden sm:h-56 sm:max-w-[26rem] lg:-mt-16 lg:block lg:h-auto lg:justify-self-start lg:overflow-visible ${
+          className={`track-desk relative col-start-1 row-start-2 -mt-6 mb-0 h-44 w-full max-w-[22rem] self-start justify-self-center overflow-hidden sm:h-56 sm:max-w-[26rem] lg:-mt-[17%] lg:block lg:aspect-[12/7] lg:h-auto lg:max-w-none ${
             artOnPhones ? "" : "hidden"
-          } ${stage === "recovery" ? "lg:max-w-[20rem]" : "lg:max-w-[27rem]"}`}
+          }`}
         >
           <Image
             src={ART[art]}
@@ -141,8 +148,8 @@ export function TrackScene({
             width={1200}
             height={900}
             priority={artOnPhones}
-            sizes="(min-width: 1024px) 27rem, (min-width: 640px) 26rem, 22rem"
-            className="h-full w-full object-cover object-[50%_42%] lg:h-auto lg:object-contain"
+            sizes="(min-width: 1280px) 30rem, (min-width: 1024px) 45vw, (min-width: 640px) 26rem, 22rem"
+            className="h-full w-full object-cover object-[50%_42%] lg:object-bottom lg:ltr:-scale-x-100"
           />
         </div>
 

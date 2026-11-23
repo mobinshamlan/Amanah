@@ -240,6 +240,11 @@ export default function TrackReport() {
       ownership === "followup" ||
       ownership === "retry";
     const retry = <RetryAction view={matching} waiting={isContinuing} canRetry={canRetry} onRetry={retryChecks} />;
+    // The AI note describes the possible match itself, never a staff follow-up.
+    const aiNote =
+      headline.tone === "match" && ownership !== "followup" ? (
+        <SceneNote icon={<ShieldIcon className="size-4" />}>{t.aiNote}</SceneNote>
+      ) : null;
 
     if (justSaved) {
       // Right after saving, the page is about keeping the link: one tag on the
@@ -269,9 +274,7 @@ export default function TrackReport() {
                 </p>
                 {retry}
               </section>
-              {headline.tone === "match" ? (
-                <SceneNote icon={<ShieldIcon className="size-4" />}>{t.aiNote}</SceneNote>
-              ) : null}
+              {aiNote}
               <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>
               <MoreActions
                 waiting={isContinuing}
@@ -306,14 +309,13 @@ export default function TrackReport() {
             <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
               {retry}
             </CaseTag>
+            {/* The compact link sits on the counter under the tag. */}
+            {linkUrl ? <LinkTag url={linkUrl} /> : null}
           </>
         }
         aside={
           <>
-            {headline.tone === "match" ? (
-              <SceneNote icon={<ShieldIcon className="size-4" />}>{t.aiNote}</SceneNote>
-            ) : null}
-            {linkUrl ? <LinkTag url={linkUrl} /> : null}
+            {aiNote}
             {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
             <MoreActions
               waiting={isContinuing}

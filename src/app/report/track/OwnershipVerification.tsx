@@ -52,12 +52,15 @@ const settledTone: Record<Settled, "ok" | "bad" | "wait"> = {
   rejected: "bad",
 };
 
-// The question may be in either language. Name it only when its script says
-// so; otherwise leave the page's language in place.
+// The question may be in either language, or mix both. Its first strong
+// letter (Arabic or Latin, not a digit or a mark) names the language, as it
+// does for the text direction; with neither, the page's language stays.
+const FIRST_LETTER = /[A-Za-z\u00C0-\u024F\u0620-\u064A\u066E-\u06D3\u06D5\u06EE\u06EF\u06FA-\u06FC\u06FF\u0750-\u077F\uFB50-\uFDFB\uFE70-\uFEFC]/;
+
 function questionLang(text: string): "ar" | "en" | undefined {
-  if (/[\u0600-\u06FF]/.test(text)) return "ar";
-  if (/[A-Za-z]/.test(text)) return "en";
-  return undefined;
+  const letter = FIRST_LETTER.exec(text)?.[0];
+  if (!letter) return undefined;
+  return /[A-Za-z\u00C0-\u024F]/.test(letter) ? "en" : "ar";
 }
 
 function QuestionProgress({ number, total }: { number: number; total: number }) {
@@ -259,14 +262,17 @@ export function OwnershipVerification({
         </div>
       ) : asking && view ? (
         <>
-          {/* The question leads; where it sits in the set is a caption above it. */}
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-            <p className="text-small font-semibold text-muted-foreground">
-              {view.state === "question" ? t.verify.progress(view.number, view.total) : t.verify.followupTitle}
-            </p>
-            {view.state === "question" ? <QuestionProgress number={view.number} total={view.total} /> : null}
-          </div>
-          <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="mt-3 flex flex-col gap-3">
+          {/* The question leads; where it sits in the set is a caption above it.
+              A staff follow-up has no caption: the page headline already says who asks. */}
+          {view.state === "question" ? (
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              <p className="text-small font-semibold text-muted-foreground">
+                {t.verify.progress(view.number, view.total)}
+              </p>
+              <QuestionProgress number={view.number} total={view.total} />
+            </div>
+          ) : null}
+          <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="flex flex-col gap-3">
             {/* The question and the answer may be in either language. No suggestions: they would hint the answer. */}
             <h2
               id="verification-title"

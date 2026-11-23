@@ -279,7 +279,7 @@ type ConfirmationProps = {
 };
 
 // Kept for modules that still read these as constants; the catalogue is the source.
-export const FOUND_DROP_OFF_GUIDANCE = track.en.found.nextBody;
+export const FOUND_DROP_OFF_GUIDANCE = track.en.found.title;
 export const STAFF_CONTACT_NOTE = track.en.staffContact;
 
 /**

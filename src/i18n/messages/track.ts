@@ -78,7 +78,7 @@ const en = {
     },
     followup: {
       title: "Staff have a question for you",
-      intro: "One more question helps them review your claim.",
+      intro: "Your answer goes straight to the staff reviewing your claim.",
     },
     staff_review: {
       title: "Your claim is with staff",
@@ -112,8 +112,7 @@ const en = {
   saved: {
     context: "Your report is saved",
     title: "Your report is saved",
-    intro:
-      "This link is the only way back to your report. There are no accounts or messages, so keep it before you close this page.",
+    intro: "Its details stay private, and its status is further down.",
   },
 
   /* The case tag: the report's status and its four stages, on a paper tag. */
@@ -127,8 +126,9 @@ const en = {
   link: {
     title: "Your private link",
     body: "Keep it to come back to your report any time.",
-    focalTitle: "Here is your link",
-    focalBody: "Copy it and keep it somewhere safe. It opens your report any time.",
+    focalTitle: "Keep this link",
+    focalBody:
+      "It is the only way back to your report: there are no accounts or messages. Copy it before you close this page.",
     moreWays: "More ways to save",
     label: "Private tracking link",
     copy: "Copy link",
@@ -219,11 +219,11 @@ const en = {
     context: "Your report is saved",
     title: "Hand it to the lost-and-found desk",
     intro: "Thanks — your report is saved. Its details are never public; only lost-and-found staff review them.",
-    nextTitle: "What happens next",
-    nextBody:
-      "Drop the item off with your organization's lost-and-found staff. They return it to its owner once ownership is confirmed.",
-    finishing: "Finishing up. Keep this page open for a moment.",
-    finishingPaused: "Amanah is busy. Keep this page open, or try again later.",
+    nextTitle: "After you drop it off",
+    nextBody: "Staff keep it safe and return it to its owner once they confirm who it belongs to.",
+    finishing: "Your report is already saved. A last background check is finishing; keep this page open a moment.",
+    finishingPaused:
+      "Your report is already saved. A background check is paused because Amanah is busy; keep this page open, or try again later.",
     stalled: "Some automatic processing is taking longer than expected. Your report is saved. Refresh the page to continue.",
     rateLimited: "Some automatic processing did not finish because Amanah is busy. Your report is saved. Try again later.",
     failedRetry: "Some automatic processing did not finish. Your report is saved, and you can try again.",
@@ -240,8 +240,7 @@ const en = {
     loadingRow: "Preparing your questions…",
     questionIntro: "Answer from memory, in your own words. If you are not sure, say so rather than guessing.",
     followupTitle: "A question from staff",
-    followupIntro:
-      "Staff need one more detail to review your claim. Answer from memory, or say that you are not sure.",
+    followupIntro: "Answer from memory, or say that you are not sure.",
     progress: (n: number, total: number) => `Question ${n} of ${total}`,
     help: "Answers can't be edited once sent. Staff decide; an answer alone doesn't prove ownership.",
     submit: "Send answer",
@@ -325,7 +324,7 @@ const ar: typeof en = {
     noMatch: {
       title: "ما لقينا تطابق للحين",
       intro:
-        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. افتح هذا الرابط مرة ثانية تشوف البلاغات الجديدة.",
+        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. افتح هذا الرابط مرة ثانية وتشيّك على حالة بلاغك.",
     },
     uncertain: {
       title: "ما تأكد تطابق للحين",
@@ -354,7 +353,7 @@ const ar: typeof en = {
     },
     followup: {
       title: "الموظف عنده سؤال لك",
-      intro: "سؤال واحد زيادة يساعده يراجع طلبك.",
+      intro: "إجابتك توصل مباشرة للموظف اللي يراجع طلبك.",
     },
     staff_review: {
       title: "طلبك عند الموظف",
@@ -385,7 +384,7 @@ const ar: typeof en = {
   saved: {
     context: "تم حفظ بلاغك",
     title: "تم حفظ بلاغك",
-    intro: "هذا الرابط هو طريقك الوحيد لبلاغك. ما عندنا حسابات ولا رسائل، فاحفظه قبل ما تسكّر الصفحة.",
+    intro: "تفاصيله تبقى خاصة، وحالته تلقاها تحت.",
   },
 
   tag: {
@@ -397,8 +396,8 @@ const ar: typeof en = {
   link: {
     title: "رابطك الخاص",
     body: "احفظه لترجع لبلاغك في أي وقت.",
-    focalTitle: "هذا رابطك",
-    focalBody: "انسخه واحفظه في مكان آمن. يفتح بلاغك في أي وقت.",
+    focalTitle: "احفظ هذا الرابط",
+    focalBody: "هو طريقك الوحيد لبلاغك، ما عندنا حسابات ولا رسائل. انسخه قبل ما تسكّر الصفحة.",
     moreWays: "طرق ثانية للحفظ",
     label: "رابط المتابعة الخاص",
     copy: "انسخ الرابط",
@@ -482,10 +481,10 @@ const ar: typeof en = {
     context: "تم حفظ بلاغك",
     title: "سلّمه لمكتب المفقودات",
     intro: "شكرًا لك، بلاغك محفوظ. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
-    nextTitle: "وش يصير بعدها",
-    nextBody: "سلّم الغرض لموظفي المفقودات في جهتك، وهم يرجّعونه لصاحبه بعد ما يتأكدون من ملكيته.",
-    finishing: "نكمل الحفظ. خلّ الصفحة مفتوحة لحظة.",
-    finishingPaused: "أمانة مشغولة الحين. خلّ الصفحة مفتوحة أو جرّب بعدين.",
+    nextTitle: "بعد ما تسلّمه",
+    nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون إنه له.",
+    finishing: "بلاغك محفوظ خلاص. نخلّص فحص أخير في الخلفية، خلّ الصفحة مفتوحة لحظة.",
+    finishingPaused: "بلاغك محفوظ خلاص. فحص في الخلفية واقف لأن أمانة مشغولة، خلّ الصفحة مفتوحة أو جرّب بعدين.",
     stalled: "بعض المعالجة الآلية طوّلت. بلاغك محفوظ. حدّث الصفحة ليكمل.",
     rateLimited: "بعض المعالجة الآلية ما اكتملت لأن أمانة مشغولة. بلاغك محفوظ. جرّب بعدين.",
     failedRetry: "بعض المعالجة الآلية ما اكتملت. بلاغك محفوظ، وتقدر تجرّب مرة ثانية.",
@@ -501,7 +500,7 @@ const ar: typeof en = {
     loadingRow: "نجهّز أسئلتك…",
     questionIntro: "جاوب من ذاكرتك وبكلامك. لو ما أنت متأكد قل كذا، أحسن من التخمين.",
     followupTitle: "سؤال من الموظف",
-    followupIntro: "الموظف يحتاج تفصيلة زيادة ليراجع طلبك. جاوب من ذاكرتك، أو قل إنك ما أنت متأكد.",
+    followupIntro: "جاوب من ذاكرتك، أو قل إنك ما أنت متأكد.",
     progress: (n, total) => `السؤال ${n} من ${total}`,
     help: "ما تقدر تعدّل الإجابة بعد إرسالها. القرار للموظف، والإجابة لحالها ما تثبت الملكية.",
     submit: "أرسل الإجابة",
