@@ -75,21 +75,21 @@ const en = {
           : ready === 0
             ? `No decision is due; ${enCount(open, "open suggestion waits", "open suggestions wait")} on the owner.`
             : `${enCount(ready, "needs", "need")} your decision, of ${enCount(open, "open suggestion", "open suggestions")}.`
-      } The AI ranks report pairs that may describe the same item; it never proves ownership.`,
+      }`,
     matchesError: "The AI ranks report pairs that may describe the same item; it never proves ownership.",
     candidates: (n: number) =>
       n === 0
-        ? "No pairs to look at. Plausible pairs the AI could not confirm; a low score can still appear here."
-        : `${enCount(n, "pair needs", "pairs need")} a look. Plausible pairs the AI could not confirm; a low score can still appear here.`,
+        ? "No pairs to look at."
+        : `${enCount(n, "pair needs", "pairs need")} a look.`,
     candidatesError: "Plausible pairs the AI could not confirm; a low score can still appear here.",
     claims: (ready: number, waiting: number) => {
       if (ready === 0 && waiting === 0) {
-        return "No claim is waiting. Owners answer private questions through their tracking link; staff make every decision.";
+        return "No claim is waiting.";
       }
       const parts = [];
       if (ready > 0) parts.push(`${enCount(ready, "claim is", "claims are")} ready for your decision`);
       if (waiting > 0) parts.push(`${enCount(waiting, "is", "are")} waiting on the owner`);
-      return `${parts.join("; ")}. Staff make every decision.`;
+      return `${parts.join("; ")}.`;
     },
     claimsError: "Owners answer private questions through their tracking link; staff make every decision.",
     reports: (n: number, filter: Filter) =>
@@ -365,24 +365,24 @@ const ar: typeof en = {
                 few: "اقتراحات مفتوحة",
                 many: "اقتراحًا مفتوحًا",
               })}.`
-      } الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.`,
+      }`,
     matchesError:
       "الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.",
     candidates: (n) =>
       n === 0
-        ? "ما فيه أزواج تحتاج نظرة. أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة."
+        ? "ما فيه أزواج تحتاج نظرة."
         : `${arCount(n, {
             zero: "",
             one: "زوج واحد يحتاج",
             two: "زوجين يحتاجان",
             few: "أزواج تحتاج",
             many: "زوجًا يحتاج",
-          })} نظرة. أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة.`,
+          })} نظرة.`,
     candidatesError:
       "أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة.",
     claims: (ready, waiting) => {
       if (ready === 0 && waiting === 0) {
-        return "ما فيه طلب ينتظر. صاحب الغرض يجاوب على أسئلة خاصة من رابطه، والموظف يتخذ كل قرار.";
+        return "ما فيه طلب ينتظر.";
       }
       const parts = [];
       if (ready > 0) {
@@ -407,7 +407,7 @@ const ar: typeof en = {
           }),
         );
       }
-      return `${parts.join("، و")}. الموظف يتخذ كل قرار.`;
+      return `${parts.join("، و")}.`;
     },
     claimsError: "صاحب الغرض يجاوب على أسئلة خاصة من رابطه، والموظف يتخذ كل قرار.",
     reports: (n, filter) => {

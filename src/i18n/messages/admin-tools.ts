@@ -60,8 +60,7 @@ const en = {
       n === 0
         ? "Nothing to review"
         : `Open pairs: ${n}, ${unreviewed === 0 ? "all reviewed" : `${unreviewed} not reviewed yet`}`,
-    queueIntro:
-      "Compare both reports, then save a note for the next staff member. Nothing saved here reaches the owner.",
+    queueIntro: "Compare both reports, then save a note for the next staff member.",
     addToggle: "Add a pair yourself",
     addClose: "Close the form",
     empty:
@@ -78,8 +77,7 @@ const en = {
     staffAdded: "Added by staff, not by the AI.",
     notScored: "No AI score.",
     score: (score: number) => `AI similarity ${score} of 100. A low score can still be a candidate.`,
-    whatThisIs:
-      "A candidate, not a confirmed match. The owner's tracking page does not mention it.",
+    whatThisIs: "A candidate, not a confirmed match.",
 
     sharedClues: "Shared clues",
     differences: "Differences",
@@ -98,20 +96,18 @@ const en = {
     noteLabel: "Note for the next staff member",
     notePlaceholder: "What should they check or know?",
     actionsLegend: "Save a staff review",
-    actionsHelp:
-      "Saves a note for staff only. The owner is not told, their tracking page does not change, and no ownership questions start.",
+    actionsHelp: "Staff only. The owner is not told.",
     worth: "Worth ownership review",
     dismiss: "Not the same item",
     howTitle: "How ownership questions start",
     howVerificationStarts:
       "Ownership questions start only from an AI “possible match” when the owner opens their tracking link, and staff decide on the answers under Claims. This pair is saved as “not enough information”, so a review here cannot start that.",
-    savedWorth: "Saved: worth ownership review. Staff only; the owner was not told.",
-    savedDismissed: "Saved: not the same item. Staff only; the owner was not told.",
+    savedWorth: "Saved: worth ownership review.",
+    savedDismissed: "Saved: not the same item.",
     saveFailed: "The review could not be saved. Please try again.",
 
     addTitle: "Add a pair yourself",
-    addIntro:
-      "Pick a lost report and a found report the AI did not pair. It is saved as “not enough information” for staff to review. The owner's page does not change.",
+    addIntro: "Pick a lost report and a found report the AI did not pair. The owner's page does not change.",
     addLost: "Lost report",
     addFound: "Found report",
     chooseLost: "Choose a lost report",
@@ -127,8 +123,7 @@ const en = {
   ownership: {
     approve: "Approve for ownership follow-up",
     reject: "Reject this claim",
-    decisionHelp:
-      "The owner sees the decision on their tracking page. Approval does not return the item. Either decision can be reset later.",
+    decisionHelp: "The owner sees the decision on their tracking page. Either decision can be reset later.",
     approveTitle: "Approve this claim?",
     rejectTitle: "Reject this claim?",
     approveConsequence:
@@ -493,7 +488,7 @@ const ar: typeof en = {
       n === 0
         ? "ما فيه شي للمراجعة"
         : `الأزواج المفتوحة: ${n}، ${unreviewed === 0 ? "كلها تمت مراجعتها" : `منها ${unreviewed} بدون مراجعة`}`,
-    queueIntro: "قارن البلاغين، ثم احفظ ملاحظة للموظف اللي بعدك. ولا شي يُحفظ هنا يوصل للمالك.",
+    queueIntro: "قارن البلاغين، ثم احفظ ملاحظة للموظف اللي بعدك.",
     addToggle: "أضف زوجًا بنفسك",
     addClose: "إغلاق النموذج",
     empty:
@@ -510,7 +505,7 @@ const ar: typeof en = {
     staffAdded: "أضافه موظف، ليس الذكاء الاصطناعي.",
     notScored: "بدون درجة تشابه.",
     score: (score) => `درجة التشابه ${score} من 100. الدرجة المنخفضة ما تمنع أن يكون مرشّحًا.`,
-    whatThisIs: "مرشّح فقط، ليس تطابقًا مؤكدًا. صفحة متابعة المالك ما تذكره.",
+    whatThisIs: "مرشّح فقط، مو تطابق مؤكد.",
 
     sharedClues: "قرائن مشتركة",
     differences: "اختلافات",
@@ -529,20 +524,18 @@ const ar: typeof en = {
     noteLabel: "ملاحظة للموظف التالي",
     notePlaceholder: "وش اللي يحتاج يتحقق منه أو يعرفه؟",
     actionsLegend: "حفظ مراجعة الموظف",
-    actionsHelp:
-      "تُحفظ كملاحظة للموظفين فقط. المالك ما يُبلَّغ، وصفحة متابعته ما تتغير، ولا تبدأ أي أسئلة ملكية.",
+    actionsHelp: "للموظفين فقط. المالك ما يُبلَّغ.",
     worth: "يستاهل مراجعة ملكية",
     dismiss: "ليس نفس الغرض",
     howTitle: "كيف تبدأ أسئلة الملكية",
     howVerificationStarts:
       "أسئلة الملكية تبدأ فقط من نتيجة «تطابق محتمل» للذكاء الاصطناعي عندما يفتح المالك رابط المتابعة، والموظف يقرر على الإجابات في قسم الطلبات. هذا الزوج محفوظ كـ«معلومات غير كافية»، فالمراجعة هنا ما تبدأ ذلك.",
-    savedWorth: "تم الحفظ: يستاهل مراجعة ملكية. للموظفين فقط؛ المالك ما أُبلغ.",
-    savedDismissed: "تم الحفظ: ليس نفس الغرض. للموظفين فقط؛ المالك ما أُبلغ.",
+    savedWorth: "تم الحفظ: يستاهل مراجعة ملكية.",
+    savedDismissed: "تم الحفظ: ليس نفس الغرض.",
     saveFailed: "ما انحفظت المراجعة. جرّب مرة ثانية.",
 
     addTitle: "أضف زوجًا بنفسك",
-    addIntro:
-      "اختر بلاغ مفقود وبلاغ ملقى ما جمعهما الذكاء الاصطناعي. يُحفظ كـ«معلومات غير كافية» ليراجعه الموظفون. صفحة المالك ما تتغير.",
+    addIntro: "اختر بلاغ مفقود وبلاغ ملقى ما جمعهما الذكاء الاصطناعي. صفحة المالك ما تتغير.",
     addLost: "بلاغ المفقود",
     addFound: "بلاغ الملقى",
     chooseLost: "اختر بلاغ مفقود",
@@ -558,8 +551,7 @@ const ar: typeof en = {
   ownership: {
     approve: "اعتماد متابعة الملكية",
     reject: "رفض الطلب",
-    decisionHelp:
-      "المالك يشوف القرار في صفحة متابعته. الاعتماد ما يرجّع الغرض. وأي قرار يمكن إرجاعه للمراجعة لاحقًا.",
+    decisionHelp: "المالك يشوف القرار في صفحة متابعته. وأي قرار يمكن إرجاعه للمراجعة لاحقًا.",
     approveTitle: "تعتمد هذا الطلب؟",
     rejectTitle: "ترفض هذا الطلب؟",
     approveConsequence:
