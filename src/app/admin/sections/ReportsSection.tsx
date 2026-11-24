@@ -8,7 +8,8 @@ import type { Filter, Report } from "@/app/admin/parts/model";
 import { Disclosure, EmptyState, rowClassName } from "@/app/admin/parts/ui";
 
 // All reports: a lost/found filter, two-line rows on phones and a table from
-// tablet up. Long text wraps; the table scrolls inside a labelled region.
+// tablet up. Descriptions open from a short preview; the table scrolls inside
+// a labelled region.
 
 function filterHref(value: Filter) {
   return value === "all" ? "/admin?section=reports" : `/admin?section=reports&type=${value}`;
@@ -43,6 +44,25 @@ function kindOf(type: string): "lost" | "found" {
   return type === "lost" ? "lost" : "found";
 }
 
+/** A description clamped to a preview; tapping it opens the full text. */
+function DescriptionPreview({ text, lines }: { text: string; lines: 1 | 2 }) {
+  return (
+    <details className="group">
+      <summary
+        className={`flex min-h-11 cursor-pointer list-none items-start gap-1.5 rounded-lg py-1.5 text-small text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`}
+      >
+        <span
+          dir="auto"
+          className={`min-w-0 flex-1 break-words group-open:line-clamp-none ${lines === 1 ? "line-clamp-1" : "line-clamp-2"}`}
+        >
+          {text}
+        </span>
+        <ChevronDownIcon className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-180" />
+      </summary>
+    </details>
+  );
+}
+
 // Rows shown on a phone before "Show more".
 const PHONE_FIRST = 8;
 
@@ -62,16 +82,7 @@ function PhoneRows({ reports, t, locale }: { reports: Report[]; t: AdminMessages
           <p className="break-words text-small text-muted-foreground">
             <bdi dir="auto">{report.location}</bdi> · <span className="tabular-nums">{formatDateTime(report.created_at, locale)}</span>
           </p>
-          <details className="group">
-            <summary
-              className={`flex min-h-11 cursor-pointer list-none items-start gap-1.5 rounded-lg py-1.5 text-small text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`}
-            >
-              <span dir="auto" className="min-w-0 flex-1 break-words line-clamp-1 group-open:line-clamp-none">
-                {report.description}
-              </span>
-              <ChevronDownIcon className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-180" />
-            </summary>
-          </details>
+          <DescriptionPreview text={report.description} lines={1} />
         </li>
       ))}
     </ul>
@@ -133,10 +144,10 @@ function ReportsList({ reports, t, locale }: { reports: Report[]; t: AdminMessag
                     {report.report_type === "lost" ? t.kindLost : t.kindFound}
                   </ReportKindCue>
                 </td>
-                <td className="w-[40%] px-4 py-3 text-foreground">
-                  <bdi dir="auto" className="break-words">{report.description}</bdi>
-                  <span className="mt-1 block text-muted-foreground lg:hidden">
-                    {t.location}: {report.location}
+                <td className="w-[40%] px-4 py-1.5 text-foreground">
+                  <DescriptionPreview text={report.description} lines={2} />
+                  <span className="mb-1.5 block text-muted-foreground lg:hidden">
+                    {t.location}: <bdi dir="auto">{report.location}</bdi>
                   </span>
                 </td>
                 <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">

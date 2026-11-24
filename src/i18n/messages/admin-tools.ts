@@ -51,7 +51,7 @@ const en = {
     lost: "Lost report",
     found: "Found report",
     foundPrivate: "Found report · private",
-    location: (place: string) => `Where: ${place}`,
+    locationLabel: "Where",
     characters: (used: number, max: number) => `${used}/${max} characters`,
   },
 
@@ -94,7 +94,7 @@ const en = {
 
     reviewedWorth: "Marked worth ownership review.",
     reviewedDismissed: "Marked not the same item.",
-    reviewNote: (note: string) => `Note: ${note}`,
+    reviewNoteLabel: "Note",
     reviewLogged: "A new review is added to the log; earlier ones stay.",
 
     noteLabel: "Note for the next staff member",
@@ -489,7 +489,7 @@ const ar: typeof en = {
     lost: "بلاغ المفقود",
     found: "بلاغ الملقى",
     foundPrivate: "بلاغ الملقى · خاص",
-    location: (place) => `المكان: ${place}`,
+    locationLabel: "المكان",
     characters: (used, max) => `${used}/${max} حرف`,
   },
 
@@ -529,7 +529,7 @@ const ar: typeof en = {
 
     reviewedWorth: "مؤشَّر عليه: يستاهل مراجعة ملكية.",
     reviewedDismissed: "مؤشَّر عليه: ليس نفس الغرض.",
-    reviewNote: (note) => `ملاحظة: ${note}`,
+    reviewNoteLabel: "ملاحظة",
     reviewLogged: "المراجعة الجديدة تُضاف للسجل، والسابقة تبقى.",
 
     noteLabel: "ملاحظة للموظف التالي",

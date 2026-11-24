@@ -69,7 +69,7 @@ function ReportColumn({
       <p dir="auto" className="text-body break-words text-start text-foreground">
         {report.description}
       </p>
-      <p className="text-small break-words text-muted-foreground">{t.location(report.location)}</p>
+      <p className="text-small break-words text-muted-foreground">{t.locationLabel}: <bdi dir="auto">{report.location}</bdi></p>
     </div>
   );
 }
@@ -315,7 +315,8 @@ function CandidateCard({
 
           {review?.note ? (
             <p className="text-small break-words text-foreground">
-              {t.reviewNote(review.note)} <span className="text-muted-foreground">{t.reviewLogged}</span>
+              {t.reviewNoteLabel}: <bdi dir="auto">{review.note}</bdi>{" "}
+              <span className="text-muted-foreground">{t.reviewLogged}</span>
             </p>
           ) : null}
 
