@@ -32,6 +32,8 @@ export type ComparisonDetails = {
   contradictions: string[];
   missingInformation: string[];
   similarityScore: number;
+  // The model that answered: the fallback model when the main one was overloaded.
+  model?: string;
 };
 
 export type CompareOutcome =

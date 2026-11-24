@@ -1,4 +1,5 @@
 import {
+  answeringModel,
   compareLostAndFoundReports,
   compareReportWithCandidates,
   GeminiApiError,
@@ -58,7 +59,11 @@ export function elapsedSince(startedAt: number) {
 }
 
 function formatAttempts(attempts: GeminiAttempt[]) {
-  return attempts.map((attempt) => `${attempt.ms}ms/${attempt.status}`).join(",") || "none";
+  return (
+    attempts
+      .map((attempt) => `${attempt.ms}ms/${attempt.status}${attempt.fallback ? "@fallback" : ""}`)
+      .join(",") || "none"
+  );
 }
 
 export function checkedKeysFrom(
@@ -106,7 +111,7 @@ function createSaver(supabase: AdminClient, source: Source) {
       lost_report_id: pair.lost.id,
       found_report_id: pair.found.id,
       explanation: result.reason,
-      model,
+      model: result.model ?? model,
       ai_decision: result.decision,
       supporting_details: result.supportingDetails,
       contradictions: result.contradictions,
@@ -119,7 +124,7 @@ function createSaver(supabase: AdminClient, source: Source) {
       lost_report_id: pair.lost.id,
       found_report_id: pair.found.id,
       ai_decision: result.decision,
-      model,
+      model: result.model ?? model,
     });
 
   return { saveMatch, recordCheck, timing };
@@ -195,7 +200,7 @@ export async function runMatchingPairs({
       console.info(
         `Matching (${source}) pair ${pairNumber}: gemini=${ms}ms attempts=${formatAttempts(attempts)} decision=${result.decision}`,
       );
-      return { ok: true, result };
+      return { ok: true, result: { ...result, model: answeringModel(attempts) } };
     } catch (error) {
       const ms = elapsedSince(startedAt);
       geminiMs += ms;
@@ -279,7 +284,8 @@ export async function runNewReportMatching({
         `Matching (auto) request: candidates=${batch.length} gemini=${geminiMs}ms attempts=${formatAttempts(attempts)}`,
         `match=${count("match")} insufficient=${count("insufficient_information")} no_match=${count("no_match")}`,
       );
-      return { ok: true, results };
+      const model = answeringModel(attempts);
+      return { ok: true, results: results.map((result) => ({ ...result, model })) };
     } catch (error) {
       geminiMs = elapsedSince(startedAt);
       const failure = failureKind(error);

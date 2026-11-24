@@ -264,7 +264,7 @@ export async function getOwnerVerification(
       reportMatchId: match.matchId,
       questions: parsed.questions.map((item) => item.question),
       expectedDetails: parsed.questions.map((item) => item.expectedDetail),
-      model: ai.model,
+      model: parsed.model ?? ai.model,
     });
     const created = await store.findVerificationByLostReport(lostReportId);
     if (!created) {
@@ -310,7 +310,7 @@ export async function assessVerification(
       verificationId: record.id,
       assessment: result.assessment,
       explanation: result.explanation,
-      model: ai.model,
+      model: result.model ?? ai.model,
     });
     logger.info(`Ownership: assessment ${outcome} value=${result.assessment}`);
     return outcome === "saved" ? "saved" : "already_assessed";
