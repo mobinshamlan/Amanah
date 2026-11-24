@@ -29,6 +29,7 @@ import {
   fieldClassName,
   labelClassName,
   primaryButtonClassName,
+  secondaryButtonClassName,
   textLinkClassName,
   textLinkOnDarkClassName,
 } from "@/components/ui";
@@ -103,6 +104,20 @@ function NoLink() {
   );
 }
 
+// The shape of a private credential (src/utils/matching/submissionCredential.ts is server-only).
+const CREDENTIAL_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
+/** The credential from a pasted Amanah tracking link, or null when it isn't one. */
+function credentialFromLink(value: string) {
+  try {
+    const url = new URL(value.trim(), window.location.origin);
+    const credential = url.hash.slice(1);
+    return url.pathname === "/report/track" && CREDENTIAL_SHAPE.test(credential) ? credential : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Opens a pasted tracking link in place; the page follows the new hash. */
 function PasteLink() {
   const t = useMessages(track);
@@ -114,12 +129,12 @@ function PasteLink() {
       className="flex flex-col gap-2"
       onSubmit={(event) => {
         event.preventDefault();
-        const hash = value.trim().split("#")[1]?.trim();
-        if (!hash || !value.includes("/report/track")) {
+        const credential = credentialFromLink(value);
+        if (!credential) {
           setInvalid(true);
           return;
         }
-        window.location.hash = hash;
+        window.location.hash = credential;
       }}
     >
       <label htmlFor="paste-link" className={labelClassName}>
@@ -172,10 +187,16 @@ function BrokenLink() {
             <span className="min-w-0">{t.broken.help}</span>
           </p>
           <span aria-hidden className="perforation my-5 block text-foreground/20" />
-          <Link href="/report/lost" className={textLinkClassName}>
-            {t.actions.reportLost}
-            <ArrowEndIcon className="size-4" />
-          </Link>
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
+            {/* An empty hash brings back the page where a link can be pasted. */}
+            <button type="button" onClick={() => (window.location.hash = "")} className={secondaryButtonClassName}>
+              {t.broken.tryAnother}
+            </button>
+            <Link href="/report/lost" className={textLinkClassName}>
+              {t.actions.reportLost}
+              <ArrowEndIcon className="size-4" />
+            </Link>
+          </div>
         </Slip>
       }
     />
@@ -318,7 +339,12 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
     "outcome" in matching &&
     matching.outcome === "possible_match";
   const ownership = showVerification ? ownershipStage : null;
-  const headline = matching ? lostHeadline(t, matching, isContinuing, ownership) : null;
+  // Reopening a link: until the ownership status arrives, say only that it is
+  // loading, so a decided claim never flashes "possible match" first.
+  const ownershipLoading = showVerification && !justSaved && (ownershipStage === null || ownershipStage === "loading");
+  const resolved = matching ? lostHeadline(t, matching, isContinuing, ownership) : null;
+  const headline =
+    resolved && ownershipLoading ? { ...resolved, ...t.opening, extra: undefined } : resolved;
   const decided = ownership === "approved" || ownership === "rejected";
 
   // Right after saving, the link card needs only the URL: show it at once,

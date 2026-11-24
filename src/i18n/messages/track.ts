@@ -264,13 +264,14 @@ const en = {
     title: "This link doesn't open",
     intro: "Check that you opened the whole link, exactly as you saved it when you reported the item.",
     help: "If it still doesn't open, contact your organization's lost-and-found staff.",
+    tryAnother: "Paste another link",
   },
 
   /* The found reporter's confirmation. */
   found: {
     context: "Your report is saved",
     title: "Hand it to staff",
-    intro: "Thank you. Only lost-and-found staff see its details.",
+    intro: "Thank you. Your report stays private, and lost-and-found staff review it.",
     // The finder's progress: only the stages that apply to a found report.
     steps: {
       handIn: "Hand the item in",
@@ -592,12 +593,13 @@ const ar: typeof en = {
     title: "هذا الرابط ما يفتح",
     intro: "تأكد إنك فتحت الرابط كاملًا، مثل ما حفظته لما بلّغت.",
     help: "لو ما زال ما يفتح، تواصل مع موظفي المفقودات في جهتك.",
+    tryAnother: "الصق رابط ثاني",
   },
 
   found: {
     context: "تم حفظ بلاغك",
     title: "سلّمه لموظفي المفقودات",
-    intro: "شكرًا لك. ما يشوف تفاصيله إلا موظفو المفقودات.",
+    intro: "شكرًا لك. بلاغك يبقى خاص، ويراجعه موظفو المفقودات.",
     steps: {
       handIn: "سلّم الغرض",
       handInShort: "التسليم",
