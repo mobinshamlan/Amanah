@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { UmbrellaArt } from "@/app/demo/UmbrellaArt";
+import { ProgressLine, type ProgressStep } from "@/app/report/track/parts/ProgressLine";
 import { frameClassName } from "@/components/frame";
 import {
   ArrowEndIcon,
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { demo, type ClueKey, type Segment } from "@/i18n/messages/demo";
+import { track } from "@/i18n/messages/track";
 
 /*
   A conversation at the lost-property desk. Everything lives in this
@@ -44,7 +46,6 @@ const BEAT_MS = 520;
 const PAUSE_MS = 260;
 
 const SHARED_CLUES: ClueKey[] = ["blue", "folding", "strap", "library", "sunday"];
-const PROGRESS: Stage[] = ["saved", "question", "review", "decision"];
 
 const chipClassName = `demo-chip inline-flex min-h-12 max-w-full cursor-pointer items-center gap-3 rounded-full bg-paper py-1.5 pe-1.5 ps-5 text-start text-body font-semibold leading-snug text-pine-deep ${focusRingOnDarkClassName}`;
 
@@ -55,6 +56,7 @@ const stripButtonClassName = `inline-flex min-h-11 shrink-0 cursor-pointer items
 
 export function GuidedDemo() {
   const t = useMessages(demo);
+  const tr = useMessages(track);
   const [stage, setStage] = useState<Stage>("start");
   const [typing, setTyping] = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -255,6 +257,7 @@ export function GuidedDemo() {
   const handle = stage === "decision" ? "yellow" : "unknown";
   const status = t.tag.stages[stage];
   const started = stage !== "start";
+  const steps = demoSteps(stage, tr, t);
 
   return (
     <>
@@ -264,6 +267,7 @@ export function GuidedDemo() {
         <div className="lg:col-start-1">
           <h1 className="text-heading text-paper">{t.title}</h1>
           <p className="mt-2 max-w-[52ch] text-body text-paper/80">{t.intro}</p>
+          <ProgressLine steps={steps} label={tr.steps.title} className="mt-7 hidden lg:flex" />
         </div>
 
         {/* On phones the case tag is a strip that stays at the top while the conversation scrolls. */}
@@ -272,12 +276,7 @@ export function GuidedDemo() {
             <span className="flex size-14 shrink-0 items-center justify-center rounded-xl bg-paper">
               <UmbrellaArt handle={handle} className="size-12" />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-small font-semibold text-paper">{t.tag.item}</p>
-              <p className="truncate text-caption text-paper/80">
-                {t.tag.status}: {status}
-              </p>
-            </div>
+            <p className="min-w-0 flex-1 truncate text-small font-semibold text-paper">{t.tag.item}</p>
             {started ? (
               <button type="button" onClick={restart} className={stripButtonClassName}>
                 <RefreshIcon className="size-4" />
@@ -285,6 +284,8 @@ export function GuidedDemo() {
               </button>
             ) : null}
           </div>
+          {/* The progress travels with the strip, so it stays in view as the story moves on. */}
+          <ProgressLine steps={steps} label={tr.steps.title} className="mt-3 pb-1" />
         </div>
 
         {/* On wide screens the case hangs beside the conversation as a tag on its string. */}
@@ -331,7 +332,6 @@ export function GuidedDemo() {
                           muted={handle !== "yellow"}
                         />
                       </ul>
-                      <Progress stage={stage} />
                       {started ? (
                         <button type="button" onClick={restart} className={quietButtonClassName}>
                           <RefreshIcon className="size-4" />
@@ -587,26 +587,39 @@ function TypingEntry({ label }: { label: string }) {
   );
 }
 
-/* The case tag's one compact progress: four marks, the current one ringed. */
-function Progress({ stage }: { stage: Stage }) {
-  const index = ORDER.indexOf(stage);
-  return (
-    <ol aria-hidden className="flex items-center gap-2">
-      {PROGRESS.map((point) => {
-        const at = ORDER.indexOf(point);
-        const done = index >= at;
-        const current = done && (PROGRESS.indexOf(point) === PROGRESS.length - 1 || index < ORDER.indexOf(PROGRESS[PROGRESS.indexOf(point) + 1]));
-        return (
-          <li
-            key={point}
-            className={`h-2.5 flex-1 rounded-full transition-colors duration-300 ${
-              done ? (current ? "bg-forest" : "bg-pine-deep") : "bg-secondary"
-            }`}
-          />
-        );
-      })}
-    </ol>
-  );
+/*
+  The same four stages as a real lost report, advancing with the story. Until
+  the match turns up, the questions and the decision are "only if there's a
+  possible match", exactly as on a real tracking page.
+*/
+function demoSteps(stage: Stage, tr: (typeof track)["en"], t: Messages): ProgressStep[] {
+  const { labels, short } = tr.steps;
+  const saved = reached(stage, "saved");
+  const matched = reached(stage, "question");
+  const answered = reached(stage, "review");
+  const decided = stage === "decision";
+  return [
+    { key: "saved", state: saved ? "done" : "active", label: labels.saved, short: short.saved },
+    {
+      key: "matching",
+      state: matched ? "done" : saved ? "active" : "upcoming",
+      label: labels.matching,
+      short: short.matching,
+    },
+    {
+      key: "questions",
+      state: answered ? "done" : matched ? "active" : "conditional",
+      label: labels.questions,
+      short: short.questions,
+    },
+    {
+      key: "decision",
+      state: decided ? "approved" : answered ? "waiting" : matched ? "upcoming" : "conditional",
+      label: labels.decision,
+      short: short.decision,
+      stateWord: decided ? t.tag.stages.decision : undefined,
+    },
+  ];
 }
 
 /* The optional staff preview */

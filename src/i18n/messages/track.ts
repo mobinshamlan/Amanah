@@ -298,7 +298,7 @@ const en = {
     chip: {
       approved: "Approved by staff",
       rejected: "Not confirmed",
-      waiting: "Waiting for staff",
+      waiting: "Pending staff review",
     },
   },
 };
@@ -571,7 +571,7 @@ const ar: typeof en = {
     chip: {
       approved: "وافق الموظف",
       rejected: "ما تأكد",
-      waiting: "بانتظار الموظف",
+      waiting: "بانتظار مراجعة الموظف",
     },
   },
 };
