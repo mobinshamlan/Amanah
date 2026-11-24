@@ -167,7 +167,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-`npm run dev` serves http://localhost:3000. Fill in `.env.local`:
+`npm run dev` serves http://localhost:3000 on this machine only (it uses your real keys, so it is not reachable from your network). Fill in `.env.local`:
 
 | Variable | Purpose |
 | --- | --- |
