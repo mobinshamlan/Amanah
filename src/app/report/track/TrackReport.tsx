@@ -367,7 +367,8 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
           }
           aside={
             <>
-              {promote ? null : (
+              {/* Said once: when the questions could not be prepared, the question card explains it and has its own retry. */}
+              {promote || ownership === "retry" ? null : (
                 <section aria-labelledby="saved-status-title" aria-busy={isContinuing} className="flex flex-col gap-3">
                   <h2
                     id="saved-status-title"

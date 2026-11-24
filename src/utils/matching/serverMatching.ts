@@ -75,6 +75,9 @@ function toComparisonInput(report: MatchReport) {
   };
 }
 
+// Automatic matching sends this many Gemini requests at once per step.
+const AUTO_PARALLEL_REQUESTS = 3;
+
 /** Inserts suggestions and pair checks, tracking total save time. */
 function createSaver(supabase: AdminClient, source: Source) {
   const model = getGeminiModel();
@@ -291,6 +294,9 @@ export async function runNewReportMatching({
     pairs,
     checkedKeys,
     batchSize: MAX_CANDIDATES_PER_REQUEST,
+    // Up to three Gemini requests side by side: 30 candidates in about the
+    // time of one request, instead of one request per page step.
+    parallelRequests: AUTO_PARALLEL_REQUESTS,
     compareBatch,
     saveMatch: saver.saveMatch,
     recordCheck: saver.recordCheck,
