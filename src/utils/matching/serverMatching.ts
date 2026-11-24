@@ -27,6 +27,8 @@ import {
 } from "@/utils/matching/runMatchingBatch";
 import type { createAdminClient } from "@/utils/supabase/admin";
 import { recordMatchingRun, toRunRow } from "@/utils/monitoring/runLog";
+import { isSandboxMode } from "@/utils/sandbox";
+import { compareBatchLocally, isBusyGeminiError } from "@/utils/sandbox/localMatch";
 
 // Server-only: uses the admin client and the Gemini key. Never import from client components.
 
@@ -292,6 +294,12 @@ export async function runNewReportMatching({
       console.error(
         `Matching (auto) request failed: candidates=${batch.length} gemini=${geminiMs}ms attempts=${formatAttempts(attempts)} failure=${failure}`,
       );
+      // Test mode: when Gemini is busy, compare this batch word by word instead,
+      // so the visitor gets a result. Saved like any other, with model "local-fallback".
+      if (isSandboxMode() && isBusyGeminiError(error)) {
+        console.info(`Matching: local fallback used candidates=${batch.length}`);
+        return { ok: true, results: compareBatchLocally(batch) };
+      }
       return { ok: false, failure };
     }
   };

@@ -13,6 +13,8 @@ const en = {
 
   opening: { title: "Opening your link…", intro: "One moment while we fetch your report's status." } as Headline,
   loadingStatus: "Loading your report status…",
+  // Right after saving, while the first comparison runs.
+  comparingNow: "Comparing your report with found items. This usually takes a few seconds…",
 
   /* Headlines for the lost report, by what matching says. */
   status: {
@@ -378,6 +380,7 @@ const ar: typeof en = {
 
   opening: { title: "نفتح رابطك…", intro: "لحظة، نجيب حالة بلاغك." },
   loadingStatus: "جاري تحميل حالة بلاغك…",
+  comparingNow: "نقارن بلاغك بالأغراض الملقاة، عادةً تاخذ ثواني…",
 
   status: {
     checking: {
