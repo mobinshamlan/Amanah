@@ -22,7 +22,7 @@ The tracking page receives only one of these states:
 | Question | "Question N of M" and the question text |
 | No useful private details | "Staff review needed". No question is invented. |
 | All answers saved | "Answers received". Staff will review. |
-| Staff decided | Approved: staff will continue ownership follow-up, contact lost-and-found staff. Rejected: staff could not confirm this match. |
+| Staff decided | Approved: contact lost-and-found staff and show them the link to arrange the hand-over. Rejected: staff could not confirm this match; contact staff with the link if it seems wrong. |
 | Decision reset to pending review | The state before the decision again (the next question, or "Answers received", or "Staff review needed"). The owner is not told that a decision was reset. |
 | Failure | An honest retry message. Never "no match". |
 
