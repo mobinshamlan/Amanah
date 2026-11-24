@@ -16,6 +16,7 @@ import {
   ArrowEndIcon,
   ClockIcon,
   HandIcon,
+  KeyholeGlyph,
   PlusIcon,
   RefreshIcon,
   ShieldIcon,
@@ -334,6 +335,8 @@ export function FoundConfirmation({
     <TrackScene
       art="handover"
       mark="hand"
+      // The tag says how to hand the item in, so on phones it comes first and the render waits.
+      stage="task"
       title={t.found.title}
       intro={t.found.intro}
       headingRef={headingRef}
@@ -360,9 +363,21 @@ export function FoundConfirmation({
                 <ReportKindCue kind="found">{c.kindFound}</ReportKindCue>
               </div>
               <h2 id="hand-in-title" className="text-heading text-foreground">
-                {t.found.nextTitle}
+                {t.found.howTitle}
               </h2>
-              <p className="max-w-[52ch] text-body text-foreground/85">{t.found.nextBody}</p>
+              <ul className="flex flex-col gap-3">
+                {t.found.howSteps.map((line) => (
+                  <li key={line} className="flex gap-3 text-body text-foreground">
+                    <KeyholeGlyph className="mt-[0.45em] size-4 shrink-0 text-forest" />
+                    <span className="min-w-0 max-w-[52ch] break-words">{line}</span>
+                  </li>
+                ))}
+              </ul>
+              <span aria-hidden className="perforation block text-foreground/20" />
+              <div>
+                <h3 className="text-subheading text-foreground">{t.found.nextTitle}</h3>
+                <p className="mt-1 max-w-[52ch] text-body text-foreground/85">{t.found.nextBody}</p>
+              </div>
               {note ? (
                 <p
                   className={`flex items-start gap-2 text-small font-medium ${warn ? "text-wait-ink" : "text-forest"}`}

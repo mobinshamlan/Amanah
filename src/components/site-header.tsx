@@ -47,25 +47,25 @@ export function Wordmark({
     <span dir="ltr" className={`inline-flex items-center ${large ? "gap-4" : "gap-2.5 sm:gap-3"}`}>
       <KeyholeMark
         tone={dark ? "paper" : "pine"}
-        className={large ? "size-12 sm:size-14" : "size-8 sm:size-9"}
+        className={large ? "size-10 sm:size-14" : "size-8 sm:size-9"}
       />
       <span
         lang="en"
         className={`font-wordmark-latin font-semibold leading-none tracking-[0.16em] ${
-          large ? "text-4xl sm:text-5xl" : "text-xl sm:text-2xl"
+          large ? "text-3xl sm:text-5xl" : "text-xl sm:text-2xl"
         } ${dark ? "text-paper" : "text-foreground"}`}
       >
         AMANAH
       </span>
       <span
         aria-hidden
-        className={`${large ? "h-8" : "h-4"} w-px ${dark ? "bg-brass-light/70" : "bg-brass/80"}`}
+        className={`${large ? "h-6 sm:h-8" : "h-4"} w-px ${dark ? "bg-brass-light/70" : "bg-brass/80"}`}
       />
       <span
         lang="ar"
         dir="rtl"
         className={`font-wordmark-arabic leading-none ${
-          large ? "text-4xl sm:text-5xl" : "text-xl sm:text-2xl"
+          large ? "text-3xl sm:text-5xl" : "text-xl sm:text-2xl"
         } ${dark ? "text-brass-light" : "text-pine"}`}
       >
         أمانة
@@ -183,19 +183,19 @@ export function SiteFooter() {
 
   return (
     <footer className="bg-pine-deep text-paper">
-      <div className={`${frameClassName} flex flex-col gap-10 pb-10 pt-16 sm:pt-20`}>
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
-          <div className="flex max-w-2xl flex-col gap-6">
+      <div className={`${frameClassName} flex flex-col gap-8 pb-8 pt-12 sm:gap-10 sm:pb-10 sm:pt-20`}>
+        <div className="flex flex-col gap-6 sm:gap-10 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
+          <div className="flex max-w-2xl flex-col gap-4 sm:gap-6">
             <Link href="/" aria-label={t.homeLabel} className={`w-fit rounded-lg ${focus}`}>
               <Wordmark tone="pine" size="lg" />
             </Link>
             <div className="flex flex-col gap-2">
               <p className="text-title text-paper">{t.tagline}</p>
-              <p className="max-w-[40ch] text-lead text-paper/80">{t.taglineExplainer}</p>
+              <p className="max-w-[40ch] text-body text-paper/80 sm:text-lead">{t.taglineExplainer}</p>
             </div>
           </div>
           <nav aria-label={t.footerNavLabel} className="lg:shrink-0">
-            <ul className="-ms-3 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-2 lg:flex-col lg:items-end lg:gap-1">
+            <ul className="-ms-3 grid grid-cols-2 gap-x-2 sm:flex sm:flex-row sm:flex-wrap sm:gap-2 lg:flex-col lg:items-end lg:gap-1">
               {links.map((item) => (
                 <li key={item.href}>
                   <Link
@@ -210,7 +210,7 @@ export function SiteFooter() {
           </nav>
         </div>
         <span aria-hidden className="perforation block text-brass-light/40" />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <p className="max-w-[60ch] text-small text-paper/70">
             {t.footerPrivacy} {t.footerStaff}
           </p>
