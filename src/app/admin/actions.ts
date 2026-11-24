@@ -25,8 +25,8 @@ import {
 } from "@/utils/ownership/service";
 import { createOwnershipDeps } from "@/utils/ownership/server";
 import {
-  createAdminClient,
   isLocalAdminEnabled,
+  tryCreateAdminClient,
 } from "@/utils/supabase/admin";
 import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import { currentIpKey } from "@/utils/limits/clientIp";
@@ -53,14 +53,6 @@ export type RunMatchingResult =
   | { ok: false; message: string };
 
 let runInProgress = false;
-
-function tryCreateAdminClient() {
-  try {
-    return createAdminClient();
-  } catch {
-    return null;
-  }
-}
 
 export async function runMatching(): Promise<RunMatchingResult> {
   const t = (await messages()).actions;

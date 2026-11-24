@@ -75,8 +75,6 @@ const en = {
       "The candidate list works, but saving a review needs the report_candidate_reviews migration applied locally.",
     loadError: "Earlier candidate reviews could not be loaded. Refresh to try again.",
 
-    /** Joins the two item names; each name is bidi-isolated by the page. */
-    pairJoin: " and ",
     staffAdded: "Added by staff, not by the AI.",
     notScored: "No AI score.",
     score: (score: number) => `AI similarity ${score} of 100. A low score can still be a candidate.`,
@@ -206,10 +204,10 @@ const en = {
       "Every finished comparison, including “not a match”, is recorded and not sent to Gemini again. Failed comparisons are not recorded, so they are retried next run. New reports are included automatically.",
     failures: {
       quota:
-        "Gemini's free-tier limit was reached. Quota errors are not retried. Wait a minute, or until the daily quota resets, then run again.",
+        "Gemini's free-tier limit was reached on both models. Wait a minute, or until the daily quota resets, then run again.",
       usage_limit: "Amanah is paused because today's usage limit was reached. Try again later.",
-      timeout: "Gemini did not answer within 20 seconds.",
-      api: "Gemini was unavailable or returned an error, including after one retry for a temporary server error.",
+      timeout: "Gemini did not answer in time.",
+      api: "Gemini was unavailable or returned an error, even after quick retries.",
       invalid_response: "Gemini returned a result that did not pass validation.",
       config: "Gemini is not configured on the server.",
       save: "A suggestion could not be saved to the database.",
@@ -275,7 +273,6 @@ const en = {
     lastSuccessful: "Last successful check",
     lastSuccessfulValue: (at: string, took: string) => `${at} · took ${took}`,
     noneRecorded: "None recorded",
-    noFailed: "No failed checks recorded.",
     recentFailed: "Recent failed checks",
     demoExcludedNone: "Records marked DEMO are left out of these figures. None found.",
     demoExcluded: (parts: string) =>
@@ -382,7 +379,6 @@ const en = {
     resultCompleted: "Completed",
     recentFootnote: (n: number) =>
       `Newest ${enCount(n, "check", "checks")}. An automatic check covers only the new report's pairs, so its “Left unchecked” counts those pairs alone.`,
-    lastCompleted: (at: string) => `Last check that completed: ${at}.`,
 
     claimsTitle: "Ownership claims",
     claimsAwaiting: "No staff decision yet",
@@ -421,7 +417,6 @@ const en = {
     describe: (day: string, count: string, parts: string) =>
       parts ? `${day}: ${count} (${parts})` : `${day}: ${count}`,
     part: (value: number, label: string) => `${value} ${label.toLowerCase()}`,
-    tooltip: (day: string, count: string) => `${day} · ${count}`,
     showTable: "Show as table",
     hideTable: "Hide table",
     tableCaption: (title: string) => `${title}, days with activity`,
@@ -512,7 +507,6 @@ const ar: typeof en = {
       "قائمة المرشّحات تعمل، لكن حفظ المراجعة يحتاج تطبيق ترحيل report_candidate_reviews محليًا.",
     loadError: "ما قدرنا نحمّل المراجعات السابقة. حدّث الصفحة وجرّب مرة ثانية.",
 
-    pairJoin: " و ",
     staffAdded: "أضافه موظف، ليس الذكاء الاصطناعي.",
     notScored: "بدون درجة تشابه.",
     score: (score) => `درجة التشابه ${score} من 100. الدرجة المنخفضة ما تمنع أن يكون مرشّحًا.`,
@@ -638,10 +632,10 @@ const ar: typeof en = {
       "كل مقارنة مكتملة، حتى «لا تطابق»، تُسجَّل ولا تُرسل إلى Gemini مرة ثانية. المقارنات التي فشلت لا تُسجَّل، فتُعاد في التشغيل التالي. البلاغات الجديدة تُضاف تلقائيًا.",
     failures: {
       quota:
-        "وصل Gemini لحد الاستخدام المجاني. أخطاء الحد لا تُعاد. انتظر دقيقة، أو حتى تتجدد الحصة اليومية، ثم شغّله مرة ثانية.",
+        "وصل Gemini لحد الاستخدام المجاني في النموذجين. انتظر دقيقة، أو حتى تتجدد الحصة اليومية، ثم شغّله مرة ثانية.",
       usage_limit: "أمانة متوقفة مؤقتًا لأن حد الاستخدام اليومي اكتمل. جرّب لاحقًا.",
-      timeout: "ما ردّ Gemini خلال 20 ثانية.",
-      api: "Gemini غير متاح أو أعاد خطأ، حتى بعد إعادة محاولة واحدة لخطأ مؤقت في الخادم.",
+      timeout: "ما ردّ Gemini في الوقت المحدد.",
+      api: "Gemini غير متاح أو أعاد خطأ، حتى بعد عدة محاولات سريعة.",
       invalid_response: "أعاد Gemini نتيجة لم تجتز التحقق.",
       config: "Gemini غير مهيّأ على الخادم.",
       save: "ما قدرنا نحفظ اقتراحًا في قاعدة البيانات.",
@@ -703,7 +697,6 @@ const ar: typeof en = {
     lastSuccessful: "آخر فحص ناجح",
     lastSuccessfulValue: (at, took) => `${at} · استغرق ${took}`,
     noneRecorded: "لا شي مسجّل",
-    noFailed: "ما فيه فحوصات فاشلة مسجّلة.",
     recentFailed: "آخر الفحوصات الفاشلة",
     demoExcludedNone: "السجلات المؤشَّر عليها DEMO مستبعدة من هذه الأرقام. لم يوجد منها شي.",
     demoExcluded: (parts) => `مستبعد من كل الأرقام هنا كبيانات مؤشَّر عليها DEMO: ${parts}. لم يُحذف شي.`,
@@ -808,7 +801,6 @@ const ar: typeof en = {
     resultCompleted: "اكتمل",
     recentFootnote: (n) =>
       `أحدث ${arCount(n, AR.check)}. الفحص التلقائي يغطي أزواج البلاغ الجديد فقط، فعمود «بقي بلا فحص» يحسب تلك الأزواج وحدها.`,
-    lastCompleted: (at) => `آخر فحص اكتمل: ${at}.`,
 
     claimsTitle: "طلبات الملكية",
     claimsAwaiting: "بلا قرار من الموظف بعد",
@@ -846,7 +838,6 @@ const ar: typeof en = {
     group: (title, days) => `${title}، آخر ${days} يومًا`,
     describe: (day, count, parts) => (parts ? `${day}: ${count} (${parts})` : `${day}: ${count}`),
     part: (value, label) => `${value} ${label}`,
-    tooltip: (day, count) => `${day} · ${count}`,
     showTable: "اعرض كجدول",
     hideTable: "أخفِ الجدول",
     tableCaption: (title) => `${title}، الأيام التي فيها نشاط`,

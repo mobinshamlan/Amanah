@@ -14,6 +14,7 @@ import {
 } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import {
+  focusRingOnDarkClassName,
   frameClassName,
   primaryOnDarkButtonClassName,
   secondaryOnDarkButtonClassName,
@@ -39,8 +40,7 @@ const SCENES = [
 const PROMISE_ICONS = [EyeOffIcon, LockIcon, UserIcon] as const;
 
 // The third way in, quieter than the two report actions: a tinted paper pill.
-const demoButtonClassName =
-  "inline-flex min-h-11 w-auto max-w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-paper/12 px-5 text-base font-semibold text-paper transition-colors hover:bg-paper/20 active:translate-y-px outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep";
+const demoButtonClassName = `inline-flex min-h-11 w-auto max-w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-paper/12 px-5 text-base font-semibold text-paper transition-colors hover:bg-paper/20 active:translate-y-px ${focusRingOnDarkClassName}`;
 
 // The outlined pill on pine at the same 48px height as the primary beside it.
 const foundButtonClassName = `${secondaryOnDarkButtonClassName.replace("min-h-11 px-5", "min-h-12 px-7")}`;

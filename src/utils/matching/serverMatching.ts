@@ -10,7 +10,7 @@ import {
   type GeminiAttempt,
 } from "@/utils/gemini/compareReports";
 import { GeminiUsageLimitError } from "@/utils/limits/usageLimit";
-import { currentUsageScope, runWithUsageScope } from "@/utils/limits/usageScope";
+import { runWithReportUsage } from "@/utils/limits/usageScope";
 import {
   MATCHING_BATCH_SIZE,
   pairKey,
@@ -187,15 +187,12 @@ export async function runMatchingPairs({
     const attempts: GeminiAttempt[] = [];
     const startedAt = performance.now();
     try {
-      const parent = currentUsageScope();
-      const result = await runWithUsageScope(
-        { ipKey: parent?.ipKey ?? "unknown", reportId: pair.lost.id },
-        () =>
-          compareLostAndFoundReports(
-            toComparisonInput(pair.lost),
-            toComparisonInput(pair.found),
-            { onAttempt: (attempt) => attempts.push(attempt) },
-          ),
+      const result = await runWithReportUsage(pair.lost.id, () =>
+        compareLostAndFoundReports(
+          toComparisonInput(pair.lost),
+          toComparisonInput(pair.found),
+          { onAttempt: (attempt) => attempts.push(attempt) },
+        ),
       );
       const ms = elapsedSince(startedAt);
       geminiMs += ms;
@@ -269,15 +266,12 @@ export async function runNewReportMatching({
     const attempts: GeminiAttempt[] = [];
     const startedAt = performance.now();
     try {
-      const parent = currentUsageScope();
-      const results = await runWithUsageScope(
-        { ipKey: parent?.ipKey ?? "unknown", reportId: batch[0][side].id },
-        () =>
-          compareReportWithCandidates(
-            { reportType: side, report: toComparisonInput(batch[0][side]) },
-            batch.map((pair) => toComparisonInput(pair[otherSide])),
-            { onAttempt: (attempt) => attempts.push(attempt) },
-          ),
+      const results = await runWithReportUsage(batch[0][side].id, () =>
+        compareReportWithCandidates(
+          { reportType: side, report: toComparisonInput(batch[0][side]) },
+          batch.map((pair) => toComparisonInput(pair[otherSide])),
+          { onAttempt: (attempt) => attempts.push(attempt) },
+        ),
       );
       geminiMs = elapsedSince(startedAt);
       const count = (decision: ComparisonDetails["decision"]) =>

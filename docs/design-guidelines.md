@@ -80,7 +80,7 @@ Fluid sizes with a line-height and tracking that change with the page language. 
 | Piece | Class | Use |
 | --- | --- | --- |
 | **Tag** with two cut corners on the eyelet side | `.shape-tag` | The two ways in on the homepage; one emphatic panel per screen. The cut corners sit on the start side and flip in RTL automatically |
-| **Slip** torn from a pad | `.edge-torn` (bottom), `.edge-torn-top` (the stub) | Ordered information: how it works, "After you submit", a report's progress |
+| **Slip** torn from a pad | `.edge-torn` (bottom edge) | Ordered information: how it works, "After you submit", a report's progress |
 | **Perforation** | `.perforation` | Divides parts of one piece (form sections, slip header, footer) |
 | **Leader dots** | `.leader` (via `SlipRow`) | Joins a label to its value on a slip |
 | **Eyelet** | `.eyelet` | A brass ring: the tag's hole, the one highlighted result |

@@ -143,25 +143,6 @@ export function SearchIcon({ className }: IconProps) {
   );
 }
 
-export function BoxIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9Z" />
-      <path d="M3.5 7.5 12 12l8.5-4.5" />
-      <path d="M12 12v9" />
-    </Icon>
-  );
-}
-
-export function PinIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11Z" />
-      <circle cx="12" cy="10" r="2.25" />
-    </Icon>
-  );
-}
-
 /* Trust and privacy */
 
 export function ShieldIcon({ className }: IconProps) {
@@ -252,16 +233,6 @@ export function PlusIcon({ className }: IconProps) {
   );
 }
 
-export function FilterIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M4 6h16" />
-      <path d="M7 12h10" />
-      <path d="M10 18h4" />
-    </Icon>
-  );
-}
-
 export function GlobeIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
@@ -269,16 +240,6 @@ export function GlobeIcon({ className }: IconProps) {
       <path d="M3 12h18" />
       <path d="M12 3a13.5 13.5 0 0 1 0 18" />
       <path d="M12 3a13.5 13.5 0 0 0 0 18" />
-    </Icon>
-  );
-}
-
-export function HomeIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M4 11 12 4l8 7" />
-      <path d="M6 9.5V20h12V9.5" />
-      <path d="M10 20v-5h4v5" />
     </Icon>
   );
 }
@@ -321,26 +282,7 @@ export function ChevronDownIcon({ className }: IconProps) {
   );
 }
 
-/** A chevron towards the end of the line, for list rows that open. Flips in RTL. */
-export function ChevronEndIcon({ className }: IconProps) {
-  return (
-    <Icon className={cx(className, "flip-rtl")}>
-      <path d="m9 6 6 6-6 6" />
-    </Icon>
-  );
-}
-
 /* Staff workspace */
-
-/** Two linked rings: a lost report and a found report suggested as a pair. */
-export function PairIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <circle cx="8.5" cy="12" r="4.5" />
-      <circle cx="15.5" cy="12" r="4.5" />
-    </Icon>
-  );
-}
 
 /** Two sheets side by side: compare a lost and a found report. */
 export function CompareIcon({ className }: IconProps) {
@@ -353,15 +295,6 @@ export function CompareIcon({ className }: IconProps) {
   );
 }
 
-export function InboxIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M3.5 13.5 6 5.5h12l2.5 8" />
-      <path d="M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5a3.5 3.5 0 0 1-7 0h-5Z" />
-    </Icon>
-  );
-}
-
 export function ListIcon({ className }: IconProps) {
   return (
     <Icon className={className}>
@@ -369,17 +302,6 @@ export function ListIcon({ className }: IconProps) {
       <path d="M9 12h11" />
       <path d="M9 18h11" />
       <path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" strokeWidth={2.5} />
-    </Icon>
-  );
-}
-
-export function ChartIcon({ className }: IconProps) {
-  return (
-    <Icon className={className}>
-      <path d="M4 20h16" />
-      <path d="M7 16v-5" />
-      <path d="M12 16V7" />
-      <path d="M17 16v-3" />
     </Icon>
   );
 }

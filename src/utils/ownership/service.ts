@@ -4,7 +4,7 @@ import {
   type ReportComparisonInput,
 } from "@/utils/gemini/compareReports";
 import { GeminiUsageLimitError } from "@/utils/limits/usageLimit";
-import { currentUsageScope, runWithUsageScope } from "@/utils/limits/usageScope";
+import { runWithReportUsage } from "@/utils/limits/usageScope";
 import {
   OWNER_ANSWER_MAX,
   type AnsweredQuestion,
@@ -245,10 +245,8 @@ export async function getOwnerVerification(
 
     let parsed: ParsedOwnershipQuestions;
     try {
-      const usage = currentUsageScope();
-      parsed = await runWithUsageScope(
-        { ipKey: usage?.ipKey ?? "unknown", reportId: lostReportId },
-        () => ai.generateQuestions(match.lost, match.found),
+      parsed = await runWithReportUsage(lostReportId, () =>
+        ai.generateQuestions(match.lost, match.found),
       );
     } catch (error) {
       logger.error("Ownership: question generation failed:", errorKind(error));
@@ -301,10 +299,8 @@ export async function assessVerification(
       expectedDetail: record.expectedDetails[index],
       answer: record.answers.find((item) => item.questionNumber === index + 1)?.answer ?? "",
     }));
-    const usage = currentUsageScope();
-    const result = await runWithUsageScope(
-      { ipKey: usage?.ipKey ?? "unknown", reportId: record.lostReportId },
-      () => ai.assessAnswers(reports.lost, reports.found, answers),
+    const result = await runWithReportUsage(record.lostReportId, () =>
+      ai.assessAnswers(reports.lost, reports.found, answers),
     );
     const outcome = await store.insertAssessment({
       verificationId: record.id,

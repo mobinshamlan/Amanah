@@ -1,5 +1,9 @@
 import type { ReactNode, Ref } from "react";
-import { frameClassName } from "@/components/frame";
+import {
+  focusRingClassName,
+  focusRingOnDarkClassName,
+  frameClassName,
+} from "@/components/frame";
 import { BackLink, SiteFooter, SiteHeader } from "@/components/site-header";
 import {
   AlertIcon,
@@ -17,15 +21,6 @@ import {
   can be imported by server components; the pieces that need the visitor's
   language (header, footer, back link) live in site-header.tsx.
 */
-
-/* Focus */
-
-export const focusRingClassName =
-  "outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-
-/** The same ring on deep pine fields: brass, offset to the field. */
-export const focusRingOnDarkClassName =
-  "outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep";
 
 /* Buttons */
 
@@ -167,30 +162,6 @@ export function PageHeading({
         {title}
       </h1>
       {intro ? <p className="mt-4 max-w-[58ch] text-lead text-foreground/85">{intro}</p> : null}
-    </div>
-  );
-}
-
-/** A section title inside a page: the heading size, with an optional one-line intro. */
-export function SectionHeading({
-  as: Tag = "h2",
-  id,
-  title,
-  intro,
-  className = "",
-}: {
-  as?: "h2" | "h3";
-  id?: string;
-  title: ReactNode;
-  intro?: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`flex flex-col gap-2 ${className}`}>
-      <Tag id={id} className="text-heading text-foreground">
-        {title}
-      </Tag>
-      {intro ? <p className="max-w-[58ch] text-body text-foreground/80">{intro}</p> : null}
     </div>
   );
 }
@@ -379,5 +350,4 @@ export function SlipRow({
   );
 }
 
-export { BackLink, frameClassName };
-export type { Tone } from "@/components/site-header";
+export { focusRingClassName, focusRingOnDarkClassName, frameClassName };

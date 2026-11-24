@@ -108,12 +108,6 @@ export const SAMPLE_REPORTS: readonly SampleReport[] = [
   },
 ];
 
-export const SAMPLE_REPORT_IDS: ReadonlySet<string> = new Set(SAMPLE_REPORTS.map((report) => report.id));
-
-export function isSampleReportId(id: string) {
-  return SAMPLE_REPORT_IDS.has(id);
-}
-
 /**
  * Adds any missing sample report and leaves existing ones untouched
  * (ON CONFLICT DO NOTHING), so it needs only the insert grant and is safe to

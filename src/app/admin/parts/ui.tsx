@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowEndIcon, ChevronDownIcon, LockIcon } from "@/components/icons";
-import { ReportKindCue, StatusChip, focusRingClassName, linkClassName } from "@/components/ui";
+import { Notice, ReportKindCue, StatusChip, focusRingClassName, linkClassName } from "@/components/ui";
 import type { Locale } from "@/i18n/config";
 import type { AdminMessages } from "@/i18n/messages/admin";
 import { clueSegments } from "@/i18n/messages/clues";
@@ -8,6 +8,15 @@ import type { MatchedReport, ReportMatch } from "@/app/admin/parts/model";
 
 // Small server-safe pieces shared by the staff sections: disclosures, queue
 // headings, empty states, the lost/found pair and the AI clue columns.
+
+/** An action's error, announced as an alert; nothing when there is none. */
+export function ErrorMessage({ message }: { message: string | null }) {
+  return message ? (
+    <Notice tone="error" role="alert">
+      {message}
+    </Notice>
+  ) : null;
+}
 
 /** A row on the work sheet: one tone step down from the card. */
 export const rowClassName = "min-w-0 rounded-[1.25rem] bg-background";
@@ -139,35 +148,6 @@ export function EmptyState({
   );
 }
 
-/** "Lost item → Found item": the pair a suggestion or claim is about. */
-export function PairNames({
-  match,
-  t,
-  as: Tag = "h3",
-}: {
-  match: ReportMatch | undefined;
-  t: AdminMessages;
-  as?: "h3" | "p";
-}) {
-  return (
-    <Tag className="grid min-w-0 gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-start">
-      <span className="flex min-w-0 flex-col items-start gap-1">
-        <ReportKindCue kind="lost">{t.kindLost}</ReportKindCue>
-        <bdi className="min-w-0 break-words text-subheading leading-snug text-foreground">
-          {match?.lost?.item_name ?? t.reportUnavailable}
-        </bdi>
-      </span>
-      <ArrowEndIcon className="hidden size-5 text-muted-foreground sm:mt-10 sm:block" />
-      <span className="flex min-w-0 flex-col items-start gap-1">
-        <ReportKindCue kind="found">{t.kindFound}</ReportKindCue>
-        <bdi className="min-w-0 break-words text-subheading leading-snug text-foreground">
-          {match?.found?.item_name ?? t.reportUnavailable}
-        </bdi>
-      </span>
-    </Tag>
-  );
-}
-
 /** A compact "Lost item → Found item" line for list rows; wraps to two lines on phones. */
 export function PairLine({
   match,
@@ -198,27 +178,6 @@ export function PairLine({
         </bdi>
       </span>
     </Tag>
-  );
-}
-
-/** The suggestion's AI similarity as the row's key figure, labelled as a ranking aid. */
-export function ScoreFigure({ score, t }: { score: number | null; t: AdminMessages }) {
-  return (
-    <div className="flex items-baseline gap-2 sm:flex-col sm:items-end sm:gap-0">
-      <span
-        dir="ltr"
-        className="text-[1.75rem] font-semibold leading-none tabular-nums text-foreground"
-      >
-        {score === null ? "—" : score}
-        {score !== null ? (
-          <span className="text-small font-medium text-muted-foreground">{t.outOf100}</span>
-        ) : null}
-      </span>
-      <span className="text-caption text-muted-foreground sm:text-end">
-        {score === null ? t.notScored : t.aiSimilarity}
-        <span className="hidden sm:inline"> · {t.scoreHelp}</span>
-      </span>
-    </div>
   );
 }
 

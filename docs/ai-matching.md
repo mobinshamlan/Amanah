@@ -91,22 +91,26 @@ One Gemini HTTP call is one use, including a batch of up to 10 comparisons. A Ge
 
 ## Errors
 
-Errors and unchecked pairs are never counted as `no_match`. A run stops at the first failure and keeps suggestions already saved. Quota errors (429) and timeouts are not retried. Temporary server errors (500, 502, 503, 504) get one retry after 2 seconds. Each request times out after 20 seconds, and no new comparison starts after 30 seconds of a run.
+Errors and unchecked pairs are never counted as `no_match`. A staff run stops at the first failure and keeps suggestions already saved. Each request times out after 20 seconds (24 seconds for a batch), and no new comparison starts after 30 seconds of a run.
 
-## Automatic matching (local development MVP)
+Within that time, a busy (500, 502, 503, 504), quota (429), timed-out or unreadable answer is tried again at once, alternating between `GEMINI_MODEL` and `GEMINI_FALLBACK_MODEL` (`withModelFallback` in `src/utils/gemini/compareReports.ts`). An attempt with no answer after 7 seconds gets a second one beside it, and the first answer wins. There are at most 5 attempts and 2 in flight; a model that answered 429 is not tried again in that call, and client errors stop at once. The whole call counts as one use toward the usage limits.
+
+**Test mode** (`AMANAH_SANDBOX=1`) gives Gemini 6 seconds instead. If it is still busy, automatic matching compares the batch locally with a plain word comparison (`src/utils/sandbox/localMatch.ts`), saved with the model `local-fallback` and a reason that says it was made without AI, and ownership questions fall back to simple fixed questions (`localQuestions.ts`). After a busy answer, that server instance skips Gemini for the next minute. Usage-limit and setup errors still fail as usual.
+
+## Automatic matching
 
 When someone submits a report, the server saves it first and confirms "Report saved." Then the report page checks only the pairs that involve the new report: a lost report against existing found reports, and a found report against existing lost reports. It uses the same comparison, score checks, pair tracking, and timing logs as `/admin` (`src/utils/matching/serverMatching.ts`).
 
 How it runs:
 
 1. `submitReport` creates the report ID on the server and first takes one slot from the per-IP report limits (see "Usage limits"). If that is blocked, nothing is saved and the form says Amanah is busy. Otherwise it inserts the report with the server key and stores a submission credential in `report_submissions`. The credential is 32 random bytes; only its SHA-256 hash is stored. The browser receives the credential once.
-2. The page calls `continueMatching(credential)` repeatedly. Each call is awaited and sends at most one Gemini request, which compares the new report with up to 10 unchecked opposite-type reports. Larger inventories take several calls, one after another, never in parallel. Nothing keeps running after a request finishes.
+2. The page calls `continueMatching(credential)` repeatedly. Each call is awaited and sends up to 3 Gemini requests at once, each comparing the new report with up to 10 unchecked opposite-type reports (30 candidates per call). A failed request records nothing for its pairs; the other requests' results are still saved. Larger inventories take several calls, one after another. Nothing keeps running after a call finishes.
 3. A 90-second lease (`processing_until`) stops two calls from processing the same report at once. A second call while the lease is held does no work and asks the page to wait 2 seconds.
 4. Progress is the `report_pair_checks` table, so a refresh or retry only continues with unchecked pairs. A found report's page keeps the credential in `sessionStorage`, resumes after a refresh, and removes it once checking is complete. A lost report's page moves to its private tracking link instead (see "Lost-report tracking link"). A page stops after 40 calls.
 
-The batch request (`compareReportWithCandidates`) uses the same decision rules, score guidance, and server checks as a single comparison. It also tells Gemini to judge each candidate on its own. Candidates are sent with temporary labels (`C1`, `C2`, …), never database IDs. The server accepts the answer only when every label appears exactly once and every result is valid. A missing, repeated, or unknown label, or any invalid result, rejects the whole batch. Nothing from it is recorded, so all its pairs are retried. The batch request times out after 30 seconds and has the same retry rules. `/admin` still sends one request per pair.
+The batch request (`compareReportWithCandidates`) uses the same decision rules, score guidance, and server checks as a single comparison. It also tells Gemini to judge each candidate on its own. Candidates are sent with temporary labels (`C1`, `C2`, …), never database IDs. The server accepts the answer only when every label appears exactly once and every result is valid. A missing, repeated, or unknown label, or any invalid result, rejects the whole batch. Nothing from it is recorded, so all its pairs are retried. The batch request times out after 24 seconds and has the same retry rules. `/admin` still sends one request per pair.
 
-Rate limits: a 429 is not retried at once. The page shows that checking is paused, waits 60 seconds, and asks again, at most twice. After that it shows that checking did not finish and offers Try again. Refreshing the page asks again immediately.
+Rate limits: when both models answer 429, or a usage limit is reached, the page shows that checking is paused, waits 60 seconds, and asks again, at most twice. After that it shows that checking did not finish and offers Try again. Refreshing the page asks again immediately.
 
 What the browser receives: only a phase (`checking`, `complete`, `failed`, `rate_limited`, `unavailable`) and, for lost reports, an outcome (`possible_match`, `uncertain`, `no_match`). No found-item details, scores, explanations, IDs, or counts. Found reporters receive no outcome at all. A report ID alone, an unknown or malformed credential, or a credential used on the page for the other report type gets `{ ok: false }`.
 
@@ -150,7 +154,7 @@ Found reporters get a confirmation with drop-off guidance and no matching inform
 ### Automatic matching limitations
 
 - Processing depends on the submitter's open tab or, for a lost report, on its tracking link being opened (see above).
-- Every new report costs one Gemini request per 10 opposite-type reports, rounded up (2 for 13 reports; it was 13 before batching). A batch answer uses about as many output tokens as the separate answers did, so token use does not drop much. Usage limits cap reports per IP and Gemini requests (see "Usage limits"), but one visitor can still spend up to 40 Gemini requests a day on a single report (the bucket is keyed by the report being checked: the new report in automatic matching, the lost report for `/admin` pairs and ownership questions).
+- Every new report costs at least one Gemini request per 10 opposite-type reports, rounded up (2 for 13 reports; it was 13 before batching). Retries inside one call do not count again toward Amanah's usage limits, but each one still uses Gemini quota. A batch answer uses about as many output tokens as the separate answers did, so token use does not drop much. Usage limits cap reports per IP and Gemini requests (see "Usage limits"), but one visitor can still spend up to 40 Gemini requests a day on a single report (the bucket is keyed by the report being checked: the new report in automatic matching, the lost report for `/admin` pairs and ownership questions).
 - Batching was verified with controlled tests only. Whether Gemini judges a pair the same way inside a batch as on its own has not been measured with live calls.
 - One invalid result rejects the whole batch, so a repeatedly malformed answer blocks those 10 candidates until a later attempt succeeds.
 - "Could not tell from the details" tells a lost reporter that at least one found report could not be ruled out. Vague existing reports make this the usual result.

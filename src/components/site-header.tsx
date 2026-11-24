@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { frameClassName } from "@/components/frame";
+import {
+  focusRingClassName,
+  focusRingOnDarkClassName,
+  frameClassName,
+} from "@/components/frame";
 import { ArrowStartIcon, KeyholeMark } from "@/components/icons";
 import { LanguageSwitch } from "@/components/LanguageSwitch";
 import { useMessages } from "@/i18n/LocaleProvider";
@@ -15,23 +19,14 @@ import { common } from "@/i18n/messages/common";
   visitor's language from context.
 
   Two tones. "paper" is the light tone for every inner page; "pine" is the
-  dark tone for the homepage stage. The older names "cream" and "ink" still
-  work and map to the same two tones.
+  dark tone for the homepage stage.
 */
 
-export type Tone = "paper" | "pine" | "cream" | "ink";
-type ResolvedTone = "paper" | "pine";
+type Tone = "paper" | "pine";
 
-function resolveTone(tone: Tone): ResolvedTone {
-  return tone === "ink" || tone === "pine" ? "pine" : "paper";
+function focusFor(tone: Tone) {
+  return tone === "pine" ? focusRingOnDarkClassName : focusRingClassName;
 }
-
-export function focusFor(tone: Tone) {
-  return resolveTone(tone) === "pine"
-    ? "outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep"
-    : "outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-}
-
 
 /** AMANAH | أمانة beside the keyhole mark. Always Latin first, then Arabic. */
 export function Wordmark({
@@ -41,7 +36,7 @@ export function Wordmark({
   tone?: Tone;
   size?: "md" | "lg";
 }) {
-  const dark = resolveTone(tone) === "pine";
+  const dark = tone === "pine";
   const large = size === "lg";
   return (
     <span dir="ltr" className={`inline-flex items-center ${large ? "gap-4" : "gap-2.5 sm:gap-3"}`}>
@@ -74,7 +69,7 @@ export function Wordmark({
   );
 }
 
-function navLinkClassName(tone: ResolvedTone, quiet: boolean) {
+function navLinkClassName(tone: Tone, quiet: boolean) {
   const shape =
     "inline-flex min-h-11 items-center rounded-full px-2.5 text-sm font-medium transition-colors sm:px-3.5 sm:text-small";
   if (tone === "pine") {
@@ -98,8 +93,7 @@ function navLinkClassName(tone: ResolvedTone, quiet: boolean) {
  */
 export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
   const t = useMessages(common);
-  const resolved = resolveTone(tone);
-  const dark = resolved === "pine";
+  const dark = tone === "pine";
   const focus = focusFor(tone);
 
   const links = [
@@ -122,7 +116,7 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
         <Link href="/" aria-label={t.homeLabel} className={`rounded-lg ${focus}`}>
           <Wordmark tone={tone} />
         </Link>
-        <LanguageSwitch tone={resolved} className="ms-auto sm:order-last sm:ms-0" />
+        <LanguageSwitch tone={tone} className="ms-auto sm:order-last sm:ms-0" />
         <nav
           aria-label={t.navLabel}
           className="-ms-2.5 basis-full sm:ms-auto sm:basis-auto"
@@ -132,7 +126,7 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`${navLinkClassName(resolved, item.quiet)} ${focus}`}
+                  className={`${navLinkClassName(tone, item.quiet)} ${focus}`}
                 >
                   {item.label}
                 </Link>

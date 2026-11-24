@@ -37,18 +37,10 @@ export const SIMILARITY_SCORE_MAX = 100;
 export const DETAIL_ITEMS_MAX = 5;
 export const DETAIL_ITEM_MAX = 300;
 
-// One attempt plus at most two retries, only for temporary server errors
-// ("model overloaded" 503s come and go within seconds): waits of 1.5 s, then
-// 3 s. 429 quota errors and timeouts are never retried.
+// The whole call's time limit, retries included. The SDK's own retries are
+// off: withModelFallback below does the retrying within this limit.
 export const GEMINI_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
   timeout_ms: 20_000,
-  retries: {
-    strategy: "attempt-count-backoff",
-    maxRetries: 2,
-    backoff: { initialInterval: 1_500, maxInterval: 3_000, exponent: 2 },
-    retryConnectionErrors: false,
-  },
-  retry_codes: ["500", "502", "503", "504"],
 };
 
 // Gemini's free tier often answers "busy" (503) or hangs for a while, but a
@@ -329,7 +321,7 @@ export function parseComparisonResult(value: unknown): ReportComparisonResult {
   };
 }
 
-function asDataRecord(report: ReportComparisonInput) {
+export function asDataRecord(report: ReportComparisonInput) {
   return {
     item_name: report.itemName,
     description: report.description,
@@ -345,7 +337,7 @@ export type GeminiAttempt = {
   fallback?: boolean;
 };
 
-// Times each HTTP attempt (including SDK retries) until response headers arrive.
+// Times each HTTP attempt until response headers arrive.
 // Only duration and status are recorded, never request or response content.
 function timedFetch(onAttempt: (attempt: GeminiAttempt) => void): typeof fetch {
   return async (input, init) => {
@@ -394,8 +386,8 @@ export async function requestJson({
     return fakeGeminiJson({ input, schema, onAttempt });
   }
 
-  // Every Gemini call pays the durable app, IP, and report limits first. Like
-  // SDK retries, a fallback attempt is part of the same call and is not counted again.
+  // Every Gemini call pays the durable app, IP, and report limits first. A
+  // retry or fallback attempt is part of the same call and is not counted again.
   await assertGeminiUsageAllowed();
   const apiKey = requireGeminiApiKey();
 

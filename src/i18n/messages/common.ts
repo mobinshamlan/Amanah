@@ -14,7 +14,6 @@ const en = {
   back: "Back",
   switchTo: "العربية",
   switchToLabel: "اعرض الموقع بالعربية",
-  languageLabel: "Language",
   footerNavLabel: "Footer",
   tagline: "Every lost item is an amanah.",
   taglineExplainer: "Something entrusted to us, to keep safe and to return to its owner.",
@@ -24,9 +23,6 @@ const en = {
   metaDescription:
     "Report a lost or found item. Reports are compared privately and staff review every claim.",
   loading: "Loading…",
-  statusOk: "Done",
-  statusWait: "Waiting",
-  statusBad: "Not confirmed",
   kindLost: "Lost",
   kindFound: "Found",
 };
@@ -43,7 +39,6 @@ const ar: typeof en = {
   back: "رجوع",
   switchTo: "English",
   switchToLabel: "View the site in English",
-  languageLabel: "اللغة",
   footerNavLabel: "روابط الموقع",
   tagline: "كل مفقود أمانة.",
   taglineExplainer: "شي اتّأمنّا عليه، نحفظه ونرجّعه لصاحبه.",
@@ -52,9 +47,6 @@ const ar: typeof en = {
   metaTitle: "أمانة | المفقودات",
   metaDescription: "بلّغ عن شي ضيّعته أو لقيته. نقارن البلاغات بخصوصية، والموظف يراجع كل طلب استلام.",
   loading: "جاري التحميل…",
-  statusOk: "تم",
-  statusWait: "بالانتظار",
-  statusBad: "ما تأكد",
   kindLost: "مفقود",
   kindFound: "ملقى",
 };

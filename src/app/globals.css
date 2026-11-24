@@ -20,13 +20,6 @@
   --color-brass-light: #d9be86;
   --color-brass-soft: #f0e4cc;
 
-  /* Older names, kept so existing screens keep working. */
-  --color-cream: #f5f0e6;
-  --color-charcoal: #10201c;
-  --color-ink: #163a33;
-  --color-clay: #b08d57;
-  --color-clay-ink: #7a5a2e;
-
   /* Roles */
   --color-background: #f5f0e6;
   --color-foreground: #10201c;
@@ -267,7 +260,6 @@
     color: var(--color-foreground);
   }
 
-  .bg-ink ::selection,
   .bg-pine-deep ::selection,
   .bg-pine ::selection {
     background: color-mix(in srgb, var(--color-brass-light) 55%, transparent);
@@ -300,23 +292,6 @@
     outline: 3px solid color-mix(in srgb, var(--color-ring) 70%, transparent);
     outline-offset: 2px;
   }
-}
-
-/*
-  The pine stage is written here, not only as a scanned utility. A dev CSS
-  rebuild can omit `.bg-ink` while still emitting `.text-cream`, which leaves
-  paper type on the paper page.
-*/
-.bg-ink {
-  background-color: #163a33;
-}
-
-.text-ink {
-  color: #163a33;
-}
-
-.ring-offset-ink {
-  --tw-ring-offset-color: #163a33;
 }
 
 /*
@@ -357,15 +332,6 @@
   padding-bottom: calc(var(--tooth) + 1.5rem);
   mask:
     conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg)
-    50% / calc(2 * var(--tooth)) 100%;
-}
-
-/* The same tear along the top edge: the stub that stays on the pad. */
-.edge-torn-top {
-  --tooth: 0.75rem;
-  padding-top: calc(var(--tooth) + 1.5rem);
-  mask:
-    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg)
     50% / calc(2 * var(--tooth)) 100%;
 }
 

@@ -47,7 +47,6 @@ const en = {
   // The chip under each field: tapping it writes the example into the field.
   fillLabel: "Try an example",
   fillGroupLabel: (field: string) => `Example that fills “${field}”`,
-  afterLead: "After you save",
   itemNameLabel: "What is it?",
   itemNameHint: "A few words that name the item.",
   itemNameRequired: "Write what the item is, for example “black wallet”.",
@@ -168,7 +167,6 @@ const ar: typeof en = {
   sandboxNote: "نسخة تجريبية: بلاغك ينحذف بعد 3 أيام.",
   fillLabel: "جرّب مثال",
   fillGroupLabel: (field) => `مثال يعبّي «${field}»`,
-  afterLead: "بعد الحفظ",
   itemNameLabel: "وش هو؟",
   itemNameHint: "كلمتين تسمّي فيها الغرض.",
   itemNameRequired: "اكتب وش الغرض، مثلاً «محفظة سودا».",

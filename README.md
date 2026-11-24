@@ -19,13 +19,13 @@ The site is bilingual: Arabic (RTL) by default, with English one switch away. It
 | Feature | What it does |
 | --- | --- |
 | 📝 **Lost and found reports** | Short forms for item, description and location, with one example chip per field. Nothing is published, listed or searchable. |
-| 🔍 **Private matching** | Each new report is compared automatically with up to 10 opposite-type reports per Gemini request. Staff can also run a check by hand, one pair per request. Every pair is marked `match`, `insufficient_information` or `no_match`, with a 0–100 similarity score that only orders suggestions for staff. |
+| 🔍 **Private matching** | Each new report is compared automatically with up to 10 opposite-type reports per Gemini request, up to 3 requests at a time. Staff can also run a check by hand, one pair per request. Every pair is marked `match`, `insufficient_information` or `no_match`, with a 0–100 similarity score that only orders suggestions for staff. |
 | 🔗 **Private tracking link** | The lost reporter gets `/report/track#…`, a random credential kept in the URL fragment. It shows only that report's progress: checking, a possible match, no confirmed match so far (some reports were too vague to judge), no match so far, or checking did not finish. A found reporter gets a confirmation and drop-off guidance, never a match result. |
 | 🗝️ **Ownership questions** | For a possible match, Gemini writes up to two open questions about details that appear only in the found report. Questions that reveal the answer are dropped. The owner never sees the found report. |
 | 🧑‍💼 **Staff decision** | Staff see the suggestion, the evidence and the owner's answers. They approve the claim for hand-over follow-up, reject it, reset it, or ask a follow-up question. Every decision is added to a log, never overwritten. Staff can also review lower-confidence pairs and link two reports by hand. |
 | 📊 **Monitoring** | Counts and times only: unchecked pairs, check failures, claims waiting, and the staff approval rate by score band. No report text, IDs or answers. |
 | 🎬 **Guided demo** | `/demo` runs in the browser with fictional data. You play the owner of a blue umbrella lost in the library, answer one question, and see a simulated staff decision. |
-| 🧪 **Test mode** | The live site runs as a public test version: tap an example to fill the lost form, get a real possible match against sample reports, answer the ownership questions, then approve or reject your own claim as staff to see both outcomes. Test reports are deleted after 3 days. See [Test mode](#test-mode). |
+| 🧪 **Test mode** | The live site runs as a public test version: tap an example to fill the lost form, get a real possible match against sample reports, answer the ownership questions (a ready answer sends in one tap), then approve or reject your own claim as staff to see both outcomes. Test reports are deleted after 3 days. See [Test mode](#test-mode). |
 
 ![The guided demo: a lost blue umbrella, one ownership question, and a simulated staff approval](docs/screenshots/demo.png)
 
@@ -47,10 +47,14 @@ Next.js server (Vercel)
    │                              matching_runs, usage_counters
    └─ src/utils/gemini → Gemini (default gemini-3.5-flash-lite)
                          ├─ JSON Schema response format, then checked again on the server
-                         ├─ automatic: up to 10 candidates per request, sent as C1…C10, never IDs
+                         ├─ automatic: up to 10 candidates per request, sent as C1…C10, never IDs,
+                         │  up to 3 requests at once
                          ├─ staff run: one pair per request, up to 4 pairs per run
-                         ├─ 20 s timeout (30 s for a batch), one retry on 500/502/503/504
-                         └─ any invalid answer: nothing is saved and the pairs are retried later
+                         ├─ 20 s timeout (24 s for a batch); a busy, quota, timed-out or unreadable
+                         │  answer is retried at once, alternating with GEMINI_FALLBACK_MODEL
+                         │  (up to 5 attempts, at most 2 in flight)
+                         ├─ test mode: after 6 s, a local word comparison answers instead
+                         └─ still failing: nothing is saved and the pairs are retried later
 ```
 
 The browser only ever receives a phase (`checking`, `complete`, `failed`, `rate_limited`, `unavailable`) and, for lost reports, an outcome (`possible_match`, `uncertain`, `no_match`). It never receives found-item details, scores, explanations, IDs or counts. Keys stay in server environment variables.
@@ -136,12 +140,14 @@ One Gemini request is one use, including a batch of up to 10 comparisons. IP add
 Set `AMANAH_SANDBOX=1` to run a public test version. **Use it only on a database that holds test data:** it treats every report as a visitor's test.
 
 - Eleven sample found reports in Arabic and English (`src/utils/sandbox/samples.ts`) are always kept, so a visitor reporting a lost umbrella, wallet or keys gets a possible match and real ownership questions.
-- On a claim waiting for staff, the visitor can play the staff role on their own claim (approve, or switch to reject) to see what the owner sees. The page labels this as simulated.
+- Each ownership question offers a ready answer that sends in one tap, taken from the found report, so nobody has to guess.
+- On a claim waiting for staff, the visitor can play the staff role on their own claim (approve, or switch to reject) to see what the owner sees. The page labels this as simulated, and `/admin` shows the decision with a test-mode note.
+- If Gemini is busy or gives no answer within 6 seconds, matching falls back to a plain word comparison and ownership questions to simple fixed ones, so the visit still finishes. These results are saved with the model `local-fallback` and say they were made without AI. After a busy answer, that server instance skips Gemini for a minute.
 - Every other report is removed by the next daily cleanup once it is 3 days old, with its matches and claims. A claim linked to an expired found report goes with it.
-- Vercel Cron calls `GET /api/sandbox/cleanup` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`, and the route answers with counts only. `POST /api/sandbox/cleanup?purge=all` with the same header removes every non-sample report at once, for a deliberate clean.
+- Vercel Cron calls `GET /api/sandbox/cleanup` daily at 03:00 UTC (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`, and the route answers with counts only. `POST /api/sandbox/cleanup?purge=all` with the same header removes every non-sample report at once, for a deliberate clean.
 - Apply `supabase/migrations/20261124120000_sandbox_report_cleanup.sql` before the first cleanup.
 
-Without the setting, the route does not exist and only staff decide.
+Without the setting, the route does not exist, Gemini has its full time, and only staff decide.
 
 ## Project structure
 
@@ -163,16 +169,17 @@ src/
     ownership/                # ownership questions, answers and staff decisions
     limits/                   # usage buckets and the consume_usage call
     monitoring/               # aggregate counts for the staff dashboard
+    sandbox/                  # test mode: sample reports, cleanup, local fallback, staff role
     fixtures/                 # in-memory Supabase and Gemini for local fixture mode
 supabase/migrations/          # schema, row-level security and grants, in filename order
-tests/                        # node:test suites for matching, ownership, limits, monitoring, fixtures
-art-src/                      # source and render script for the homepage 3D artwork
+tests/                        # node:test suites for matching, ownership, limits, monitoring, test mode, fixtures
+art-src/                      # source and render script for the 3D artwork in public/art/
 docs/                         # matching, ownership, fixtures and design guidelines
 ```
 
 ## Running locally
 
-Requires Node 20.9 or newer.
+Requires Node 20.9 or newer. `npm test` runs the TypeScript tests with Node's built-in runner, which needs Node 22.18 or newer.
 
 ```sh
 npm install
@@ -180,7 +187,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-`npm run dev` serves http://localhost:3000 on this machine only (it uses your real keys, so it is not reachable from your network). Fill in `.env.local`:
+`npm run dev` serves http://127.0.0.1:3000 on this machine only (it uses your real keys, so it is not reachable from your network). Fill in `.env.local`:
 
 | Variable | Purpose |
 | --- | --- |
@@ -189,9 +196,11 @@ npm run dev
 | `SUPABASE_SECRET_KEY` | Server key. Server only; saves reports and runs matching. |
 | `GEMINI_API_KEY` | Gemini key for matching and ownership questions. Server only. |
 | `GEMINI_MODEL` | Optional. Defaults to `gemini-3.5-flash-lite`. |
-| `GEMINI_FALLBACK_MODEL` | Optional. Answers when `GEMINI_MODEL` is overloaded or unavailable (500/502/503/504). Defaults to `gemini-3.5-flash`; set it to the same value as `GEMINI_MODEL` to turn the fallback off. |
+| `GEMINI_FALLBACK_MODEL` | Optional. Retries alternate with this model when `GEMINI_MODEL` is busy, out of quota, slow or gives an unreadable answer. Defaults to `gemini-3.5-flash`; set it to the same value as `GEMINI_MODEL` to turn the fallback off. |
+| `AMANAH_SANDBOX` | Optional. `1` runs the public [test mode](#test-mode). Only on a database with test data. |
+| `CRON_SECRET` | Needed with test mode. A long random value; Vercel Cron sends it to `/api/sandbox/cleanup`. |
 
-Never commit `.env.local`. Apply the SQL files in `supabase/migrations/` in filename order, for example with `supabase migration up` (local) or `supabase db push` (linked project).
+Never commit `.env.local`. Apply the SQL files in `supabase/migrations/` in filename order, for example with `supabase migration up` (local) or `supabase db push` (linked project). On Vercel, set the same variables in the project settings.
 
 ### Fixture mode, no accounts needed
 
@@ -199,7 +208,7 @@ Never commit `.env.local`. Apply the SQL files in `supabase/migrations/` in file
 npm run dev:fixtures
 ```
 
-This serves http://localhost:3100 with fictional in-memory data, including `/admin`, and needs no Supabase or Gemini. [docs/local-fixtures.md](docs/local-fixtures.md) lists the sample tracking links and what each screen shows.
+This serves http://localhost:3100 with fictional in-memory data, including `/admin`, and needs no Supabase or Gemini. Prefix it with `AMANAH_SANDBOX=1` to try test mode, or with `AMANAH_FIXTURES_GEMINI_BUSY=1` to play a Gemini that is always busy. [docs/local-fixtures.md](docs/local-fixtures.md) lists the sample tracking links and what each screen shows.
 
 ### Checks
 
@@ -217,7 +226,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Supabase 
 ## Credits
 
 - AI model: Google Gemini, used under the [Gemini API terms](https://ai.google.dev/gemini-api/terms)
-- Homepage artwork: original 3D renders made with three.js, source in [art-src/](art-src/)
+- Artwork: original 3D renders made with three.js, source in [art-src/](art-src/)
 - Fonts: IBM Plex Sans Arabic, IBM Plex Sans, Cormorant Garamond and Amiri, all under the SIL Open Font License
 
 ## Limitations
