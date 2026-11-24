@@ -14,12 +14,6 @@ export class GeminiUsageLimitError extends Error {
   }
 }
 
-const BUSY_MESSAGE = "Amanah is busy right now. Please try again later.";
-
-export function usageBusyMessage() {
-  return BUSY_MESSAGE;
-}
-
 type ConsumeResult = { ok: true } | { ok: false; label: UsageLabel | "unavailable" | "missing_scope" };
 
 function blockedLabel(value: unknown): UsageLabel | "unavailable" {

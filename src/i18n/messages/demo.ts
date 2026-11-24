@@ -57,7 +57,6 @@ const en = {
   decisionTitle: "Staff approved your claim",
   decisionBody:
     "Your answer matched the found report. Approval does not hand the umbrella over by itself; that happens with staff in person. This decision is a simulation for the demo.",
-  decisionChip: "Approved · simulated",
   reveal: "See how it matched",
   hideReveal: "Hide the comparison",
 
@@ -197,7 +196,6 @@ const ar: typeof en = {
   decisionTitle: "الموظف وافق على طلب الاستلام",
   decisionBody:
     "إجابتك طابقت بلاغ الغرض الملقى. الموافقة ما تعني إن المظلة تسلّمت؛ الاستلام يصير مع الموظف بنفسك. هذا القرار محاكاة للتجربة.",
-  decisionChip: "موافَق عليه · محاكاة",
   reveal: "شوف كيف تطابق",
   hideReveal: "أخفِ المقارنة",
 

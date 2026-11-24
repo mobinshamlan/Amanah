@@ -104,17 +104,18 @@ for a short list of item types, colours, and brands.
 ## Test mode in fixtures
 
 Add `AMANAH_SANDBOX=1` (and `CRON_SECRET=...`) to try test mode locally. The
-eight sample found reports are added to the fixture data the first time
-matching runs, so the lost-form examples (blue umbrella, black wallet, keys
-with a leather keyring) reach a possible match. The cleanup route works on the
+eleven sample found reports (`src/utils/sandbox/samples.ts`) are added to the
+fixture data the first time matching runs, so the lost-form examples (blue
+umbrella, black wallet, keys with a leather keyring) reach a possible match. The cleanup route works on the
 fixture data too:
 
 ```sh
 curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3100/api/sandbox/cleanup
-curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3100/api/sandbox/cleanup?purge=all"
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3100/api/sandbox/cleanup?purge=all"
 ```
 
-Most seeded reports are older than 3 days, so the first cleanup removes them.
+The first removes reports older than 3 days; the second (POST only) removes
+every non-sample report. Most seeded reports are older than 3 days, so the first cleanup removes them.
 Restart the server to get them back.
 
 ## Limits
@@ -122,11 +123,12 @@ Restart the server to get them back.
 - The fake client supports only the Supabase calls the app makes today. A new
   call may return an error until `src/utils/fixtures/fakeSupabase.ts` and
   `schema.ts` support it.
-- Usage limits always allow requests, and Gemini never fails. To test
-  rate-limit or failure screens, use real services or Monitoring's demo
-  preview (`/admin?section=monitoring&demo=1`).
-- The browser Supabase client (`src/utils/supabase/client.ts`) is not used by
-  the app and has no fixture guard.
+- Usage limits always allow requests, and the fake Gemini never fails unless
+  you add `AMANAH_FIXTURES_GEMINI_BUSY=1`, which makes every Gemini call
+  answer "busy" (503). With `AMANAH_SANDBOX=1` as well, that shows the test
+  mode's local fallback; without it, the "did not finish" screens. For
+  rate-limit screens, use real services or Monitoring's demo preview
+  (`/admin?section=monitoring&demo=1`).
 
 Code: `src/utils/fixtures/` (`mode.ts`, `fakeSupabase.ts`, `schema.ts`,
 `selectParser.ts`, `fakeGemini.ts`, `seed.ts`, `store.ts`). Tests:

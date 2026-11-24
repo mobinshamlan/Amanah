@@ -42,6 +42,7 @@ Default language is Arabic (`DEFAULT_LOCALE = "ar"`); English is one switch away
 - **One verification per lost report.** A later, better suggestion does not get new questions for the owner; staff see it under other suggestions.
 - **Answers cannot be edited** once saved.
 - **`/admin` is local-only.** It has no sign-in and runs only in development; `src/proxy.ts` returns 404 for it and its actions in production. Staff identity is not recorded with decisions.
+- **The live site is a test version.** With `AMANAH_SANDBOX=1`, sample found reports give visitors a real possible match, ready answers send in one tap, visitors may play the staff role on their own claim (labelled as simulated), a busy Gemini falls back to a local comparison that says it used no AI, and reports are deleted after 3 days. Screens say "test version" wherever this applies.
 - **Development fixtures.** `src/utils/fixtures/` seeds local demo reports, suggestions and claims; demo records are marked ("DEMO" item names, `demo-fixture` model values) and excluded from monitoring figures. See `docs/local-fixtures.md`.
 
 ## Words we use

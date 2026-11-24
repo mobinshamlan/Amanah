@@ -30,3 +30,12 @@ export function createAdminClient() {
 
   return createSupabaseAdminClient(url, secretKey);
 }
+
+/** The admin client, or null when it is not configured. */
+export function tryCreateAdminClient() {
+  try {
+    return createAdminClient();
+  } catch {
+    return null;
+  }
+}

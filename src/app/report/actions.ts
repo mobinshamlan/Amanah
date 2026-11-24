@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { createAdminClient } from "@/utils/supabase/admin";
+import { tryCreateAdminClient } from "@/utils/supabase/admin";
 import { currentIpKey } from "@/utils/limits/clientIp";
 import { consumeReportSubmission } from "@/utils/limits/usageLimit";
 import { runWithUsageScope } from "@/utils/limits/usageScope";
@@ -52,20 +52,13 @@ export type ContinueMatchingResult =
   | { ok: true; status: PublicMatchingStatus; waitMs?: number }
   | { ok: false };
 
-// Longer than the worst case of one call: a 30 s batch request, one retry after
-// 2 s, another 30 s, then saving the results.
+// Longer than the worst case of one call: a 24 s batch request (its fast
+// retries and the fallback model stay inside that limit; see withModelFallback
+// in compareReports.ts, and only 6 s in the test version), then saving the results.
 const PROCESSING_LEASE_MS = 90_000;
 const BUSY_WAIT_MS = 2_000;
 // After a 429 the page waits this long before asking again.
 const RATE_LIMIT_WAIT_MS = 60_000;
-
-function tryCreateAdminClient() {
-  try {
-    return createAdminClient();
-  } catch {
-    return null;
-  }
-}
 
 export async function submitReport(
   reportType: ReportType,

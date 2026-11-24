@@ -9,7 +9,6 @@ type Headline = { title: string; intro: string };
 
 const en = {
   metaTitle: "Track your report — AMANAH",
-  pageContext: "Your private tracking page",
 
   opening: { title: "Opening your link…", intro: "One moment while we fetch your report's status." } as Headline,
   loadingStatus: "Loading your report status…",
@@ -272,7 +271,6 @@ const en = {
     places: ["Your browser's bookmarks", "A message you sent yourself", "Your browser history (search for “Amanah”)"],
     lostLink:
       "Lost the link? It cannot be recovered, because it is never stored on our side. You can report the item again.",
-    noReport: "Haven't reported yet?",
   },
 
   /* A malformed or unknown link. */
@@ -376,7 +374,6 @@ const en = {
 
 const ar: typeof en = {
   metaTitle: "تابع بلاغك — أمانة",
-  pageContext: "صفحة متابعة خاصة",
 
   opening: { title: "نفتح رابطك…", intro: "لحظة، نجيب حالة بلاغك." },
   loadingStatus: "جاري تحميل حالة بلاغك…",
@@ -617,7 +614,6 @@ const ar: typeof en = {
     intro: "لما بلّغت عن مفقود، أعطيناك رابطًا خاصًا بالبلاغ. افتح الرابط نفسه من المكان اللي حفظته فيه.",
     places: ["الإشارات المرجعية في متصفحك", "رسالة أرسلتها لنفسك", "سجل المتصفح (ابحث عن «أمانة»)"],
     lostLink: "ضيّعت الرابط؟ ما نقدر نرجّعه، لأنه ما يُخزَّن عندنا. تقدر تبلّغ عن الغرض من جديد.",
-    noReport: "ما بلّغت بعد؟",
   },
 
   broken: {

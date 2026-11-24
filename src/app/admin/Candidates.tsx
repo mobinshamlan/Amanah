@@ -26,7 +26,7 @@ import {
   textareaClassName,
 } from "@/components/ui";
 import { useLocale, useMessages } from "@/i18n/LocaleProvider";
-import { ClueText } from "@/app/admin/parts/ui";
+import { ClueText, ErrorMessage } from "@/app/admin/parts/ui";
 import { adminTools } from "@/i18n/messages/admin-tools";
 import {
   CANDIDATE_NOTE_MAX,
@@ -40,14 +40,6 @@ import {
 // is stored as "not enough information", never as a possible match.
 
 const summaryClassName = `-ms-2 inline-flex min-h-11 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-small font-semibold text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`;
-
-function ErrorMessage({ message }: { message: string | null }) {
-  return message ? (
-    <Notice tone="error" role="alert">
-      {message}
-    </Notice>
-  ) : null;
-}
 
 /** One side of the pair. Lost and found differ by cue shape and icon, not colour. */
 function ReportColumn({

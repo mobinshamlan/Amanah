@@ -68,6 +68,14 @@ None of these change the report, its suggestions, or show "no match".
 - Approval means staff may proceed with ownership follow-up. It does not return the item automatically and does not change the suggestion's "Pending review" status.
 - The AI assessment never approves or rejects anything.
 
+## Test mode
+
+With `AMANAH_SANDBOX=1` (the live site), three things change so a visitor can try the whole flow alone. Without the setting, none of them exist.
+
+- **Ready answers.** The question the owner is on offers its private expected detail as an answer that sends in one tap (`src/utils/sandbox/quickAnswer.ts`). Outside test mode this would give the answer away, so it returns nothing.
+- **Playing the staff role.** On a claim waiting for staff, the owner can approve it, or switch to reject, through the same append-only decision log, authorized by the same tracking credential (`staffDecision.ts`). The page labels it as simulated, and `/admin` shows these entries with a test-mode note.
+- **Questions when Gemini is busy.** If question generation is busy or times out, the owner gets simple fixed questions in their language (colour, and a mark only the owner would know) instead of an error (`localQuestions.ts`). They never contain found-report text; the found report only supplies the private expected details.
+
 ## Tests
 
 `npm test` runs controlled tests with a fake Gemini request and an in-memory store (`tests/ownership/`). They cover question creation and safety checks, answer assessment, authorization, one-question-at-a-time answers, staff decisions, and failure handling. No live Gemini calls and no database records.

@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from "react";
 import type { PublicMatchingStatus } from "@/utils/matching/publicStatus";
 import { CaseTag } from "@/app/report/track/parts/CaseTag";
 import { ProgressLine } from "@/app/report/track/parts/ProgressLine";
-import { buildSteps } from "@/app/report/track/parts/steps";
+import { buildSteps, isPossibleMatch } from "@/app/report/track/parts/steps";
 import {
   SceneNote,
   TrackScene,
@@ -61,10 +61,6 @@ export type Headline = {
   extra?: string;
   tone: HeadlineTone;
 };
-
-function isPossibleMatch(view: MatchingView) {
-  return "outcome" in view && view.outcome === "possible_match";
-}
 
 /**
  * The one headline a lost reporter sees: what is happening and what to do now.
@@ -168,19 +164,6 @@ export function statusMessage(
   const headline = lostHeadline(t, view, waiting, ownership);
   return [headline.title + ".", headline.intro, headline.extra].filter(Boolean).join(" ");
 }
-
-/** The same sentence, in the visitor's language. For client components. */
-export function useStatusMessage(
-  reportType: "lost" | "found",
-  view: MatchingView | null,
-  waiting: boolean,
-  ownership?: OwnershipStage | null,
-) {
-  const t = useMessages(track);
-  return view ? statusMessage(reportType, view, waiting, t, ownership) : "";
-}
-
-export { buildSteps };
 
 /** The lost report's progress line: the four stages, from the same state as everything else. */
 export function LostProgress({
@@ -308,10 +291,6 @@ type ConfirmationProps = {
   onReportAnother: () => void;
   headingRef: RefObject<HTMLHeadingElement | null>;
 };
-
-// Kept for modules that still read these as constants; the catalogue is the source.
-export const FOUND_DROP_OFF_GUIDANCE = track.en.found.title;
-export const STAFF_CONTACT_NOTE = track.en.staffContact;
 
 /**
  * The finder's confirmation: the headline is the one thing left to do (hand

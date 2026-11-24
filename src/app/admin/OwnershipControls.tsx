@@ -21,6 +21,7 @@ import {
   secondaryButtonClassName,
   textareaClassName,
 } from "@/components/ui";
+import { ErrorMessage } from "@/app/admin/parts/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { adminTools } from "@/i18n/messages/admin-tools";
 
@@ -31,14 +32,6 @@ import { adminTools } from "@/i18n/messages/admin-tools";
 
 /** Filled green pill for approval: the same shape as the primary button. */
 const approveButtonClassName = `inline-flex min-h-11 w-full max-w-full min-w-0 cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-2 text-center text-base font-semibold leading-tight transition-[background-color,border-color,color,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-55 disabled:active:translate-y-0 sm:w-auto ${focusRingClassName} bg-ok-ink text-paper hover:bg-forest`;
-
-function ErrorMessage({ message }: { message: string | null }) {
-  return message ? (
-    <Notice tone="error" role="alert">
-      {message}
-    </Notice>
-  ) : null;
-}
 
 /**
  * A saved decision or reset swaps the claim's controls (decide <-> reset), so

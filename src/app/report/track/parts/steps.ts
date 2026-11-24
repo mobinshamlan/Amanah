@@ -4,7 +4,7 @@ import type { TrackMessages } from "@/i18n/messages/track";
 // The report's four stages, and where each one stands. Every state has words
 // (`t.steps.state`), so the progress never relies on colour alone.
 
-function isPossibleMatch(view: MatchingView) {
+export function isPossibleMatch(view: MatchingView) {
   return "outcome" in view && view.outcome === "possible_match";
 }
 

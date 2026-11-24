@@ -124,7 +124,6 @@ const en = {
   outOf100: "/100",
   scoreHelp: "A ranking aid, not proof.",
   suggestedAt: (date: string, model: string) => `Suggested ${date} · ${model}`,
-  savedAt: (date: string) => `Saved ${date}`,
 
   // Possible matches
   needsReview: "Needs review",
@@ -173,7 +172,6 @@ const en = {
   // Claims
   readyGroup: "Ready for your decision",
   waitingGroup: "Waiting on the owner",
-  decidedGroup: "Decided",
   emptyClaimsTitle: "No ownership claims yet",
   emptyClaims:
     "A claim starts when an owner opens their tracking link after a possible match and answers the questions.",
@@ -232,9 +230,7 @@ const en = {
   assessmentDidNotFinish:
     "The AI assessment did not finish. The owner's answers are saved. This is not a “no match” result.",
   assessmentRunsAfter: "The AI assessment runs after the owner answers every question.",
-  questionsPrepared: (date: string, model: string) => `Questions prepared ${date} · ${model}`,
   otherSuggestions: (n: number) => `Other suggestions for this lost report (${n})`,
-  noOtherSuggestions: "No other suggestions for this lost report.",
   aiPossibleMatch: "AI: possible match",
   aiNotEnough: "AI: not enough information",
   staffDecision: "Staff decision",
@@ -479,7 +475,6 @@ const ar: typeof en = {
   outOf100: "/100",
   scoreHelp: "للترتيب فقط، ما هي دليل.",
   suggestedAt: (date, model) => `اقتُرح ${date} · ${model}`,
-  savedAt: (date) => `حُفظ ${date}`,
 
   needsReview: "يحتاج مراجعة",
   matchesStaffNext: "قرارك مطلوب",
@@ -531,7 +526,6 @@ const ar: typeof en = {
 
   readyGroup: "جاهز لقرارك",
   waitingGroup: "بانتظار صاحب الغرض",
-  decidedGroup: "تم القرار",
   emptyClaimsTitle: "ما فيه طلبات استلام بعد",
   emptyClaims:
     "الطلب يبدأ عندما يفتح صاحب الغرض رابط المتابعة بعد احتمال تطابق ويجاوب على الأسئلة.",
@@ -587,9 +581,7 @@ const ar: typeof en = {
   assessmentDidNotFinish:
     "تقييم الذكاء الاصطناعي ما اكتمل. أجوبة صاحب الغرض محفوظة. هذا ما يعني «ما فيه تطابق».",
   assessmentRunsAfter: "تقييم الذكاء الاصطناعي يشتغل بعد أن يجاوب صاحب الغرض على كل الأسئلة.",
-  questionsPrepared: (date, model) => `جُهّزت الأسئلة ${date} · ${model}`,
   otherSuggestions: (n) => `اقتراحات أخرى لهذا البلاغ (${n})`,
-  noOtherSuggestions: "ما فيه اقتراحات أخرى لهذا البلاغ.",
   aiPossibleMatch: "الذكاء الاصطناعي: احتمال تطابق",
   aiNotEnough: "الذكاء الاصطناعي: التفاصيل ما تكفي",
   staffDecision: "قرار الموظف",

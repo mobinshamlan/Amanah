@@ -1,4 +1,5 @@
 import {
+  asDataRecord,
   GEMINI_REQUEST_OPTIONS,
   type GeminiAttempt,
   GeminiInvalidResponseError,
@@ -243,14 +244,6 @@ export function parseOwnershipAssessment(value: unknown): OwnershipAssessment {
     throw new GeminiInvalidResponseError("Assessment explanation is missing or too long.");
   }
   return { assessment: assessment as OwnershipAssessmentValue, explanation };
-}
-
-function asDataRecord(report: ReportComparisonInput) {
-  return {
-    item_name: report.itemName,
-    description: report.description,
-    location: report.location,
-  };
 }
 
 /** Records which model answered; adds nothing when no attempt reported one. */
