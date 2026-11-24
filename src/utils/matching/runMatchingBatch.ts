@@ -222,14 +222,17 @@ export async function runMatchingBatch({
 }
 
 /**
- * Compares up to batchSize unchecked pairs that share one new report with a
- * single Gemini request. A failed or rejected answer records nothing, so every
- * pair in the batch stays unchecked and is retried later.
+ * Compares unchecked pairs that share one new report, batchSize pairs per
+ * Gemini request, with up to `parallelRequests` requests at the same time.
+ * Each answer's results are saved in parallel. A failed or rejected answer
+ * records nothing for its pairs, so they stay unchecked and are retried later;
+ * the other requests' results are still saved.
  */
 export async function runCandidateBatch({
   pairs,
   checkedKeys,
   batchSize,
+  parallelRequests = 1,
   compareBatch,
   saveMatch,
   recordCheck,
@@ -237,38 +240,47 @@ export async function runCandidateBatch({
   pairs: ReportPair[];
   checkedKeys: Set<string>;
   batchSize: number;
+  parallelRequests?: number;
   compareBatch: (batch: ReportPair[]) => Promise<BatchCompareOutcome>;
   saveMatch: SaveMatch;
   recordCheck: RecordCheck;
 }): Promise<MatchingRunSummary> {
   const summary = emptySummary();
   const checked = new Set(checkedKeys);
-  const batch = pairs.filter((pair) => !checked.has(pair.key)).slice(0, batchSize);
-
-  if (batch.length > 0) {
-    const outcome = await compareBatch(batch);
-    if (!outcome.ok) {
-      summary.failed += 1;
-      summary.failure = outcome.failure;
-    } else if (outcome.results.length !== batch.length) {
-      summary.failed += 1;
-      summary.failure = "invalid_response";
-    } else {
-      for (const [index, pair] of batch.entries()) {
-        const saved = await saveResult({
-          pair,
-          result: outcome.results[index],
-          summary,
-          checked,
-          saveMatch,
-          recordCheck,
-        });
-        if (!saved) {
-          break;
-        }
-      }
-    }
+  const unchecked = pairs.filter((pair) => !checked.has(pair.key));
+  const batches: ReportPair[][] = [];
+  for (let start = 0; start < unchecked.length && batches.length < Math.max(1, parallelRequests); start += batchSize) {
+    batches.push(unchecked.slice(start, start + batchSize));
   }
+
+  await Promise.all(
+    batches.map(async (batch) => {
+      const outcome = await compareBatch(batch);
+      if (!outcome.ok) {
+        summary.failed += 1;
+        summary.failure = outcome.failure;
+        return;
+      }
+      if (outcome.results.length !== batch.length) {
+        summary.failed += 1;
+        summary.failure = "invalid_response";
+        return;
+      }
+      // One database round trip per row, all at once instead of one after another.
+      await Promise.all(
+        batch.map((pair, index) =>
+          saveResult({
+            pair,
+            result: outcome.results[index],
+            summary,
+            checked,
+            saveMatch,
+            recordCheck,
+          }),
+        ),
+      );
+    }),
+  );
 
   summary.remaining = pairs.filter((pair) => !checked.has(pair.key)).length;
   return summary;

@@ -34,14 +34,15 @@ export const SIMILARITY_SCORE_MAX = 100;
 export const DETAIL_ITEMS_MAX = 5;
 export const DETAIL_ITEM_MAX = 300;
 
-// One attempt plus at most one retry, only for temporary server errors.
-// 429 quota errors and timeouts are never retried.
+// One attempt plus at most two retries, only for temporary server errors
+// ("model overloaded" 503s come and go within seconds): waits of 1.5 s, then
+// 3 s. 429 quota errors and timeouts are never retried.
 export const GEMINI_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
   timeout_ms: 20_000,
   retries: {
     strategy: "attempt-count-backoff",
-    maxRetries: 1,
-    backoff: { initialInterval: 2_000, maxInterval: 2_000, exponent: 1 },
+    maxRetries: 2,
+    backoff: { initialInterval: 1_500, maxInterval: 3_000, exponent: 2 },
     retryConnectionErrors: false,
   },
   retry_codes: ["500", "502", "503", "504"],
