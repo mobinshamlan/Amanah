@@ -91,11 +91,11 @@ const en = {
     },
     approved: {
       title: "Staff approved your claim",
-      intro: "Approval does not mean the item has been handed over. Contact lost-and-found staff to arrange pickup.",
+      intro: "The found item matches your report. Here's how to collect it.",
     },
     rejected: {
       title: "Staff couldn't confirm ownership",
-      intro: "If you think there was a mistake, contact your organization's lost-and-found staff.",
+      intro: "Your answers weren't enough to confirm the found item is yours.",
     },
     retry: {
       title: "There is a possible match",
@@ -107,6 +107,33 @@ const en = {
     "This is an AI suggestion. It does not mean the item is yours, and nothing is handed over before staff confirm.",
   staffDecide: "Staff decide, not the AI.",
   staffContact: "Questions or news? Contact your organization's lost-and-found staff.",
+
+  // What the owner does next, once nothing is left to answer.
+  next: {
+    waiting: {
+      title: "What happens next",
+      steps: [
+        "Staff compare your report and answers with the found item.",
+        "Their decision shows on this link. We don't send messages, so keep it.",
+        "If they approve, you collect your item from the lost-and-found office.",
+      ],
+    },
+    approved: {
+      title: "How to collect your item",
+      steps: [
+        "Go to your organization's lost-and-found office.",
+        "Bring your ID and open this link.",
+        "Staff check them and hand your item over.",
+      ],
+    },
+    rejected: {
+      title: "What you can do",
+      steps: [
+        "If you think it's a mistake, visit the lost-and-found office with this link.",
+        "Staff can look at your claim again.",
+      ],
+    },
+  } satisfies Record<string, { title: string; steps: string[] }>,
 
   /* The public test version only. */
   sandbox: {
@@ -294,6 +321,13 @@ const en = {
     progress: (n: number, total: number) => `Question ${n} of ${total}`,
     help: "Answers can't be edited once sent. Staff decide; an answer alone doesn't prove ownership.",
     submit: "Send answer",
+    // Test version only: ready answers that send in one tap.
+    quick: {
+      label: "Ready answers · test version",
+      owner: "The owner's answer",
+      unsure: "Not sure",
+      unsureText: "I don't remember exactly.",
+    },
     saving: "Sending…",
     errors: {
       empty: "Write your answer first.",
@@ -313,11 +347,11 @@ const en = {
       },
       approved: {
         title: "Staff approved your claim",
-        body: "Approval does not mean the item has been handed over. Contact lost-and-found staff to arrange pickup.",
+        body: "The found item matches your report. Here's how to collect it.",
       },
       rejected: {
         title: "Staff couldn't confirm ownership",
-        body: "If you think there was a mistake, contact your organization's lost-and-found staff.",
+        body: "Your answers weren't enough to confirm the found item is yours.",
       },
     },
     retry: {
@@ -415,11 +449,11 @@ const ar: typeof en = {
     },
     approved: {
       title: "وافق الموظف على طلبك",
-      intro: "الموافقة ما تعني إن الغرض تسلّم. تواصل مع موظف المفقودات عشان ترتّب الاستلام.",
+      intro: "الغرض الملقى يطابق بلاغك. هذي طريقة استلامه.",
     },
     rejected: {
       title: "الموظف ما قدر يتأكد من الملكية",
-      intro: "لو تشوف إن في خطأ، تواصل مع موظفي المفقودات في جهتك.",
+      intro: "إجاباتك ما كانت كافية نتأكد إن الغرض الملقى لك.",
     },
     retry: {
       title: "في احتمال تطابق",
@@ -430,6 +464,32 @@ const ar: typeof en = {
   aiNote: "هذا اقتراح من الذكاء الاصطناعي، وما يعني إن الغرض لك. ما يُسلَّم شي قبل ما يتأكد الموظف.",
   staffDecide: "الموظف هو اللي يقرر، مو الذكاء الاصطناعي.",
   staffContact: "عندك سؤال أو جديد؟ تواصل مع موظفي المفقودات في جهتك.",
+
+  next: {
+    waiting: {
+      title: "وش يصير بعدين؟",
+      steps: [
+        "الموظف يقارن بلاغك وإجاباتك بالغرض الملقى.",
+        "قراره يطلع في هذا الرابط. ما نرسل رسائل، فاحفظ الرابط.",
+        "إذا وافق، تستلم غرضك من مكتب المفقودات.",
+      ],
+    },
+    approved: {
+      title: "كيف تستلم غرضك",
+      steps: [
+        "روح مكتب المفقودات في جهتك.",
+        "خذ معك هويتك وافتح هذا الرابط.",
+        "الموظف يتأكد ويسلّمك غرضك.",
+      ],
+    },
+    rejected: {
+      title: "وش تقدر تسوي؟",
+      steps: [
+        "لو تشوف إن في خطأ، روح مكتب المفقودات ومعك هذا الرابط.",
+        "الموظف يقدر يراجع طلبك مرة ثانية.",
+      ],
+    },
+  },
 
   sandbox: {
     note: "نسخة تجريبية: بلاغك ينحذف بعد 3 أيام.",
@@ -600,6 +660,12 @@ const ar: typeof en = {
     progress: (n, total) => `السؤال ${n} من ${total}`,
     help: "ما تقدر تعدّل الإجابة بعد إرسالها. القرار للموظف، والإجابة لحالها ما تثبت الملكية.",
     submit: "أرسل الإجابة",
+    quick: {
+      label: "إجابات جاهزة · نسخة تجريبية",
+      owner: "إجابة المالك",
+      unsure: "مو متأكد",
+      unsureText: "ما أتذكر بالضبط.",
+    },
     saving: "جاري الإرسال…",
     errors: {
       empty: "اكتب إجابتك أول.",
@@ -619,11 +685,11 @@ const ar: typeof en = {
       },
       approved: {
         title: "وافق الموظف على طلبك",
-        body: "الموافقة ما تعني إن الغرض تسلّم. تواصل مع موظف المفقودات عشان ترتّب الاستلام.",
+        body: "الغرض الملقى يطابق بلاغك. هذي طريقة استلامه.",
       },
       rejected: {
         title: "الموظف ما قدر يتأكد من الملكية",
-        body: "لو تشوف إن في خطأ، تواصل مع موظفي المفقودات في جهتك.",
+        body: "إجاباتك ما كانت كافية نتأكد إن الغرض الملقى لك.",
       },
     },
     retry: {

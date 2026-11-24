@@ -1,15 +1,26 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from "react";
 import type { OwnershipStage } from "@/app/report/SubmissionConfirmation";
 import {
   getOwnershipVerification,
+  getSandboxQuickAnswer,
   submitOwnershipAnswer,
   submitOwnershipFollowupAnswer,
 } from "@/app/report/track/actions";
-import { LockIcon, QuestionIcon, RefreshIcon, SendIcon } from "@/components/icons";
+import { CheckIcon, LockIcon, QuestionIcon, RefreshIcon, SendIcon } from "@/components/icons";
 import {
   FieldError,
+  focusRingClassName,
   LoadingRow,
   Spinner,
   StatusChip,
@@ -87,18 +98,23 @@ export type OwnershipControl = { applyView: (view: OwnerVerificationView) => voi
  *
  * `headlineShown`: the tracking page already says the settled state (approved,
  * rejected, waiting) in its main heading and case tag, so the slip steps aside.
+ *
+ * `sandbox`: the test version offers two ready answers that send in one tap,
+ * the owner's (right) answer and "not sure", so trying the flow takes seconds.
  */
 export function OwnershipVerification({
   credential,
   onStageChange,
   headlineShown = false,
   controlRef,
+  sandbox = false,
 }: {
   credential: string;
   // Lets the tracking page show the same state in its heading and progress steps.
   onStageChange?: (stage: OwnershipStage | null) => void;
   headlineShown?: boolean;
   controlRef?: Ref<OwnershipControl>;
+  sandbox?: boolean;
 }) {
   const t = useMessages(track);
   const [view, setView] = useState<OwnerVerificationView | null>(null);
@@ -109,6 +125,8 @@ export function OwnershipVerification({
   const answerRef = useRef<HTMLTextAreaElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const focusAfterUpdate = useRef(false);
+  // Test version: the owner's answer to the current question, keyed by its number.
+  const [quick, setQuick] = useState<{ number: number; answer: string } | null>(null);
 
   const load = useCallback(async () => {
     // Clear any previous outcome so a reload never flashes approved/rejected
@@ -147,6 +165,18 @@ export function OwnershipVerification({
     onStageChange?.(stage);
   }, [stage, onStageChange]);
 
+  const questionNumber = view?.state === "question" ? view.number : null;
+  useEffect(() => {
+    if (!sandbox || questionNumber === null) return;
+    let live = true;
+    getSandboxQuickAnswer(credential, questionNumber)
+      .then((answer) => live && setQuick(answer ? { number: questionNumber, answer } : null))
+      .catch(() => live && setQuick(null));
+    return () => {
+      live = false;
+    };
+  }, [sandbox, credential, questionNumber]);
+
   // After an answer is saved, move focus to the next question or the outcome.
   useEffect(() => {
     if (!focusAfterUpdate.current || !view) {
@@ -160,12 +190,22 @@ export function OwnershipVerification({
     }
   }, [view]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    void send(answer);
+  }
+
+  // A ready answer (test version) goes into the field, so it shows while it sends.
+  function sendReady(text: string) {
+    setAnswer(text);
+    void send(text);
+  }
+
+  async function send(value: string) {
     if (!view || (view.state !== "question" && view.state !== "followup") || saving) {
       return;
     }
-    const text = answer.trim();
+    const text = value.trim();
     if (!text) {
       setAnswerError(t.verify.errors.empty);
       answerRef.current?.focus();
@@ -289,7 +329,8 @@ export function OwnershipVerification({
             </div>
           ) : null}
           <form onSubmit={handleSubmit} noValidate aria-busy={saving} className="flex flex-col gap-3">
-            {/* The question and the answer may be in either language. No suggestions: they would hint the answer. */}
+            {/* The question and the answer may be in either language. Outside the test version, no
+                suggestions: they would hint the answer. */}
             <h2
               id="verification-title"
               ref={headingRef}
@@ -303,6 +344,29 @@ export function OwnershipVerification({
             <p id="ownership-answer-intro" className="max-w-[58ch] text-small text-foreground/80">
               {view.state === "followup" ? t.verify.followupIntro : t.verify.questionIntro}
             </p>
+            {sandbox && view.state === "question" ? (
+              <div role="group" aria-label={t.verify.quick.label} className="flex flex-col gap-2">
+                <p className="text-small font-semibold text-muted-foreground">{t.verify.quick.label}</p>
+                <div className="flex flex-wrap gap-2">
+                  {quick?.number === view.number ? (
+                    <QuickAnswer
+                      label={t.verify.quick.owner}
+                      text={quick.answer}
+                      disabled={saving}
+                      onSend={sendReady}
+                      icon={<CheckIcon className="size-3.5 shrink-0 text-forest" />}
+                    />
+                  ) : null}
+                  <QuickAnswer
+                    label={t.verify.quick.unsure}
+                    text={t.verify.quick.unsureText}
+                    disabled={saving}
+                    onSend={sendReady}
+                    icon={<QuestionIcon className="size-3.5 shrink-0 text-forest" />}
+                  />
+                </div>
+              </div>
+            ) : null}
             <textarea
               ref={answerRef}
               id="ownership-answer"
@@ -356,5 +420,38 @@ export function OwnershipVerification({
         </>
       ) : null}
     </section>
+  );
+}
+
+/** Test version: one ready answer; a tap sends it. */
+function QuickAnswer({
+  label,
+  text,
+  icon,
+  disabled,
+  onSend,
+}: {
+  label: string;
+  text: string;
+  icon: ReactNode;
+  disabled: boolean;
+  onSend: (text: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onSend(text)}
+      className={`inline-flex min-h-11 min-w-0 max-w-full items-start gap-2 rounded-2xl border border-border bg-background px-3.5 py-2.5 text-start text-small text-foreground/85 transition-[background-color,transform] duration-150 hover:bg-secondary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 ${focusRingClassName}`}
+    >
+      <span className="mt-1">{icon}</span>
+      <span className="min-w-0">
+        <span className="font-medium text-forest">{label}: </span>
+        <span dir="auto" className="line-clamp-2">
+          {text}
+        </span>
+      </span>
+      <SendIcon className="mt-1 size-3.5 shrink-0 text-forest/70" />
+    </button>
   );
 }

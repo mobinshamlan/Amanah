@@ -6,6 +6,7 @@ import type { OwnershipDeps } from "@/utils/ownership/service";
 import { isSandboxMode, SANDBOX_RETENTION_DAYS } from "@/utils/sandbox";
 import { cleanupSandbox } from "@/utils/sandbox/cleanup";
 import { ensureSampleReports, SAMPLE_REPORTS } from "@/utils/sandbox/samples";
+import { sandboxQuickAnswerWith } from "@/utils/sandbox/quickAnswer";
 import { SANDBOX_DECISION_NOTE, tryStaffDecisionWith } from "@/utils/sandbox/staffDecision";
 import { GET as cleanupRoute } from "@/app/api/sandbox/cleanup/route";
 import { createMemoryStore } from "../ownership/memoryStore";
@@ -291,5 +292,49 @@ describe("uncertain threshold", () => {
     });
     // Not finished is never "no match".
     assert.deepEqual(status(false, 2), { phase: "checking" });
+  });
+});
+
+describe("sandboxQuickAnswer (one-tap owner's answer)", () => {
+  const SANDBOX = { AMANAH_SANDBOX: "1" };
+
+  function setup() {
+    const memory = createMemoryStore();
+    const deps: OwnershipDeps = {
+      store: memory.store,
+      ai: {
+        model: "fake-model",
+        generateQuestions: async () => ({ questions: [], dropped: [] }),
+        assessAnswers: async () => ({ assessment: "supports", explanation: "ok" }),
+      },
+      logger: silent,
+    };
+    const credential = memory.addSubmission("lost-1", "lost");
+    memory.addMatch("match-1", "lost-1");
+    memory.addVerification({
+      id: "ver-1",
+      lostReportId: "lost-1",
+      reportMatchId: "match-1",
+      questions: ["Q1?", "Q2?"],
+      expectedDetails: ["yellow handle", "small tear"],
+    });
+    return { memory, deps, credential };
+  }
+
+  it("gives the detail behind the current question in test mode only", async () => {
+    const { memory, deps, credential } = setup();
+    assert.equal(await sandboxQuickAnswerWith(deps, credential, 1, {}), null);
+    assert.equal(await sandboxQuickAnswerWith(deps, credential, 1, SANDBOX), "yellow handle");
+    // Never for another question than the one the owner is on.
+    assert.equal(await sandboxQuickAnswerWith(deps, credential, 2, SANDBOX), null);
+    memory.answers.push({ verificationId: "ver-1", questionNumber: 1, answer: "a" });
+    assert.equal(await sandboxQuickAnswerWith(deps, credential, 2, SANDBOX), "small tear");
+  });
+
+  it("refuses a bad or found reporter's credential", async () => {
+    const { memory, deps } = setup();
+    assert.equal(await sandboxQuickAnswerWith(deps, "nope", 1, SANDBOX), null);
+    const found = memory.addSubmission("found-1", "found");
+    assert.equal(await sandboxQuickAnswerWith(deps, found, 1, SANDBOX), null);
   });
 });

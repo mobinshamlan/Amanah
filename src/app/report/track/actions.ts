@@ -11,6 +11,7 @@ import { createOwnershipDeps } from "@/utils/ownership/server";
 import { currentIpKey } from "@/utils/limits/clientIp";
 import { runWithUsageScope } from "@/utils/limits/usageScope";
 import { isSandboxMode } from "@/utils/sandbox";
+import { sandboxQuickAnswerWith } from "@/utils/sandbox/quickAnswer";
 import {
   tryStaffDecisionWith,
   type TryStaffDecisionResult,
@@ -73,4 +74,17 @@ export async function tryStaffDecision(
     return { ok: false, reason: "save_failed" };
   }
   return tryStaffDecisionWith(deps, credential, decision);
+}
+
+// Test mode only: a right answer to the current question, for the one-tap
+// "owner's answer" option. Refused (null) unless test mode is on.
+export async function getSandboxQuickAnswer(
+  credential: string,
+  questionNumber: number,
+): Promise<string | null> {
+  if (!isSandboxMode()) {
+    return null;
+  }
+  const deps = createOwnershipDeps();
+  return deps ? sandboxQuickAnswerWith(deps, credential, questionNumber) : null;
 }
