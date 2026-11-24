@@ -44,7 +44,7 @@ Open `http://localhost:3100/report/track#<credential>`. Each credential is
 
 | State | Credential |
 | --- | --- |
-| (a) Just submitted; checks for about 2 s, then shows "not enough detail to tell" | `fixture-lost-a-checking-0000000000000000000` |
+| (a) Just submitted; checks for about 2 s, then shows the outcome ("not enough detail to tell" only if a pair scores 40 or more) | `fixture-lost-a-checking-0000000000000000000` |
 | (b) No possible match | `fixture-lost-b-no-match-0000000000000000000` |
 | (c) Possible match; 2 ownership questions waiting | `fixture-lost-c-questions-000000000000000000` |
 | (c2) Possible match; questions are prepared on the first visit | `fixture-lost-c2-new-match-00000000000000000` |
@@ -100,6 +100,22 @@ mention. The assessment returns "supports" when answers contain the expected
 words, "conflicts" when they name a different colour or brand, and "unclear"
 otherwise. Arabic and English words are not translated into each other, except
 for a short list of item types, colours, and brands.
+
+## Test mode in fixtures
+
+Add `AMANAH_SANDBOX=1` (and `CRON_SECRET=...`) to try test mode locally. The
+eight sample found reports are added to the fixture data the first time
+matching runs, so the lost-form examples (blue umbrella, black wallet, keys
+with a leather keyring) reach a possible match. The cleanup route works on the
+fixture data too:
+
+```sh
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3100/api/sandbox/cleanup
+curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3100/api/sandbox/cleanup?purge=all"
+```
+
+Most seeded reports are older than 3 days, so the first cleanup removes them.
+Restart the server to get them back.
 
 ## Limits
 

@@ -29,9 +29,12 @@ import {
   isSubmissionCredential,
 } from "@/utils/matching/submissionCredential";
 import {
+  hasUncertainSuggestion,
   toPublicStatus,
   type PublicMatchingStatus,
 } from "@/utils/matching/publicStatus";
+import { isSandboxMode } from "@/utils/sandbox";
+import { ensureSampleReportsOnce } from "@/utils/sandbox/samples";
 import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import { loadFailureRow, recordMatchingRun } from "@/utils/monitoring/runLog";
 
@@ -190,6 +193,10 @@ export async function continueMatching(
   let failure: MatchingFailure | null = null;
 
   try {
+    // Test mode: the sample found reports must exist before the first comparison.
+    if (isSandboxMode()) {
+      await ensureSampleReportsOnce(supabase);
+    }
     const [otherResult, savedResult, checksResult] = await Promise.all([
       supabase.from("reports").select(REPORT_COLUMNS).eq("report_type", otherType),
       supabase.from("report_matches").select("lost_report_id, found_report_id").eq(ownColumn, report.id),
@@ -253,16 +260,14 @@ export async function continueMatching(
   if (reportType === "lost") {
     const { data: suggestions, error: suggestionsError } = await supabase
       .from("report_matches")
-      .select("ai_decision")
+      .select("ai_decision, ai_similarity_score")
       .eq("lost_report_id", report.id);
     if (suggestionsError) {
       console.error("Failed to load suggestion status:", suggestionsError.code);
       return { ok: true, status: { phase: "failed" } };
     }
     hasMatch = (suggestions ?? []).some((row) => row.ai_decision === "match");
-    hasUncertain = (suggestions ?? []).some(
-      (row) => row.ai_decision === "insufficient_information",
-    );
+    hasUncertain = hasUncertainSuggestion(suggestions ?? []);
   }
 
   const status = toPublicStatus({ reportType, remaining, failure, hasMatch, hasUncertain });

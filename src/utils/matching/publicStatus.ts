@@ -29,6 +29,22 @@ function phaseFor(failure: MatchingFailure | null, remaining: number): MatchingP
   return remaining > 0 ? "checking" : "complete";
 }
 
+// A "not enough information" suggestion makes the outcome "uncertain" only when
+// Gemini still rated the pair at least this similar. Lower or unscored pairs
+// stay visible to staff in /admin but do not count for the lost reporter.
+export const UNCERTAIN_MIN_SIMILARITY = 40;
+
+export function hasUncertainSuggestion(
+  suggestions: { ai_decision: string; ai_similarity_score: number | null }[],
+) {
+  return suggestions.some(
+    (row) =>
+      row.ai_decision === "insufficient_information" &&
+      typeof row.ai_similarity_score === "number" &&
+      row.ai_similarity_score >= UNCERTAIN_MIN_SIMILARITY,
+  );
+}
+
 export function toPublicStatus({
   reportType,
   remaining,
