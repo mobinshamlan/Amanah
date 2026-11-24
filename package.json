@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "Privacy-first, bilingual lost and found for one organisation. Gemini suggests matches privately; staff decide every claim.",
+  "homepage": "https://amanahz.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mobinshamlan/Amanah.git"
+  },
   "engines": {
     "node": ">=20.9.0"
   },

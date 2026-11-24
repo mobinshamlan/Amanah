@@ -126,7 +126,7 @@ Messages for lost reporters:
 
 Closing the browser tab: processing stops after the current batch. For a found report, `sessionStorage` is cleared, so that tab cannot resume. A lost report resumes whenever its tracking link is opened again. The unchecked pairs stay unchecked, never "no match". They are covered later when an opposite-type report is submitted (its check includes this report), or by Run matching on `/admin`. A background worker (for example a scheduled job) would remove this limit, but it is new infrastructure and was not added for this MVP.
 
-`report_submissions` (`20261023185900_create_report_submissions.sql`) has RLS enabled and no public access. The server role can read rows, insert only `report_id` and `token_hash`, and update only `processing_until`. It cannot rewrite a hash or delete a row. When this was written, migration history had 9 matching versions locally and remotely.
+`report_submissions` (`20261023185900_create_report_submissions.sql`) has RLS enabled and no public access. The server role can read rows, insert only `report_id` and `token_hash`, and update only `processing_until`. It cannot rewrite a hash or delete a row.
 
 ### Lost-report tracking link
 
@@ -138,12 +138,12 @@ Anyone who has the link can see that report's progress. A lost credential cannot
 
 Found reporters get a confirmation with drop-off guidance and no matching information. The guidance (`FOUND_DROP_OFF_GUIDANCE` in `src/app/report/SubmissionConfirmation.tsx`) tells the finder to drop the item off with the organization's lost-and-found staff. No staff email or phone is configured yet; `STAFF_CONTACT_NOTE` in the same file is where a contact link goes.
 
-### Verified (23 October 2026, fictional reports, before batching)
+### Tested behaviour (fictional reports)
 
 - Found first, then lost: the matching lost report showed "We found a possible match" without Run matching. A refresh during checking resumed. The in-flight batch kept the lease, the resumed call waited, and no pair was checked twice.
 - Lost first, then found: the found report created a private `match` suggestion (score 95). The finder saw only "Report saved. Thank you for reporting this item." The lost reporter's page later showed the possible match.
-- Lost report with no matching found report: completed as "could not tell from the details" rather than "No possible match yet", because four existing found reports have very short descriptions (28–33 characters) that Gemini marked `insufficient_information`. The no-match message mapping was verified with controlled tests only.
-- Invalid Gemini key (production build, port 3002): the report was saved once, the page showed "did not finish… This is not a "no match" result" after submit, Try again, and refresh, no pair was recorded, and the lease was released.
+- Lost report with no matching found report: when existing found reports are too vague to judge, the result is "could not tell from the details" rather than "No possible match yet". The no-match message mapping is covered by controlled tests.
+- Invalid Gemini key (production build): the report was saved once, the page showed "did not finish… This is not a "no match" result" after submit, Try again, and refresh, no pair was recorded, and the lease was released.
 - Free-tier rate limit: after about 26 back-to-back comparisons Gemini returned 429. The page showed the "did not finish" message and those pairs stayed unchecked.
 - Captured server-action responses contained only `ok`, a phase, an optional lost-report outcome, and the submitter's own credential. The publishable key is denied all access to `report_submissions`.
 
@@ -155,36 +155,6 @@ Found reporters get a confirmation with drop-off guidance and no matching inform
 - One invalid result rejects the whole batch, so a repeatedly malformed answer blocks those 10 candidates until a later attempt succeeds.
 - "Could not tell from the details" tells a lost reporter that at least one found report could not be ruled out. Vague existing reports make this the usual result.
 - An `/admin` run and an automatic run at the same moment can both send the same pair to Gemini. The database keeps only one row.
-
-## Score migration application note
-
-On 23 October 2026, `20261023180400_add_report_match_similarity_score.sql` was applied through the Amanah dashboard SQL Editor in one transaction because the agent database connector was unavailable. The score column, range constraint, and additive server insert permission were verified. Existing suggestions remain unscored.
-
-Its version was later marked applied in remote migration history with `supabase migration repair` (see "Migration history reconciliation" below). The SQL was not run again.
-
-## Pair-tracking migration application note
-
-On 23 October 2026, `20261023184000_create_report_pair_checks.sql` was applied through the Amanah dashboard SQL Editor in one transaction. Server-role insert/read behavior, duplicate rejection, lost/found reference validation, invalid-decision rejection, and denied updates were verified in a rolled-back transaction. Public access remains blocked and RLS is enabled. No verification records were retained; the existing 20 reports and 5 suggestions were preserved.
-
-Its version was later marked applied in remote migration history the same way. The SQL was not run again.
-
-## Migration history reconciliation (23 October 2026)
-
-Done with Supabase CLI 2.122.0 on the linked project, using `supabase migration repair` only. No migration SQL was re-run, and no data changed (20 reports, 5 suggestions, 12 pair checks before and after).
-
-- `20261023180400` and `20261023184000` were marked applied after their schema effects were verified in the live database.
-- Four earlier migrations had been recorded by the agent database connector under its own version numbers: `create_reports` 20261023163100, `staff_report_access` 20261023163954, `revert_staff_report_access` 20261023164314, and `grant_service_role_reports_select` 20261023170259. The SQL the connector applied for each was identical to the local file, and the local files are unchanged since they were committed. The connector versions were marked reverted and the local versions `20261023163002`, `20261023163936`, `20261023164308`, and `20261023170253` were marked applied.
-- `supabase migration list --linked` now shows the same 8 versions locally and remotely, and `supabase db push --dry-run --linked` reports that the remote database is up to date.
-
-Note: `service_role` keeps Supabase's default REFERENCES, TRIGGER, and TRUNCATE privileges on `reports`, because `create_reports` only revokes privileges from the public roles. This matches the migration files and is not a history discrepancy.
-
-## Verified state (23 October 2026)
-
-- Live schema: both migrations' effects are present. The score column accepts reads, rejects scores outside 0–100 (23514) and updates (42501). `report_pair_checks` rejects invalid decisions (23514), duplicate pairs (23505), extra columns, updates, and deletes (42501). The publishable key cannot read `report_matches`, `report_pair_checks`, or `reports`, or insert pair checks (42501).
-- Live fictional run: two runs of 4 pairs each, the second after a page refresh, checked 8 different pairs with no repeats. Gemini took about 1.0–1.7 seconds per pair in a single HTTP attempt, a database insert about 300 ms, and the initial database load 0.5–1.1 seconds. Each run took about 7 seconds.
-- Suggestions persisted without duplicates, scored suggestions show their score, and older ones show "Not scored".
-- Production `/admin` and server-action requests to it return 404.
-- Local and remote migration history agree (see "Migration history reconciliation").
 
 ## Known limitations
 

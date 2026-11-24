@@ -1,7 +1,7 @@
 import type { Catalogue } from "@/i18n/config";
 
 // The staff workspace shell and its main sections (possible matches, claims,
-// reports). The tools agent's catalogue (admin-tools.ts) covers the controls.
+// reports). The controls' strings live in admin-tools.ts.
 // Arabic is short, slightly formal Saudi Arabic for staff; English is direct.
 
 type SectionKey = "matches" | "candidates" | "claims" | "reports" | "monitoring";
