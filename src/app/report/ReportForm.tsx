@@ -19,7 +19,7 @@ import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { FillChip } from "@/app/report/form/FillChips";
 import { FormStage } from "@/app/report/form/FormStage";
 import "@/app/report/form/form-stage.css";
-import { KeyholeGlyph, LensIcon, LockIcon, TagIcon } from "@/components/icons";
+import { ClockIcon, KeyholeGlyph, LensIcon, LockIcon, TagIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import {
   FieldError,
@@ -78,7 +78,7 @@ function Field({
   label: string;
   hint: string;
   error?: string;
-  // Under the field: the one example chip that fills it.
+  // Under the field: the example chip that fills it.
   after?: ReactNode;
   children: ReactNode;
 }) {
@@ -101,10 +101,22 @@ function Field({
   );
 }
 
-export default function ReportForm({ reportType }: { reportType: ReportType }) {
+export default function ReportForm({
+  reportType,
+  sandbox = false,
+}: {
+  reportType: ReportType;
+  // The public test version: a quiet note that the report is deleted after a few days.
+  sandbox?: boolean;
+}) {
   const t = useMessages(report);
   const c = useMessages(common);
   const k = t.kinds[reportType];
+  // One example set per visit. The server and the first paint show the first
+  // set, then the browser picks one at random; every chip is a single line,
+  // so the swap never moves the form.
+  const [exampleIndex, setExampleIndex] = useState(0);
+  const example = k.examples[exampleIndex] ?? k.examples[0];
   const { locale } = useLocale();
   const validationMessages = { ...t, locationRequired: k.locationRequired };
 
@@ -134,6 +146,11 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
   });
   const focusFormAfterReset = useRef(false);
   const showConfirmation = matching !== null;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setExampleIndex(Math.floor(Math.random() * k.examples.length)), 0);
+    return () => clearTimeout(timer);
+  }, [k.examples.length]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(storageKey(reportType));
@@ -416,7 +433,7 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                     label={t.itemNameLabel}
                     hint={t.itemNameHint}
                     error={errors.itemName}
-                    after={chipFor("itemName", t.itemNameLabel, k.itemNameFill)}
+                    after={chipFor("itemName", t.itemNameLabel, example.itemName)}
                   >
                     <input
                       ref={(node) => {
@@ -443,7 +460,7 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                     label={k.descriptionLabel}
                     hint={k.descriptionHint}
                     error={errors.description}
-                    after={chipFor("description", k.descriptionLabel, k.descriptionFill)}
+                    after={chipFor("description", k.descriptionLabel, example.description)}
                   >
                     <textarea
                       ref={(node) => {
@@ -484,7 +501,7 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                     label={k.locationLabel}
                     hint={k.locationHint}
                     error={errors.location}
-                    after={chipFor("location", k.locationLabel, k.locationFill)}
+                    after={chipFor("location", k.locationLabel, example.location)}
                   >
                     <input
                       ref={(node) => {
@@ -559,6 +576,12 @@ export default function ReportForm({ reportType }: { reportType: ReportType }) {
                       <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
                       <span>{lost ? t.privacy : t.privacyFound}</span>
                     </p>
+                    {sandbox ? (
+                      <p className="-mt-1 flex items-start gap-2.5 text-small text-foreground/80">
+                        <ClockIcon className="mt-1 size-4 shrink-0 text-forest" />
+                        <span>{t.sandboxNote}</span>
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </form>

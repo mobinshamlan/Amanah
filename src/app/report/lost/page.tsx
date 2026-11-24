@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import ReportForm from "@/app/report/ReportForm";
 import { report } from "@/i18n/messages/report";
 import { getMessages } from "@/i18n/server";
+import { isSandboxMode } from "@/utils/sandbox";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages(report);
@@ -12,5 +13,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function ReportLostPage() {
-  return <ReportForm reportType="lost" />;
+  return <ReportForm reportType="lost" sandbox={isSandboxMode()} />;
 }
