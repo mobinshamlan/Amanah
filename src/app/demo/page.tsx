@@ -3,11 +3,13 @@ import { GuidedDemo } from "@/app/demo/GuidedDemo";
 import "@/app/demo/demo.css";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import { demo } from "@/i18n/messages/demo";
-import { getMessages } from "@/i18n/server";
+import { getLocale } from "@/i18n/server";
+import { pageMetadata } from "@/app/social-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getMessages(demo);
-  return { title: t.metaTitle, description: t.metaDescription };
+  const locale = await getLocale();
+  const t = demo[locale];
+  return pageMetadata({ title: t.metaTitle, description: t.metaDescription, path: "/demo", locale });
 }
 
 // The guided demo continues the homepage's pine stage: a conversation at the

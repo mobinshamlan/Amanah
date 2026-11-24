@@ -9,6 +9,7 @@ import { directionOf } from "@/i18n/config";
 import { LocaleProvider } from "@/i18n/LocaleProvider";
 import { common } from "@/i18n/messages/common";
 import { getLocale } from "@/i18n/server";
+import { SITE_URL, pageMetadata } from "@/app/social-metadata";
 import "./globals.css";
 
 // Interface type: IBM Plex Sans Arabic for Arabic, IBM Plex Sans for English.
@@ -39,8 +40,12 @@ const amiri = Amiri({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = common[await getLocale()];
-  return { title: t.metaTitle, description: t.metaDescription };
+  const locale = await getLocale();
+  const t = common[locale];
+  return {
+    metadataBase: new URL(SITE_URL),
+    ...pageMetadata({ title: t.metaTitle, description: t.metaDescription, path: "/", locale }),
+  };
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

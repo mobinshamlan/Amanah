@@ -20,11 +20,13 @@ import {
   textLinkOnDarkClassName,
 } from "@/components/ui";
 import { home } from "@/i18n/messages/home";
-import { getMessages } from "@/i18n/server";
+import { getLocale, getMessages } from "@/i18n/server";
+import { pageMetadata } from "@/app/social-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getMessages(home);
-  return { title: t.metaTitle, description: t.metaDescription };
+  const locale = await getLocale();
+  const t = home[locale];
+  return pageMetadata({ title: t.metaTitle, description: t.metaDescription, path: "/", locale });
 }
 
 // The three scenes of what happens after a report, in order, on one desk.
