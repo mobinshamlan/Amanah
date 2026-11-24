@@ -78,7 +78,7 @@ function Field({
   label: string;
   hint: string;
   error?: string;
-  // Under the field: the example chip that fills it.
+  // Under the field and its error: the example chip that fills it.
   after?: ReactNode;
   children: ReactNode;
 }) {
@@ -91,12 +91,12 @@ function Field({
         <p className={hintClassName}>{hint}</p>
         {children}
       </div>
-      {after}
       {error ? (
         <FieldError id={`${name}-error`}>
           <span className="break-words">{error}</span>
         </FieldError>
       ) : null}
+      {after}
     </div>
   );
 }
@@ -216,6 +216,11 @@ export default function ReportForm({
   }
 
   function chipFor(name: ReportFieldName, label: string, text: string) {
+    // Only offer the example while it cannot overwrite what the visitor typed.
+    const value = fields[name].trim();
+    if (value && value !== text) {
+      return null;
+    }
     return (
       <FillChip
         id={`${name}-fill`}

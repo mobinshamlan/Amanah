@@ -45,11 +45,11 @@ const en = {
   // Only in the test version, beside the save button.
   sandboxNote: "Test version: your report is deleted after 3 days.",
   // The chip under each field: tapping it writes the example into the field.
-  fillLabel: "Try an example",
+  fillLabel: "Fill with example",
   fillGroupLabel: (field: string) => `Example that fills “${field}”`,
   itemNameLabel: "What is it?",
   itemNameHint: "A few words that name the item.",
-  itemNameRequired: "Write what the item is, for example “black wallet”.",
+  itemNameRequired: "Write what the item is.",
   itemNameTooLong: (max: number) => `Keep the item name to ${digits(max)} characters.`,
   descriptionRequired: "Add a short description so the item can be recognised.",
   descriptionTooLong: (max: number) => `Keep the description to ${digits(max)} characters.`,
@@ -165,11 +165,11 @@ const en = {
 const ar: typeof en = {
   required: "كل الخانات مطلوبة.",
   sandboxNote: "نسخة تجريبية: بلاغك ينحذف بعد 3 أيام.",
-  fillLabel: "جرّب مثال",
+  fillLabel: "عبّها بمثال",
   fillGroupLabel: (field) => `مثال يعبّي «${field}»`,
   itemNameLabel: "وش هو؟",
   itemNameHint: "كلمتين تسمّي فيها الغرض.",
-  itemNameRequired: "اكتب وش الغرض، مثلاً «محفظة سودا».",
+  itemNameRequired: "اكتب وش الغرض.",
   itemNameTooLong: (max) => `اسم الغرض لازم يكون ${digits(max)} حرف أو أقل.`,
   descriptionRequired: "أضف وصف مختصر حتى نقدر نعرف الغرض.",
   descriptionTooLong: (max) => `الوصف لازم يكون ${digits(max)} حرف أو أقل.`,
