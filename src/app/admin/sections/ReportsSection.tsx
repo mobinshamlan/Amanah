@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { ChevronDownIcon } from "@/components/icons";
 import { Notice, ReportKindCue, focusRingClassName, linkClassName } from "@/components/ui";
 import type { Locale } from "@/i18n/config";
 import { formatDateTime } from "@/i18n/format";
 import type { AdminMessages } from "@/i18n/messages/admin";
 import type { Filter, Report } from "@/app/admin/parts/model";
-import { EmptyState, rowClassName, stampClassName } from "@/app/admin/parts/ui";
+import { Disclosure, EmptyState, rowClassName } from "@/app/admin/parts/ui";
 
 // All reports: a lost/found filter, two-line rows on phones and a table from
 // tablet up. Long text wraps; the table scrolls inside a labelled region.
@@ -42,29 +43,53 @@ function kindOf(type: string): "lost" | "found" {
   return type === "lost" ? "lost" : "found";
 }
 
+// Rows shown on a phone before "Show more".
+const PHONE_FIRST = 8;
+
+function PhoneRows({ reports, t, locale }: { reports: Report[]; t: AdminMessages; locale: Locale }) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {reports.map((report) => (
+        <li key={report.id} className={`${rowClassName} flex flex-col gap-1 px-4 py-3`}>
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="min-w-0 break-words text-body font-semibold leading-snug text-foreground">
+              <bdi dir="auto">{report.item_name}</bdi>
+            </h3>
+            <ReportKindCue kind={kindOf(report.report_type)} className="shrink-0">
+              {report.report_type === "lost" ? t.kindLost : t.kindFound}
+            </ReportKindCue>
+          </div>
+          <p className="break-words text-small text-muted-foreground">
+            <bdi dir="auto">{report.location}</bdi> · <span className="tabular-nums">{formatDateTime(report.created_at, locale)}</span>
+          </p>
+          <details className="group">
+            <summary
+              className={`flex min-h-11 cursor-pointer list-none items-start gap-1.5 rounded-lg py-1.5 text-small text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`}
+            >
+              <span dir="auto" className="min-w-0 flex-1 break-words line-clamp-1 group-open:line-clamp-none">
+                {report.description}
+              </span>
+              <ChevronDownIcon className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-open:rotate-180" />
+            </summary>
+          </details>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function ReportsList({ reports, t, locale }: { reports: Report[]; t: AdminMessages; locale: Locale }) {
   return (
     <>
-      {/* Phone: two-line rows. */}
-      <ul className="flex flex-col gap-2 md:hidden">
-        {reports.map((report) => (
-          <li key={report.id} className={`${rowClassName} flex flex-col gap-1.5 p-4`}>
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="min-w-0 break-words text-subheading leading-snug text-foreground">
-                {report.item_name}
-              </h3>
-              <ReportKindCue kind={kindOf(report.report_type)} className="shrink-0">
-                {report.report_type === "lost" ? t.kindLost : t.kindFound}
-              </ReportKindCue>
-            </div>
-            <p className="break-words text-small text-foreground">{report.description}</p>
-            <p className="break-words text-small text-muted-foreground">
-              {t.location}: {report.location}
-            </p>
-            <p className={stampClassName}>{formatDateTime(report.created_at, locale)}</p>
-          </li>
-        ))}
-      </ul>
+      {/* Phone: two-line rows; the description opens on tap, later rows on demand. */}
+      <div className="flex flex-col gap-2 md:hidden">
+        <PhoneRows reports={reports.slice(0, PHONE_FIRST)} t={t} locale={locale} />
+        {reports.length > PHONE_FIRST ? (
+          <Disclosure label={t.showMoreReports(reports.length - PHONE_FIRST)}>
+            <PhoneRows reports={reports.slice(PHONE_FIRST)} t={t} locale={locale} />
+          </Disclosure>
+        ) : null}
+      </div>
 
       {/* Tablet and desktop: a table in a labelled scroll region keyboard users can focus. */}
       <div
@@ -101,7 +126,7 @@ function ReportsList({ reports, t, locale }: { reports: Report[]; t: AdminMessag
                 className="border-b border-border/80 align-top last:border-b-0 hover:bg-secondary/60"
               >
                 <th scope="row" className="w-[20%] px-5 py-3.5 text-start text-body font-semibold leading-snug text-foreground">
-                  <span className="break-words">{report.item_name}</span>
+                  <bdi dir="auto" className="break-words">{report.item_name}</bdi>
                 </th>
                 <td className="px-4 py-3">
                   <ReportKindCue kind={kindOf(report.report_type)}>
@@ -109,13 +134,13 @@ function ReportsList({ reports, t, locale }: { reports: Report[]; t: AdminMessag
                   </ReportKindCue>
                 </td>
                 <td className="w-[40%] px-4 py-3 text-foreground">
-                  <span className="break-words">{report.description}</span>
+                  <bdi dir="auto" className="break-words">{report.description}</bdi>
                   <span className="mt-1 block text-muted-foreground lg:hidden">
                     {t.location}: {report.location}
                   </span>
                 </td>
                 <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                  <span className="break-words">{report.location}</span>
+                  <bdi dir="auto" className="break-words">{report.location}</bdi>
                 </td>
                 <td className="whitespace-nowrap px-5 py-3 text-end tabular-nums text-muted-foreground">
                   {formatDateTime(report.created_at, locale)}

@@ -8,6 +8,7 @@ import { localizeClue } from "@/i18n/messages/clues";
 import { RunMatching } from "@/app/admin/RunMatching";
 import {
   currentDecision,
+  readyForDecision,
   reviewStatus,
   type ReportMatch,
   type Verification,
@@ -16,10 +17,10 @@ import {
   ClueColumns,
   Disclosure,
   EmptyState,
-  PairNames,
+  PairLine,
   QueueHeading,
   ReportPair,
-  ScoreFigure,
+  ScoreNote,
   inlineLinkClassName,
   rowClassName,
   stampClassName,
@@ -33,6 +34,7 @@ type Props = {
   t: AdminMessages;
   locale: Locale;
   error: boolean;
+  // Undecided possible matches; split below by who acts next.
   needsReview: ReportMatch[];
   reviewed: ReportMatch[];
   uncertain: ReportMatch[];
@@ -97,27 +99,46 @@ function MatchRow({
   const decision = verification ? currentDecision(verification) : null;
   const statusTone =
     decision?.decision === "approved" ? "ok" : decision?.decision === "rejected" ? "bad" : "wait";
-  const statusLabel = verification ? reviewStatus(verification, t) : t.status.pendingReview;
+  const statusLabel = verification ? reviewStatus(verification, t) : t.status.notStarted;
+
+  const claimLink = verification ? `/admin?section=claims#verification-${verification.id}` : null;
+  const ready = verification ? readyForDecision(verification) : false;
+  const nextStep = decision
+    ? null
+    : ready
+      ? t.nextStaff
+      : verification
+        ? t.nextOwnerAnswers
+        : verifiedElsewhere
+          ? t.nextElsewhere
+          : t.nextOwnerOpens;
 
   return (
     <li className={rowClassName}>
-      <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:p-5">
-        <div className="flex min-w-0 flex-col gap-3">
-          <PairNames match={match} t={t} />
-          <p dir="auto" className="line-clamp-2 max-w-[70ch] break-words text-small text-foreground/85">
-            {localizeClue(match.explanation, locale)}
-          </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
-            {match.contradictions.length > 0 ? (
-              <StatusChip tone="bad" icon={null}>
-                {t.contradictionsChip(match.contradictions.length)}
-              </StatusChip>
-            ) : null}
-            <span className={stampClassName}>{formatDateTime(match.created_at, locale)}</span>
-          </div>
+      <div className="flex min-w-0 flex-col gap-2.5 px-4 pt-4 sm:px-5">
+        <PairLine match={match} t={t} />
+        <p dir="auto" className="line-clamp-2 max-w-[70ch] break-words text-small text-foreground/85">
+          {localizeClue(match.explanation, locale)}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <StatusChip tone={decision ? statusTone : ready ? "wait" : "neutral"}>
+            {verification ? statusLabel : verifiedElsewhere ? t.status.otherSuggestion : t.status.notStarted}
+          </StatusChip>
+          {match.contradictions.length > 0 ? (
+            <StatusChip tone="bad" icon={null}>
+              {t.contradictionsChip(match.contradictions.length)}
+            </StatusChip>
+          ) : null}
+          {nextStep ? <span className="text-small text-foreground">{nextStep}</span> : null}
+          <ScoreNote score={match.ai_similarity_score} t={t} />
+          <span className={stampClassName}>{formatDateTime(match.created_at, locale)}</span>
         </div>
-        <ScoreFigure score={match.ai_similarity_score} t={t} />
+        {claimLink ? (
+          <Link href={claimLink} className={`${inlineLinkClassName} -my-1`}>
+            {ready ? t.openClaim : t.goToClaim}
+            <ArrowEndIcon className="size-4" />
+          </Link>
+        ) : null}
       </div>
 
       <div className="px-4 pb-2 sm:px-5">
@@ -174,7 +195,12 @@ function MatchList({
 }
 
 export function MatchesSection(props: Props) {
-  const { t, error, needsReview, reviewed, uncertain } = props;
+  const { t, error, needsReview, reviewed, uncertain, verificationByMatch } = props;
+  const staffNext = needsReview.filter((match) => {
+    const verification = verificationByMatch.get(match.id);
+    return verification ? readyForDecision(verification) : false;
+  });
+  const ownerNext = needsReview.filter((match) => !staffNext.includes(match));
   return (
     <div id="matches" className="grid scroll-mt-6 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
@@ -184,14 +210,36 @@ export function MatchesSection(props: Props) {
           </Notice>
         ) : (
           <>
-            <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
-              <QueueHeading id="needs-review-heading" title={t.needsReview} count={needsReview.length} />
-              {needsReview.length === 0 ? (
+            {needsReview.length === 0 ? (
+              <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
+                <QueueHeading id="needs-review-heading" title={t.needsReview} count={0} />
                 <EmptyState title={t.emptyMatchesTitle}>{t.emptyMatches}</EmptyState>
-              ) : (
-                <MatchList {...props} matches={needsReview} />
-              )}
-            </section>
+              </section>
+            ) : null}
+
+            {staffNext.length > 0 ? (
+              <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
+                <QueueHeading
+                  id="needs-review-heading"
+                  title={t.matchesStaffNext}
+                  count={staffNext.length}
+                  intro={t.matchesStaffNextHelp}
+                />
+                <MatchList {...props} matches={staffNext} />
+              </section>
+            ) : null}
+
+            {ownerNext.length > 0 ? (
+              <section aria-labelledby="owner-next-heading" className="flex flex-col gap-3">
+                <QueueHeading
+                  id="owner-next-heading"
+                  title={t.matchesOwnerNext}
+                  count={ownerNext.length}
+                  intro={t.matchesOwnerNextHelp}
+                />
+                <MatchList {...props} matches={ownerNext} />
+              </section>
+            ) : null}
 
             {reviewed.length > 0 ? (
               <Disclosure

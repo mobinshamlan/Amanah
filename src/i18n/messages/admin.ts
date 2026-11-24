@@ -124,6 +124,15 @@ const en = {
 
   // Possible matches
   needsReview: "Needs review",
+  matchesStaffNext: "Your decision is due",
+  matchesStaffNextHelp: "The owner has answered. Decide on the claim.",
+  matchesOwnerNext: "Waiting on the owner",
+  matchesOwnerNextHelp:
+    "Questions are prepared when the owner opens their tracking link. Look the pair over; there is nothing to decide yet.",
+  nextStaff: "Next: your decision",
+  nextOwnerAnswers: "Next: the owner answers",
+  nextOwnerOpens: "Next: the owner opens their link",
+  nextElsewhere: "Next: the claim on the other suggestion",
   reviewedGroup: (n: number) => `Reviewed (${n})`,
   uncertainGroup: (n: number) => `AI: not enough information (${n})`,
   uncertainHelp:
@@ -179,6 +188,8 @@ const en = {
     answersReceived: "Answers received",
     followupAnswered: "Follow-up answered",
     assessmentMissing: "AI assessment needs a retry",
+    notStarted: "No questions yet",
+    otherSuggestion: "Questions went to another suggestion",
   },
   decision: {
     approved: "Approved for ownership follow-up",
@@ -250,6 +261,7 @@ const en = {
     filter === "lost" ? "No lost reports" : "No found reports",
   emptyFiltered: "Try the other filter, or show all reports.",
   showAll: "Show all reports",
+  showMoreReports: (n: number) => `Show ${enCount(n, "more report", "more reports")}`,
 };
 
 const ar: typeof en = {
@@ -451,6 +463,15 @@ const ar: typeof en = {
   savedAt: (date) => `حُفظ ${date}`,
 
   needsReview: "يحتاج مراجعة",
+  matchesStaffNext: "قرارك مطلوب",
+  matchesStaffNextHelp: "صاحب الغرض جاوب. قرّر في الطلب.",
+  matchesOwnerNext: "بانتظار صاحب الغرض",
+  matchesOwnerNextHelp:
+    "الأسئلة تُجهّز لما يفتح صاحب الغرض رابط المتابعة. راجع الزوج؛ ما فيه قرار مطلوب الحين.",
+  nextStaff: "التالي: قرارك",
+  nextOwnerAnswers: "التالي: صاحب الغرض يجاوب",
+  nextOwnerOpens: "التالي: صاحب الغرض يفتح رابطه",
+  nextElsewhere: "التالي: الطلب على الاقتراح الثاني",
   reviewedGroup: (n) => `تمت مراجعته (${n})`,
   uncertainGroup: (n) => `الذكاء الاصطناعي: التفاصيل ما تكفي (${n})`,
   uncertainHelp:
@@ -511,6 +532,8 @@ const ar: typeof en = {
     answersReceived: "وصلت الأجوبة",
     followupAnswered: "تمت الإجابة على المتابعة",
     assessmentMissing: "تقييم الذكاء الاصطناعي يحتاج إعادة",
+    notStarted: "ما فيه أسئلة بعد",
+    otherSuggestion: "الأسئلة راحت لاقتراح ثاني",
   },
   decision: {
     approved: "مقبول لمتابعة الاستلام",
@@ -578,6 +601,14 @@ const ar: typeof en = {
   emptyFilteredTitle: (filter) => (filter === "lost" ? "ما فيه بلاغات عن مفقودات" : "ما فيه بلاغات عن أغراض لُقيت"),
   emptyFiltered: "جرّب التصفية الثانية، أو اعرض كل البلاغات.",
   showAll: "اعرض كل البلاغات",
+  showMoreReports: (n) =>
+    `اعرض ${arCount(n, {
+      zero: "",
+      one: "بلاغ واحد زيادة",
+      two: "بلاغين زيادة",
+      few: "بلاغات زيادة",
+      many: "بلاغًا زيادة",
+    })}`,
 };
 
 export type AdminMessages = typeof en;
