@@ -23,7 +23,15 @@ import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { ArrowEndIcon, ChevronDownIcon, ClockIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
-import { LoadingRow, textLinkClassName, textLinkOnDarkClassName } from "@/components/ui";
+import {
+  FieldError,
+  LoadingRow,
+  fieldClassName,
+  labelClassName,
+  primaryButtonClassName,
+  textLinkClassName,
+  textLinkOnDarkClassName,
+} from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { track } from "@/i18n/messages/track";
 
@@ -71,6 +79,9 @@ function NoLink() {
       intro={t.noLink.intro}
       sheet={
         <Slip label={t.noLink.title}>
+          <PasteLink />
+          <span aria-hidden className="perforation my-5 block text-foreground/20" />
+          <p className="mb-3 text-small font-semibold text-foreground">{t.noLink.placesTitle}</p>
           <ul className="flex flex-col gap-4">
             {t.noLink.places.map((place) => (
               <li key={place} className="flex items-start gap-3 text-body text-foreground">
@@ -89,6 +100,58 @@ function NoLink() {
         </Slip>
       }
     />
+  );
+}
+
+/** Opens a pasted tracking link in place; the page follows the new hash. */
+function PasteLink() {
+  const t = useMessages(track);
+  const [value, setValue] = useState("");
+  const [invalid, setInvalid] = useState(false);
+  return (
+    <form
+      noValidate
+      className="flex flex-col gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const hash = value.trim().split("#")[1]?.trim();
+        if (!hash || !value.includes("/report/track")) {
+          setInvalid(true);
+          return;
+        }
+        window.location.hash = hash;
+      }}
+    >
+      <label htmlFor="paste-link" className={labelClassName}>
+        {t.noLink.pasteLabel}
+      </label>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <input
+            id="paste-link"
+            type="url"
+            dir="ltr"
+            inputMode="url"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={t.noLink.pastePlaceholder}
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setInvalid(false);
+            }}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? "paste-link-error" : undefined}
+            className={fieldClassName}
+          />
+          {invalid ? <FieldError id="paste-link-error">{t.noLink.pasteInvalid}</FieldError> : null}
+        </div>
+        <button type="submit" className={primaryButtonClassName}>
+          {t.noLink.pasteSubmit}
+          <ArrowEndIcon className="size-4" />
+        </button>
+      </div>
+    </form>
   );
 }
 

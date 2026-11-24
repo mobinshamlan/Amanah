@@ -248,8 +248,12 @@ const en = {
   /* Someone opened /report/track without a link. */
   noLink: {
     title: "Open your private link",
-    intro:
-      "When you reported a lost item, you got a private link for it. Open that exact link from wherever you saved it.",
+    intro: "Paste the private link you got when you reported a lost item.",
+    pasteLabel: "Your private link",
+    pastePlaceholder: "https://…/report/track#…",
+    pasteSubmit: "Open",
+    pasteInvalid: "That isn't a full Amanah tracking link. Copy the whole link, including the part after #.",
+    placesTitle: "Can't find it? Look in:",
     places: ["Your browser's bookmarks", "A message you sent yourself", "Your browser history (search for “Amanah”)"],
     lostLink:
       "Lost the link? It cannot be recovered, because it is never stored on our side. You can report the item again.",
@@ -574,7 +578,12 @@ const ar: typeof en = {
 
   noLink: {
     title: "افتح رابطك الخاص",
-    intro: "لما بلّغت عن مفقود، أعطيناك رابطًا خاصًا بالبلاغ. افتح الرابط نفسه من المكان اللي حفظته فيه.",
+    intro: "الصق الرابط الخاص اللي أخذته لما بلّغت عن مفقود.",
+    pasteLabel: "رابطك الخاص",
+    pastePlaceholder: "https://…/report/track#…",
+    pasteSubmit: "افتح",
+    pasteInvalid: "هذا مو رابط متابعة كامل. انسخ الرابط كله، مع الجزء اللي بعد #.",
+    placesTitle: "ما لقيته؟ دوّر في:",
     places: ["الإشارات المرجعية في متصفحك", "رسالة أرسلتها لنفسك", "سجل المتصفح (ابحث عن «أمانة»)"],
     lostLink: "ضيّعت الرابط؟ ما نقدر نرجّعه، لأنه ما يُخزَّن عندنا. تقدر تبلّغ عن الغرض من جديد.",
   },
