@@ -40,7 +40,8 @@ export function CaseTag({
   const steps = buildSteps(t, view, waiting, ownership);
   const current = steps[currentStepIndex(steps)];
   const decision = ownership === "approved" || ownership === "rejected" ? ownership : null;
-  const detail = moving.has(current.state) ? current.detail : null;
+  // While staff review, the headline and the next-steps list already say so.
+  const detail = moving.has(current.state) && current.state !== "waiting" ? current.detail : null;
 
   if (ownership && asking.has(ownership)) {
     return children ? <div className="flex flex-col gap-3">{children}</div> : null;

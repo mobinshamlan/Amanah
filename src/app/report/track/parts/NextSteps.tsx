@@ -4,12 +4,11 @@ import { useMessages } from "@/i18n/LocaleProvider";
 import { track } from "@/i18n/messages/track";
 
 /*
-  What the owner does next once nothing is left to answer: while staff
-  review, after an approval (how to collect the item) and after a rejection.
-  A short numbered list beside the result, so the page ends on a next step.
+  What happens while staff review, once nothing is left to answer. A
+  decision's own next step sits in its headline, so it needs no list.
 */
-export function NextSteps({ kind }: { kind: "waiting" | "approved" | "rejected" }) {
-  const t = useMessages(track).next[kind];
+export function NextSteps() {
+  const t = useMessages(track).next.waiting;
   return (
     <section aria-labelledby="next-steps-title" className="flex max-w-[52ch] flex-col gap-3">
       <h2 id="next-steps-title" className="text-body font-semibold text-foreground">

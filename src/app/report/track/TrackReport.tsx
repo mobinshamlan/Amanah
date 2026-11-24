@@ -328,13 +328,14 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         ) : null}
       </LostProgress>
     );
-    // Once nothing is left to answer, the page ends on what the owner does next.
+    // While staff review, the page ends on what happens next. A decision's
+    // next step is already in its headline.
     const nextSteps =
-      ownership === "approved" || ownership === "rejected" ? (
-        <NextSteps kind={ownership} />
-      ) : ownership === "staff_review" || ownership === "answers_received" ? (
-        <NextSteps kind="waiting" />
-      ) : null;
+      ownership === "staff_review" || ownership === "answers_received" ? (
+        <NextSteps />
+      ) : decided ? null : (
+        <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>
+      );
     // The AI note describes the possible match itself, never a staff follow-up.
     const aiNote =
       headline.tone === "match" && ownership !== "followup" ? (
@@ -394,7 +395,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
                 </section>
               )}
               {aiNote}
-              {nextSteps ?? <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+              {nextSteps}
               {sandbox ? <SandboxNote /> : null}
               <MoreActions
                 waiting={isContinuing}
@@ -438,7 +439,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         aside={
           <>
             {aiNote}
-            {nextSteps ?? <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+            {nextSteps}
             {sandbox ? <SandboxNote /> : null}
             <MoreActions
               waiting={isContinuing}
