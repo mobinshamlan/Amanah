@@ -299,7 +299,7 @@ function Metrics({
   ctx,
 }: {
   snapshot: MonitoringSnapshot;
-  reviewNeeded: number | null;
+  reviewNeeded: ReviewNeeded | null;
   ctx: Ctx;
 }) {
   const { t, locale } = ctx;
@@ -343,8 +343,12 @@ function Metrics({
 
       <Kpi
         label={t.kpiReview}
-        value={reviewNeeded === null ? "—" : n(reviewNeeded)}
-        detail={t.kpiReviewDetail(pairs.possible, pairs.uncertain)}
+        value={reviewNeeded === null ? "—" : n(reviewNeeded.staffReady)}
+        detail={
+          reviewNeeded === null
+            ? t.kpiReviewUnavailable
+            : t.kpiReviewDetail(reviewNeeded.open, reviewNeeded.open - reviewNeeded.staffReady)
+        }
       >
         <Link href="/admin?section=matches" className={linkClass}>
           {t.reviewMatches}
@@ -787,14 +791,21 @@ function DemoBanner({ demo, t }: { demo: boolean; t: Messages }) {
   );
 }
 
+export type ReviewNeeded = {
+  // Owner has answered: staff decide now. The Matches nav badge counts these.
+  staffReady: number;
+  // Every possible match without a staff decision, including those waiting on owners.
+  open: number;
+};
+
 export async function MonitoringPanel({
   snapshot,
   reviewNeeded,
   demo = false,
 }: {
   snapshot: MonitoringSnapshot;
-  // Possible matches with no current staff decision; null when not loaded.
-  reviewNeeded: number | null;
+  // Possible matches with no staff decision; null when not loaded.
+  reviewNeeded: ReviewNeeded | null;
   // Development-only synthetic snapshot; never mixed with live counts.
   demo?: boolean;
 }) {

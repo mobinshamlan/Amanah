@@ -295,9 +295,10 @@ const en = {
     kpiProblemsEmpty: "None recorded in this period.",
     kpiProblemsDetail: (checks: number, completed: number, failed: number, stopped: number, truncated: boolean) =>
       `${enCount(checks, "check", "checks")}: ${completed} completed, ${failed} failed, ${stopped} stopped early${truncated ? " (latest checks only)" : ""}.`,
-    kpiReview: "Possible matches to review",
-    kpiReviewDetail: (possible: number, uncertain: number) =>
-      `Saved in total: ${possible} possible, ${uncertain} not enough information.`,
+    kpiReview: "Possible matches that need your decision",
+    kpiReviewDetail: (open: number, ownerNext: number) =>
+      `${enCount(open, "open suggestion", "open suggestions")} in all; ${ownerNext} ${ownerNext === 1 ? "waits" : "wait"} on the owner.`,
+    kpiReviewUnavailable: "Possible matches could not be loaded.",
     reviewMatches: "Review matches",
     kpiClaims: "Claims without a decision",
     kpiClaimsNone: "None waiting for staff right now.",
@@ -722,9 +723,9 @@ const ar: typeof en = {
     kpiProblemsEmpty: "لا شي مسجّل في هذه الفترة.",
     kpiProblemsDetail: (checks, completed, failed, stopped, truncated) =>
       `${arCount(checks, AR.check)}: ${completed} اكتمل، ${failed} فشل، ${stopped} توقف مبكرًا${truncated ? " (آخر الفحوصات فقط)" : ""}.`,
-    kpiReview: "تطابقات محتملة للمراجعة",
-    kpiReviewDetail: (possible, uncertain) =>
-      `المحفوظ إجمالًا: ${possible} تطابق محتمل، ${uncertain} معلومات غير كافية.`,
+    kpiReview: "تطابقات محتملة تنتظر قرارك",
+    kpiReviewDetail: (open, ownerNext) => `الاقتراحات المفتوحة كلها: ${open}، منها ${ownerNext} تنتظر المالك.`,
+    kpiReviewUnavailable: "ما قدرنا نحمّل التطابقات المحتملة.",
     reviewMatches: "راجع التطابقات",
     kpiClaims: "طلبات بلا قرار",
     kpiClaimsNone: "ما فيه طلب ينتظر الموظفين الآن.",

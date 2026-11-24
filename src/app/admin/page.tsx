@@ -263,10 +263,13 @@ export default async function AdminReportsPage({
               snapshot={data.monitoring.snapshot}
               reviewNeeded={
                 data.monitoringDemo
-                  ? data.monitoring.snapshot.pairs.possible
+                  ? {
+                      staffReady: data.monitoring.snapshot.pairs.possible,
+                      open: data.monitoring.snapshot.pairs.possible,
+                    }
                   : data.matchesError || !verificationsLoaded
                     ? null
-                    : data.monitoring.reviewNeeded
+                    : { staffReady: staffReadyMatches.length, open: needsReviewMatches.length }
               }
               demo={data.monitoringDemo}
             />
