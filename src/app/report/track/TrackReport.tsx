@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  LostProgress,
   MoreActions,
   RetryAction,
+  canContinue,
   lostHeadline,
   sceneFor,
   statusMessage,
@@ -17,9 +19,9 @@ import { SceneNote, TrackScene } from "@/app/report/track/parts/TrackScene";
 import { OwnershipVerification } from "@/app/report/track/OwnershipVerification";
 import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { ArrowEndIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
+import { ArrowEndIcon, ChevronDownIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
-import { LoadingRow, textLinkClassName } from "@/components/ui";
+import { LoadingRow, textLinkClassName, textLinkOnDarkClassName } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { track } from "@/i18n/messages/track";
 
@@ -128,6 +130,15 @@ export default function TrackReport() {
   const [linkReady, setLinkReady] = useState(false);
   const { matching, isContinuing, canRetry, credential, continueChecks, cancel, clear } =
     useMatchingProgress({ reportType: "lost", confirmStatusBeforeDisplay: true });
+  // Checking has stopped and every pair was compared with no possible match.
+  // Only then may the first visit trade "saved" for the result as its
+  // headline; paused, unfinished or uncertain checks keep "saved".
+  const definitiveNoMatch =
+    !isContinuing &&
+    matching !== null &&
+    matching.phase === "complete" &&
+    "outcome" in matching &&
+    matching.outcome === "no_match";
   const headingRef = useRef<HTMLHeadingElement>(null);
   // Token whose status fetch has not yet painted; cleared when the hash is empty.
   const [pendingToken, setPendingToken] = useState<string | null>(null);
@@ -170,14 +181,15 @@ export default function TrackReport() {
   // unless the visitor is already using something on the page.
   const wasContinuing = useRef(false);
   useEffect(() => {
-    if (wasContinuing.current && !isContinuing && !justSaved) {
+    // On the first visit the headline changes only for a definite no-match.
+    if (wasContinuing.current && !isContinuing && (!justSaved || definitiveNoMatch)) {
       const active = document.activeElement;
       if (!active || active === document.body) {
         headingRef.current?.focus();
       }
     }
     wasContinuing.current = isContinuing;
-  }, [isContinuing, justSaved]);
+  }, [isContinuing, justSaved, definitiveNoMatch]);
 
   // After the last answer, the ownership card shrinks to a chip and the
   // headline becomes the result: move focus to the headline.
@@ -195,6 +207,13 @@ export default function TrackReport() {
       headingRef.current?.focus();
     }
   }, [ownershipStage, justSaved]);
+
+  // Scrolls to the question and puts the cursor in its answer field; the hash stays the credential.
+  function goToQuestion() {
+    const field = document.getElementById("ownership-answer");
+    field?.scrollIntoView({ block: "center" });
+    field?.focus({ preventScroll: true });
+  }
 
   function retryChecks() {
     if (!credential) {
@@ -240,6 +259,17 @@ export default function TrackReport() {
       ownership === "followup" ||
       ownership === "retry";
     const retry = <RetryAction view={matching} waiting={isContinuing} canRetry={canRetry} onRetry={retryChecks} />;
+    const progress = (
+      <LostProgress view={matching} waiting={isContinuing} ownership={ownership}>
+        {/* Right after saving, the question sits under the link card: a way straight to it. */}
+        {justSaved && (ownership === "question" || ownership === "followup") ? (
+          <button type="button" onClick={goToQuestion} className={textLinkOnDarkClassName}>
+            {t.steps.toQuestion}
+            <ChevronDownIcon className="size-4" />
+          </button>
+        ) : null}
+      </LostProgress>
+    );
     // The AI note describes the possible match itself, never a staff follow-up.
     const aiNote =
       headline.tone === "match" && ownership !== "followup" ? (
@@ -248,32 +278,42 @@ export default function TrackReport() {
 
     if (justSaved) {
       // Right after saving, the page is about keeping the link: one tag on the
-      // counter. The status follows under it, in plain words.
+      // counter. While checking runs (or stops short of a clear answer) the
+      // headline says the report is saved and the status follows below; once
+      // every pair is compared with no match, that result becomes the
+      // headline, as it is when the link is reopened, and "saved" stays as a
+      // small confirmation above it. The result is shown once, not twice.
       return (
         <TrackScene
           art={scene.art}
-          mark="check"
+          mark={definitiveNoMatch ? scene.mark : "check"}
           stage="task"
-          title={t.saved.title}
-          intro={t.saved.intro}
+          context={definitiveNoMatch ? t.saved.context : undefined}
+          title={definitiveNoMatch ? headline.title : t.saved.title}
+          intro={definitiveNoMatch ? headline.intro : t.saved.intro}
           headingRef={headingRef}
+          progress={progress}
           sheet={
             <>
               {linkUrl ? <LinkTag url={linkUrl} focal /> : null}
               {verification}
+              {/* The report itself, as on every later visit, so the visitor sees what was saved and where it stands. */}
+              <CaseTag view={matching} waiting={isContinuing} ownership={ownership} />
             </>
           }
           aside={
             <>
-              <section aria-labelledby="saved-status-title" aria-busy={isContinuing} className="flex flex-col gap-3">
-                <h2 id="saved-status-title" className="text-subheading text-foreground">
-                  {headline.title}
-                </h2>
-                <p className="max-w-[52ch] text-body text-foreground/85">
-                  {headline.intro} {headline.extra}
-                </p>
-                {retry}
-              </section>
+              {definitiveNoMatch ? null : (
+                <section aria-labelledby="saved-status-title" aria-busy={isContinuing} className="flex flex-col gap-3">
+                  <h2 id="saved-status-title" className="text-subheading text-foreground">
+                    {headline.title}
+                  </h2>
+                  <p className="max-w-[52ch] text-body text-foreground/85">
+                    {headline.intro} {headline.extra}
+                  </p>
+                  {retry}
+                </section>
+              )}
               {aiNote}
               <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>
               <MoreActions
@@ -303,11 +343,12 @@ export default function TrackReport() {
           )
         }
         headingRef={headingRef}
+        progress={progress}
         sheet={
           <>
             {verification}
             <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
-              {retry}
+              {canContinue(matching, isContinuing, canRetry) ? retry : null}
             </CaseTag>
             {/* The compact link sits on the counter under the tag. */}
             {linkUrl ? <LinkTag url={linkUrl} /> : null}

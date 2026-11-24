@@ -20,11 +20,13 @@ import {
   textLinkOnDarkClassName,
 } from "@/components/ui";
 import { home } from "@/i18n/messages/home";
-import { getMessages } from "@/i18n/server";
+import { getLocale, getMessages } from "@/i18n/server";
+import { pageMetadata } from "@/app/social-metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getMessages(home);
-  return { title: t.metaTitle, description: t.metaDescription };
+  const locale = await getLocale();
+  const t = home[locale];
+  return pageMetadata({ title: t.metaTitle, description: t.metaDescription, path: "/", locale });
 }
 
 // The three scenes of what happens after a report, in order, on one desk.
@@ -38,7 +40,7 @@ const PROMISE_ICONS = [EyeOffIcon, LockIcon, UserIcon] as const;
 
 // The third way in, quieter than the two report actions: a tinted paper pill.
 const demoButtonClassName =
-  "inline-flex min-h-11 w-full max-w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-paper/12 px-5 text-base font-semibold text-paper transition-colors hover:bg-paper/20 active:translate-y-px sm:w-auto outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep";
+  "inline-flex min-h-11 w-auto max-w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-paper/12 px-5 text-base font-semibold text-paper transition-colors hover:bg-paper/20 active:translate-y-px outline-none focus-visible:ring-3 focus-visible:ring-brass-light focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep";
 
 // The outlined pill on pine at the same 48px height as the primary beside it.
 const foundButtonClassName = `${secondaryOnDarkButtonClassName.replace("min-h-11 px-5", "min-h-12 px-7")}`;
@@ -144,26 +146,28 @@ export default async function Home() {
               className="absolute inset-x-0 bottom-0 top-0 bg-secondary sm:top-10 lg:top-[4.5rem]"
             />
             <ol
-              className={`${frameClassName} relative grid gap-12 pb-16 pt-6 sm:grid-cols-3 sm:gap-6 sm:pb-20 sm:pt-0 lg:gap-10 lg:pb-24`}
+              className={`${frameClassName} relative grid gap-7 pb-14 pt-8 sm:grid-cols-3 sm:gap-6 sm:pb-20 sm:pt-0 lg:gap-10 lg:pb-24`}
             >
               {SCENES.map((scene, index) => {
                 const copy = t.scenes[index];
                 return (
                   <li
                     key={scene.src}
-                    className="home-scene flex min-w-0 flex-col items-center gap-5 sm:items-stretch"
+                    className="home-scene grid min-w-0 grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)] items-center gap-4 sm:flex sm:flex-col sm:items-stretch sm:gap-5"
                   >
                     <Image
                       src={scene.src}
                       alt={copy.alt}
                       width={1200}
                       height={900}
-                      sizes="(min-width: 1024px) 30vw, (min-width: 640px) 31vw, 86vw"
-                      className="-mt-[10%] h-auto w-full max-w-[22rem] sm:max-w-none"
+                      sizes="(min-width: 1024px) 30vw, (min-width: 640px) 31vw, 136px"
+                      className="h-auto w-full sm:-mt-[10%]"
                     />
-                    <div className="flex max-w-[34ch] flex-col gap-2 text-center sm:text-start">
-                      <h3 className="text-subheading text-foreground">{copy.title}</h3>
-                      <p className="text-body text-foreground/85">{copy.caption}</p>
+                    <div className="flex min-w-0 max-w-[34ch] flex-col gap-1 sm:gap-2">
+                      <h3 className="text-body font-semibold text-foreground sm:text-subheading">
+                        {copy.title}
+                      </h3>
+                      <p className="text-small text-foreground/85 sm:text-body">{copy.caption}</p>
                     </div>
                   </li>
                 );
@@ -172,20 +176,22 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* The promise, and the way back to the two actions. */}
+        {/*
+          The promise, then the way back to the two actions: one pine sheet
+          with a perforated stub at the bottom, so the close reads as the end
+          of the promise rather than a second hero.
+        */}
         <section aria-labelledby="promise-title" className="bg-pine text-paper">
-          <div
-            className={`${frameClassName} grid gap-12 py-20 sm:py-28 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-20 lg:py-32`}
-          >
-            <div className="flex flex-col items-start gap-8">
-              <h2 id="promise-title" className="text-title text-paper">
+          <div className={`${frameClassName} flex flex-col gap-10 py-16 sm:gap-14 sm:py-24 lg:py-28`}>
+            <div className="flex flex-col gap-8 sm:gap-10">
+              <h2 id="promise-title" className="max-w-[14ch] text-title text-paper">
                 {t.promiseTitle}
               </h2>
-              <ul className="flex flex-col gap-5">
+              <ul className="grid gap-5 sm:grid-cols-3 sm:gap-6 lg:gap-10">
                 {t.promises.map((promise, index) => {
                   const Icon = PROMISE_ICONS[index];
                   return (
-                    <li key={promise.title} className="flex items-start gap-4">
+                    <li key={promise.title} className="flex min-w-0 items-start gap-4">
                       <Icon className="mt-1 size-6 shrink-0 text-brass-light" />
                       <p className="min-w-0 text-body text-paper/90">
                         <strong className="block text-subheading font-semibold text-paper">
@@ -198,8 +204,9 @@ export default async function Home() {
                 })}
               </ul>
             </div>
-            <div className="flex flex-col justify-end gap-6 lg:items-end lg:text-end">
-              <p className="max-w-[16ch] text-title text-paper">{t.closeLine}</p>
+            <span aria-hidden className="perforation block text-sage/50" />
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
+              <p className="text-heading text-paper">{t.closeLine}</p>
               <ReportActions t={t} label={t.actionsLabel} />
             </div>
           </div>

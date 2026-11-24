@@ -35,3 +35,13 @@ coverage/
 *.pem
 .vercel
 next-env.d.ts
+
+# Local AI-agent instructions, settings and verification evidence
+AGENTS.md
+CLAUDE.md
+.claude/
+.cursor/
+.agents/
+.taste-skill/
+design-system/
+/artifacts/

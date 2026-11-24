@@ -37,7 +37,7 @@ Default language is Arabic (`DEFAULT_LOCALE = "ar"`); English is one switch away
 
 ## Limits that shape the screens
 
-- **Gemini use is capped.** Comparisons are batched (one request per 10 candidates), rate limits pause checking for about a minute, and a tracking page stops after 40 calls. Usage caps live in `src/utils/limits/usageLimit.ts`. Screens must have an honest "checking paused" and "did not finish, try again" state.
+- **Gemini use is capped.** Comparisons are batched (one request per 10 candidates), rate limits pause checking for about a minute, and a tracking page stops after 40 calls. Usage caps live in `src/utils/limits/usageBuckets.ts`. Screens must have an honest "checking paused" and "did not finish, try again" state.
 - **Checking depends on an open page.** Matching continues while the submitter's tab, or the lost report's tracking link, is open. Closing it leaves pairs unchecked, never "no match".
 - **One verification per lost report.** A later, better suggestion does not get new questions for the owner; staff see it under other suggestions.
 - **Answers cannot be edited** once saved.

@@ -40,6 +40,9 @@ export type BarLabels = {
   day: string;
   total: string;
   otherDaysNone: string;
+  // "Oldest" and "Newest" under the axis ends, so the direction of time is named.
+  oldest: string;
+  newest: string;
 };
 
 function niceMax(value: number) {
@@ -198,8 +201,12 @@ export function DailyBars<K extends string>({
           ))}
         </ol>
         <p aria-hidden className="ms-10 mt-0.5 flex justify-between text-caption text-muted-foreground">
-          <span>{points[0].label}</span>
-          <span>{points[points.length - 1].label}</span>
+          <span>
+            {labels.oldest} · {points[0].label}
+          </span>
+          <span>
+            {labels.newest} · {points[points.length - 1].label}
+          </span>
         </p>
       </div>
 

@@ -50,7 +50,7 @@ const en = {
   // Staff review, then the simulated decision.
   review:
     "Your answer is in and has gone to staff review. Staff compare it with the found report and decide, not the AI.",
-  reviewChip: "Waiting for staff",
+  reviewChip: "Pending staff review",
   showDecision: "Show the staff decision · simulated",
   decisionStamp: "Approved",
   decisionStampNote: "simulated",
@@ -190,7 +190,7 @@ const ar: typeof en = {
   answer: "أصفر",
 
   review: "وصلت إجابتك وراحت لمراجعة الموظف. الموظف يقارنها ببلاغ الغرض الملقى ويقرر، مو الذكاء الاصطناعي.",
-  reviewChip: "بانتظار الموظف",
+  reviewChip: "بانتظار مراجعة الموظف",
   showDecision: "اعرض قرار الموظف · محاكاة",
   decisionStamp: "موافَق عليه",
   decisionStampNote: "محاكاة",

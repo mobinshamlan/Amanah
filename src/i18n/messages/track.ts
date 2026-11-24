@@ -48,7 +48,7 @@ const en = {
     noMatch: {
       title: "No match so far",
       intro:
-        "We compared your report with every found item reported so far. Open this link again to check your report's status.",
+        "We compared your report with every found item reported so far. Items found later are checked when you open this link again, so keep it and come back.",
     },
     uncertain: {
       title: "No confirmed match so far",
@@ -118,7 +118,6 @@ const en = {
   /* The case tag: the report's status and its four stages, on a paper tag. */
   tag: {
     title: "Your report",
-    progress: "Report progress",
     approvedNote: "Not handed over yet",
   },
 
@@ -154,15 +153,26 @@ const en = {
       questions: "Ownership questions",
       decision: "Staff decision",
     },
+    // Shorter names for phones, where only the current stage shows its full name.
+    short: {
+      saved: "Saved",
+      matching: "Compare",
+      questions: "Questions",
+      decision: "Decision",
+    },
     state: {
       done: "Done",
-      active: "In progress",
+      active: "Now",
       paused: "Paused",
-      waiting: "Waiting",
+      waiting: "Pending staff review",
       stopped: "Did not finish",
       rejected: "Not confirmed",
+      approved: "Approved",
       upcoming: "Later",
+      conditional: "Only if there's a possible match",
     },
+    conditionalNote: "Nothing to answer right now. Questions and a staff decision come only if there's a possible match.",
+    toQuestion: "Go to your question",
     detail: {
       saved: "Your details are stored privately.",
       matchingActive: "This can take a little while. Keep this page open.",
@@ -217,10 +227,21 @@ const en = {
   /* The found reporter's confirmation. */
   found: {
     context: "Your report is saved",
-    title: "Hand it to the lost-and-found desk",
+    title: "Hand it to lost-and-found staff",
     intro: "Thanks — your report is saved. Its details are never public; only lost-and-found staff review them.",
-    nextTitle: "After you drop it off",
-    nextBody: "Staff keep it safe and return it to its owner once they confirm who it belongs to.",
+    // The finder's progress: only the stages that apply to a found report.
+    steps: {
+      handIn: "Hand the item in",
+      handInShort: "Hand in",
+    },
+    howTitle: "How to hand it in",
+    howSteps: [
+      "Hand it over as you found it, with anything inside.",
+      "Not sure where they are? Ask your organization where found items are handed in.",
+      "If someone says it is theirs, point them to staff. Staff confirm who it belongs to.",
+    ],
+    nextTitle: "After you hand it in",
+    nextBody: "Staff keep it safe and return it once they confirm the owner. Your part ends there.",
     finishing: "Your report is already saved. A last background check is finishing; keep this page open a moment.",
     finishingPaused:
       "Your report is already saved. A background check is paused because Amanah is busy; keep this page open, or try again later.",
@@ -283,7 +304,7 @@ const en = {
     chip: {
       approved: "Approved by staff",
       rejected: "Not confirmed",
-      waiting: "Waiting for staff",
+      waiting: "Pending staff review",
     },
   },
 };
@@ -324,7 +345,7 @@ const ar: typeof en = {
     noMatch: {
       title: "ما لقينا تطابق للحين",
       intro:
-        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. افتح هذا الرابط مرة ثانية وتشيّك على حالة بلاغك.",
+        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. اللي ينلقى بعدين نقارنه لما تفتح هذا الرابط مرة ثانية، فاحفظه وارجع له.",
     },
     uncertain: {
       title: "ما تأكد تطابق للحين",
@@ -389,7 +410,6 @@ const ar: typeof en = {
 
   tag: {
     title: "بلاغك",
-    progress: "مراحل البلاغ",
     approvedNote: "ما تسلّم بعد",
   },
 
@@ -421,15 +441,25 @@ const ar: typeof en = {
       questions: "أسئلة الملكية",
       decision: "قرار الموظف",
     },
+    short: {
+      saved: "الحفظ",
+      matching: "المقارنة",
+      questions: "الأسئلة",
+      decision: "القرار",
+    },
     state: {
       done: "تم",
-      active: "جاري",
+      active: "الحين",
       paused: "واقف شوي",
-      waiting: "بالانتظار",
+      waiting: "بانتظار مراجعة الموظف",
       stopped: "ما اكتمل",
       rejected: "ما تأكد",
+      approved: "وافق الموظف",
       upcoming: "بعدين",
+      conditional: "بس لو فيه احتمال تطابق",
     },
+    conditionalNote: "ما فيه شي تجاوب عليه الحين. الأسئلة وقرار الموظف بس لو فيه احتمال تطابق.",
+    toQuestion: "روح لسؤالك",
     detail: {
       saved: "تفاصيلك محفوظة بخصوصية.",
       matchingActive: "ممكن يأخذ شوي. خلّ الصفحة مفتوحة.",
@@ -479,10 +509,20 @@ const ar: typeof en = {
 
   found: {
     context: "تم حفظ بلاغك",
-    title: "سلّمه لمكتب المفقودات",
+    title: "سلّمه لموظفي المفقودات",
     intro: "شكرًا لك، بلاغك محفوظ. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
+    steps: {
+      handIn: "سلّم الغرض",
+      handInShort: "التسليم",
+    },
+    howTitle: "كيف تسلّمه",
+    howSteps: [
+      "سلّمه مثل ما لقيته، باللي فيه.",
+      "ما تعرف وينهم؟ اسأل جهتك وين تتسلّم الأغراض اللي تنلقى.",
+      "لو أحد قال إنه له، وجّهه للموظف. الموظف هو اللي يتأكد من صاحبه.",
+    ],
     nextTitle: "بعد ما تسلّمه",
-    nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون إنه له.",
+    nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون منه. ودورك ينتهي هنا.",
     finishing: "بلاغك محفوظ خلاص. نخلّص فحص أخير في الخلفية، خلّ الصفحة مفتوحة لحظة.",
     finishingPaused: "بلاغك محفوظ خلاص. فحص في الخلفية واقف لأن أمانة مشغولة، خلّ الصفحة مفتوحة أو جرّب بعدين.",
     stalled: "بعض المعالجة الآلية طوّلت. بلاغك محفوظ. حدّث الصفحة ليكمل.",
@@ -543,7 +583,7 @@ const ar: typeof en = {
     chip: {
       approved: "وافق الموظف",
       rejected: "ما تأكد",
-      waiting: "بانتظار الموظف",
+      waiting: "بانتظار مراجعة الموظف",
     },
   },
 };

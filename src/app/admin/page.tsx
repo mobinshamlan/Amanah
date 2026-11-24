@@ -4,14 +4,22 @@ import { isLocalAdminEnabled } from "@/utils/supabase/admin";
 import { Notice } from "@/components/ui";
 import { admin } from "@/i18n/messages/admin";
 import { getLocale, getMessages } from "@/i18n/server";
-import { AdminShell, type AdminNavItem, type AdminSectionKey } from "@/app/admin/AdminShell";
+import {
+  AdminShell,
+  type AdminNavItem,
+  type AdminSectionKey,
+  type NeedsYouItem,
+} from "@/app/admin/AdminShell";
 import { MonitoringPanel } from "@/app/admin/Monitoring";
 import { CandidatesPanel } from "@/app/admin/Candidates";
 import { buildCandidateQueues } from "@/utils/matching/candidates";
 import { loadAdminData, parseFilter, parseSection } from "@/app/admin/parts/data";
 import {
+  assessmentMissing,
+  byReadySince,
   byScoreThenNewest,
   currentDecision,
+  decidedAt,
   readyForDecision,
   waitingOnOwner,
 } from "@/app/admin/parts/model";
@@ -49,21 +57,40 @@ export default async function AdminReportsPage({
     const verification = verificationByMatch.get(match.id);
     return !verification || currentDecision(verification) === null;
   });
+  // Of those, the ones where the owner has answered and staff decide now. The
+  // nav badge, the sublines and the first-load route all count this list.
+  const staffReadyMatches = needsReviewMatches.filter((match) => {
+    const verification = verificationByMatch.get(match.id);
+    return verification ? readyForDecision(verification) : false;
+  });
   const reviewedMatches = possibleMatches.filter((match) => {
     const verification = verificationByMatch.get(match.id);
     return verification ? currentDecision(verification) !== null : false;
   });
 
-  const readyClaims = verifications.filter(readyForDecision);
+  const readyClaims = verifications.filter(readyForDecision).sort(byReadySince);
   const waitingClaims = verifications.filter(waitingOnOwner);
-  const decidedClaims = verifications.filter((verification) => currentDecision(verification) !== null);
-  const awaitingDecision = readyClaims.length + waitingClaims.length;
+  const decidedClaims = verifications
+    .filter((verification) => currentDecision(verification) !== null)
+    .sort((a, b) => (decidedAt(a) < decidedAt(b) ? 1 : -1));
+  const retryClaims = verifications.filter(
+    (verification) => !currentDecision(verification) && assessmentMissing(verification),
+  );
   const verificationsLoaded = data.verificationsState === "ok" && !data.matchesError;
 
   const candidateQueues = buildCandidateQueues(matches, data.candidateReviews);
   const unmarkedCandidates = candidateQueues.open.filter((item) => item.review?.action !== "ownership_review");
 
-  const section = requestedSection ?? (awaitingDecision > 0 ? "claims" : "matches");
+  // First load opens the queue where staff can act now, not one that waits on owners.
+  const section =
+    requestedSection ??
+    (readyClaims.length > 0
+      ? "claims"
+      : staffReadyMatches.length > 0
+        ? "matches"
+        : unmarkedCandidates.length > 0
+          ? "candidates"
+          : "claims");
 
   const monitoringAlert = !data.monitoring.ok
     ? null
@@ -79,7 +106,7 @@ export default async function AdminReportsPage({
       label: t.section.matches,
       count: data.matchesError
         ? null
-        : { value: needsReviewMatches.length, label: t.navCount.matches(needsReviewMatches.length) },
+        : { value: staffReadyMatches.length, label: t.navCount.matches(staffReadyMatches.length) },
     },
     {
       key: "candidates",
@@ -92,7 +119,7 @@ export default async function AdminReportsPage({
       key: "claims",
       label: t.section.claims,
       count: verificationsLoaded
-        ? { value: awaitingDecision, label: t.navCount.claims(awaitingDecision) }
+        ? { value: readyClaims.length, label: t.navCount.claims(readyClaims.length) }
         : null,
     },
     { key: "reports", label: t.section.reports },
@@ -111,7 +138,7 @@ export default async function AdminReportsPage({
 
   const sublines: Record<AdminSectionKey, { subline: string; actions?: ReactNode }> = {
     matches: {
-      subline: data.matchesError ? t.intro.matchesError : t.intro.matches(needsReviewMatches.length),
+      subline: data.matchesError ? t.intro.matchesError : t.intro.matches(staffReadyMatches.length, needsReviewMatches.length),
     },
     candidates: {
       subline: data.matchesError ? t.intro.candidatesError : t.intro.candidates(unmarkedCandidates.length),
@@ -128,6 +155,44 @@ export default async function AdminReportsPage({
     monitoring: { subline: t.intro.monitoring },
   };
 
+  // "Needs you now": staff tasks first, then work that waits on owners.
+  const needsYou: NeedsYouItem[] = [
+    // On the claims sheet the status line and "Open the next claim" already say this.
+    ...(verificationsLoaded && readyClaims.length > 0 && section !== "claims"
+      ? [{ href: "/admin?section=claims", label: t.needsYou.claims(readyClaims.length) }]
+      : []),
+    ...(verificationsLoaded && retryClaims.length > 0
+      ? [
+          {
+            href: `/admin?section=claims#verification-${retryClaims[0].id}`,
+            label: t.needsYou.retries(retryClaims.length),
+            tone: "alert" as const,
+          },
+        ]
+      : []),
+    // Possible matches staff can act on are the ready claims above, so they are not listed twice.
+    ...(!data.matchesError && unmarkedCandidates.length > 0
+      ? [{ href: "/admin?section=candidates", label: t.needsYou.candidates(unmarkedCandidates.length) }]
+      : []),
+    ...(monitoringAlert
+      ? [{ href: "/admin?section=monitoring", label: monitoringAlert, tone: "alert" as const }]
+      : []),
+    ...(verificationsLoaded && waitingClaims.length > 0
+      ? [
+          {
+            href: "/admin?section=claims#waiting-heading",
+            label: t.needsYou.owners(waitingClaims.length),
+            tone: "info" as const,
+          },
+        ]
+      : []),
+  ];
+
+  const nextClaim =
+    section === "claims" && verificationsLoaded && readyClaims.length > 0
+      ? { href: `/admin?section=claims#verification-${readyClaims[0].id}`, label: t.openNextClaim }
+      : null;
+
   return (
     <AdminShell
       active={section}
@@ -135,6 +200,8 @@ export default async function AdminReportsPage({
       title={t.section[section]}
       subline={sublines[section].subline}
       actions={sublines[section].actions}
+      next={nextClaim}
+      needsYou={requestedSection === null ? needsYou : null}
       t={t}
     >
       {section === "matches" ? (
@@ -142,7 +209,8 @@ export default async function AdminReportsPage({
           t={t}
           locale={locale}
           error={data.matchesError}
-          needsReview={needsReviewMatches}
+          staffNext={staffReadyMatches}
+          ownerNext={needsReviewMatches.filter((match) => !staffReadyMatches.includes(match))}
           reviewed={reviewedMatches}
           uncertain={uncertainMatches}
           verificationByMatch={verificationByMatch}
@@ -158,6 +226,7 @@ export default async function AdminReportsPage({
           ready={readyClaims}
           waiting={waitingClaims}
           decided={decidedClaims}
+          loadedAt={data.loadedAt}
           matches={matches}
           followupsAvailable={data.followupsAvailable}
         />
@@ -194,10 +263,13 @@ export default async function AdminReportsPage({
               snapshot={data.monitoring.snapshot}
               reviewNeeded={
                 data.monitoringDemo
-                  ? data.monitoring.snapshot.pairs.possible
+                  ? {
+                      staffReady: data.monitoring.snapshot.pairs.possible,
+                      open: data.monitoring.snapshot.pairs.possible,
+                    }
                   : data.matchesError || !verificationsLoaded
                     ? null
-                    : data.monitoring.reviewNeeded
+                    : { staffReady: staffReadyMatches.length, open: needsReviewMatches.length }
               }
               demo={data.monitoringDemo}
             />

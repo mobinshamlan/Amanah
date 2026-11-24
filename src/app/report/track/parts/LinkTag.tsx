@@ -81,7 +81,8 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
     <button
       type="button"
       onClick={() => void copyLink()}
-      className={`${focal ? primaryButtonClassName : secondaryButtonClassName} shrink-0`}
+      // The compact strip keeps the button beside the link on phones too.
+      className={`${focal ? primaryButtonClassName : `${secondaryButtonClassName} w-auto! px-4`} shrink-0`}
     >
       {copyState === "copied" ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
       {copyState === "copied" ? t.link.copied : t.link.copy}
@@ -125,7 +126,8 @@ export function LinkTag({ url, focal = false }: { url: string; focal?: boolean }
           <LinkIcon className="size-5 shrink-0 text-forest" />
           {t.link.title}
         </h2>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {/* On later visits the link is already kept: one row, so the status above stays the lead. */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {input}
           {copyButton}
         </div>

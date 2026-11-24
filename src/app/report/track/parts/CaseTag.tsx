@@ -2,84 +2,26 @@
 
 import type { ReactNode } from "react";
 import type { MatchingView, OwnershipStage } from "@/app/report/SubmissionConfirmation";
-import { buildSteps, type Step, type StepState } from "@/app/report/track/parts/steps";
-import { CheckIcon, ChevronDownIcon, ListIcon, XIcon } from "@/components/icons";
-import { ReportKindCue, focusRingClassName } from "@/components/ui";
+import { buildSteps, currentStepIndex, type StepState } from "@/app/report/track/parts/steps";
+import { CheckIcon, XIcon } from "@/components/icons";
+import { ReportKindCue } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { common } from "@/i18n/messages/common";
 import { track } from "@/i18n/messages/track";
 
 /*
   The report's case tag, as in the guided demo: a paper luggage tag on a
-  brass string with the report's four stages. It swings once whenever the
-  report moves on (the key changes). While a question is open the progress
-  steps aside behind a disclosure, and a staff decision lands on the tag as
-  its stamp, with nothing else competing.
+  brass string. The progress itself lives once, in the line under the
+  headline; the tag carries what the current stage means, and a staff
+  decision lands on it as its stamp, with nothing else competing. It swings
+  once whenever the report moves on (the key changes).
 */
 
-const segment: Record<StepState, string> = {
-  done: "bg-pine-deep",
-  active: "bg-brass",
-  paused: "bg-brass/60",
-  waiting: "bg-brass",
-  stopped: "bg-wait-ink/55",
-  rejected: "bg-destructive",
-  upcoming: "bg-secondary",
-};
+// Stages still moving, whose one-line detail the tag carries.
+const moving: ReadonlySet<StepState> = new Set(["active", "paused", "stopped", "waiting"]);
 
-// Ownership moments where the page asks for something: the progress waits behind a disclosure.
+// Ownership moments where the page asks for something: the question card is the focus, not the tag.
 const asking: ReadonlySet<OwnershipStage> = new Set(["loading", "question", "followup", "retry"]);
-
-function StepList({ steps, currentIndex, label }: { steps: Step[]; currentIndex: number; label: string }) {
-  const t = useMessages(track);
-  return (
-    <ol aria-label={label} className="flex flex-col gap-2.5 sm:grid sm:grid-cols-4 sm:gap-2">
-      {steps.map((step, index) => {
-        const current = index === currentIndex;
-        return (
-          <li
-            key={step.key}
-            aria-current={current ? "step" : undefined}
-            className="flex min-w-0 items-center gap-3 sm:block"
-          >
-            <span
-              aria-hidden
-              className={`block h-2.5 w-8 shrink-0 rounded-full sm:w-auto ${segment[step.state]} ${
-                // Only live checking pulses; a waiting question stays still.
-                current && step.key === "matching" && step.state === "active" ? "motion-safe:animate-breathe" : ""
-              }`}
-            />
-            <span
-              className={`flex min-w-0 flex-1 items-start gap-1 text-caption font-medium sm:mt-2 ${
-                step.state === "upcoming"
-                  ? "text-muted-foreground"
-                  : step.state === "rejected"
-                    ? "text-bad-ink"
-                    : "text-foreground"
-              }`}
-            >
-              {step.state === "done" ? (
-                <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-forest" />
-              ) : step.state === "rejected" ? (
-                <XIcon className="mt-0.5 size-3.5 shrink-0" />
-              ) : null}
-              <span className="min-w-0">{step.label}</span>
-            </span>
-            {/* The state in words: shown for the current stage, read out for every stage. */}
-            <span
-              className={`shrink-0 text-caption ${
-                current ? "font-semibold text-foreground sm:mt-0.5 sm:block" : "text-muted-foreground sm:sr-only"
-              }`}
-            >
-              <span className="sr-only">: </span>
-              {t.steps.state[step.state]}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 export function CaseTag({
   view,
@@ -96,31 +38,15 @@ export function CaseTag({
   const t = useMessages(track);
   const c = useMessages(common);
   const steps = buildSteps(t, view, waiting, ownership);
-  const currentIndex = steps.findIndex((step) => step.state !== "done" && step.state !== "upcoming");
-  // With nothing in progress, the tag shows the last stage that is done.
-  const lastDone = steps.findLastIndex((step) => step.state === "done");
-  const current = steps[currentIndex] ?? steps[lastDone] ?? steps[0];
+  const current = steps[currentStepIndex(steps)];
   const decision = ownership === "approved" || ownership === "rejected" ? ownership : null;
+  const detail = moving.has(current.state) ? current.detail : null;
 
   if (ownership && asking.has(ownership)) {
-    return (
-      <div className="flex flex-col gap-3">
-        <details className="group/progress">
-          <summary
-            className={`-ms-2 inline-flex min-h-11 w-fit cursor-pointer list-none items-center gap-2 rounded-full px-2 text-small font-semibold text-foreground [&::-webkit-details-marker]:hidden ${focusRingClassName}`}
-          >
-            <ListIcon className="size-4 shrink-0 text-forest" />
-            {t.tag.progress}
-            <ChevronDownIcon className="size-4 transition-transform group-open/progress:rotate-180" />
-          </summary>
-          <div className="mt-3 max-w-[32rem]">
-            <StepList steps={steps} currentIndex={currentIndex} label={t.steps.title} />
-          </div>
-        </details>
-        {children}
-      </div>
-    );
+    return children ? <div className="flex flex-col gap-3">{children}</div> : null;
   }
+  // With nothing moving, decided or to retry, the headline and progress line say it all.
+  if (!decision && !detail && !children) return null;
 
   return (
     <div className="relative w-full max-w-[32rem] pt-10">
@@ -157,9 +83,9 @@ export function CaseTag({
                 <span className="mt-1 text-small font-semibold leading-tight">{t.tag.approvedNote}</span>
               ) : null}
             </span>
-          ) : (
-            <StepList steps={steps} currentIndex={currentIndex} label={t.steps.title} />
-          )}
+          ) : detail ? (
+            <p className="max-w-[46ch] text-body text-foreground/85">{detail}</p>
+          ) : null}
 
           {children}
         </div>

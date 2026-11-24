@@ -4,22 +4,23 @@ import { Notice, StatusChip } from "@/components/ui";
 import type { Locale } from "@/i18n/config";
 import { formatDateTime } from "@/i18n/format";
 import type { AdminMessages } from "@/i18n/messages/admin";
-import { localizeClue } from "@/i18n/messages/clues";
 import { RunMatching } from "@/app/admin/RunMatching";
 import {
   currentDecision,
+  readyForDecision,
   reviewStatus,
   type ReportMatch,
   type Verification,
 } from "@/app/admin/parts/model";
 import {
   ClueColumns,
+  ClueText,
   Disclosure,
   EmptyState,
-  PairNames,
+  PairLine,
   QueueHeading,
   ReportPair,
-  ScoreFigure,
+  ScoreNote,
   inlineLinkClassName,
   rowClassName,
   stampClassName,
@@ -33,7 +34,10 @@ type Props = {
   t: AdminMessages;
   locale: Locale;
   error: boolean;
-  needsReview: ReportMatch[];
+  // Undecided possible matches, split by who acts next: staff decide on the
+  // claim, or the owner still has to open or answer it.
+  staffNext: ReportMatch[];
+  ownerNext: ReportMatch[];
   reviewed: ReportMatch[];
   uncertain: ReportMatch[];
   verificationByMatch: Map<string, Verification>;
@@ -97,27 +101,46 @@ function MatchRow({
   const decision = verification ? currentDecision(verification) : null;
   const statusTone =
     decision?.decision === "approved" ? "ok" : decision?.decision === "rejected" ? "bad" : "wait";
-  const statusLabel = verification ? reviewStatus(verification, t) : t.status.pendingReview;
+  const statusLabel = verification ? reviewStatus(verification, t) : t.status.notStarted;
+
+  const claimLink = verification ? `/admin?section=claims#verification-${verification.id}` : null;
+  const ready = verification ? readyForDecision(verification) : false;
+  const nextStep = decision
+    ? null
+    : ready
+      ? t.nextStaff
+      : verification
+        ? t.nextOwnerAnswers
+        : verifiedElsewhere
+          ? t.nextElsewhere
+          : t.nextOwnerOpens;
 
   return (
     <li className={rowClassName}>
-      <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:p-5">
-        <div className="flex min-w-0 flex-col gap-3">
-          <PairNames match={match} t={t} />
-          <p dir="auto" className="line-clamp-2 max-w-[70ch] break-words text-small text-foreground/85">
-            {localizeClue(match.explanation, locale)}
-          </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <StatusChip tone={statusTone}>{statusLabel}</StatusChip>
-            {match.contradictions.length > 0 ? (
-              <StatusChip tone="bad" icon={null}>
-                {t.contradictionsChip(match.contradictions.length)}
-              </StatusChip>
-            ) : null}
-            <span className={stampClassName}>{formatDateTime(match.created_at, locale)}</span>
-          </div>
+      <div className="flex min-w-0 flex-col gap-2.5 px-4 pt-4 sm:px-5">
+        <PairLine match={match} t={t} />
+        <p dir="auto" className="line-clamp-2 max-w-[70ch] break-words text-small text-foreground/85">
+          <ClueText text={match.explanation} locale={locale} isolate={false} />
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <StatusChip tone={decision ? statusTone : ready ? "wait" : "neutral"}>
+            {verification ? statusLabel : verifiedElsewhere ? t.status.otherSuggestion : t.status.notStarted}
+          </StatusChip>
+          {match.contradictions.length > 0 ? (
+            <StatusChip tone="bad" icon={null}>
+              {t.contradictionsChip(match.contradictions.length)}
+            </StatusChip>
+          ) : null}
+          {nextStep ? <span className="text-small text-foreground">{nextStep}</span> : null}
+          <ScoreNote score={match.ai_similarity_score} t={t} />
+          <span className={stampClassName}>{formatDateTime(match.created_at, locale)}</span>
         </div>
-        <ScoreFigure score={match.ai_similarity_score} t={t} />
+        {claimLink ? (
+          <Link href={claimLink} className={`${inlineLinkClassName} -my-1`}>
+            {ready ? t.openClaim : t.goToClaim}
+            <ArrowEndIcon className="size-4" />
+          </Link>
+        ) : null}
       </div>
 
       <div className="px-4 pb-2 sm:px-5">
@@ -133,7 +156,7 @@ function MatchRow({
               <ClueColumns match={match} t={t} />
               <p className="break-words text-small text-foreground">
                 <span className="font-semibold">{t.aiSummary}: </span>
-                <bdi>{localizeClue(match.explanation, locale)}</bdi>
+                <ClueText text={match.explanation} locale={locale} />
               </p>
               <p className={stampClassName}>
                 {t.suggestedAt(formatDateTime(match.created_at, locale), match.model)} · {t.scoreHelp}
@@ -173,25 +196,69 @@ function MatchList({
   );
 }
 
+/** The manual matching run and where its history lives. */
+function MatchingControls({ t }: { t: AdminMessages }) {
+  return (
+    <>
+      <RunMatching stacked />
+      <p className="text-small text-muted-foreground">
+        {t.matchingHelp}{" "}
+        <Link href="/admin?section=monitoring" className={inlineLinkClassName}>
+          {t.section.monitoring}
+          <ArrowEndIcon className="size-4" />
+        </Link>
+      </p>
+    </>
+  );
+}
+
 export function MatchesSection(props: Props) {
-  const { t, error, needsReview, reviewed, uncertain } = props;
+  const { t, error, staffNext, ownerNext, reviewed, uncertain } = props;
   return (
     <div id="matches" className="grid scroll-mt-6 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
+        {/* Below xl: the same matching controls, folded above the queue. */}
+        <Disclosure label={t.matchingJump} className="rounded-[1.25rem] bg-background px-4 py-1.5 sm:px-5 xl:hidden">
+          <div className="mb-3 flex min-w-0 flex-col gap-3">
+            <MatchingControls t={t} />
+          </div>
+        </Disclosure>
         {error ? (
           <Notice tone="error" role="alert">
             {t.errorMatches}
           </Notice>
         ) : (
           <>
-            <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
-              <QueueHeading id="needs-review-heading" title={t.needsReview} count={needsReview.length} />
-              {needsReview.length === 0 ? (
+            {staffNext.length + ownerNext.length === 0 ? (
+              <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
+                <QueueHeading id="needs-review-heading" title={t.needsReview} count={0} />
                 <EmptyState title={t.emptyMatchesTitle}>{t.emptyMatches}</EmptyState>
-              ) : (
-                <MatchList {...props} matches={needsReview} />
-              )}
-            </section>
+              </section>
+            ) : null}
+
+            {staffNext.length > 0 ? (
+              <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
+                <QueueHeading
+                  id="needs-review-heading"
+                  title={t.matchesStaffNext}
+                  count={staffNext.length}
+                  intro={t.matchesStaffNextHelp}
+                />
+                <MatchList {...props} matches={staffNext} />
+              </section>
+            ) : null}
+
+            {ownerNext.length > 0 ? (
+              <section aria-labelledby="owner-next-heading" className="flex flex-col gap-3">
+                <QueueHeading
+                  id="owner-next-heading"
+                  title={t.matchesOwnerNext}
+                  count={ownerNext.length}
+                  intro={t.matchesOwnerNextHelp}
+                />
+                <MatchList {...props} matches={ownerNext} />
+              </section>
+            ) : null}
 
             {reviewed.length > 0 ? (
               <Disclosure
@@ -219,18 +286,17 @@ export function MatchesSection(props: Props) {
         )}
       </div>
 
-      {/* Desktop: a side column. Smaller screens: after the queue, which is the main job. */}
-      <aside className="flex flex-col gap-4 xl:sticky xl:top-4">
-        <section className="flex min-w-0 flex-col gap-3 rounded-[1.25rem] bg-background p-5">
-          <h2 className="text-subheading text-foreground">{t.matchingPanel}</h2>
-          <RunMatching stacked />
-          <p className="text-small text-muted-foreground">
-            {t.matchingHelp}{" "}
-            <Link href="/admin?section=monitoring" className={inlineLinkClassName}>
-              {t.section.monitoring}
-              <ArrowEndIcon className="size-4" />
-            </Link>
-          </p>
+      {/* Desktop: a side column beside the queue. */}
+      <aside className="hidden flex-col gap-4 xl:sticky xl:top-4 xl:flex">
+        <section
+          id="matching-panel"
+          aria-labelledby="matching-panel-heading"
+          className="flex min-w-0 flex-col gap-3 rounded-[1.25rem] bg-background p-5"
+        >
+          <h2 id="matching-panel-heading" className="text-subheading text-foreground">
+            {t.matchingPanel}
+          </h2>
+          <MatchingControls t={t} />
         </section>
       </aside>
     </div>

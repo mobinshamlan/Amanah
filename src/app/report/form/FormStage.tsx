@@ -52,7 +52,7 @@ export function FormStage({
   backLabel: ReactNode;
 }) {
   return (
-    <header className="col-start-1 row-start-1 flex min-w-0 flex-col items-start text-paper">
+    <header className="col-start-1 row-start-1 flex min-w-0 flex-col items-start pb-11 text-paper sm:pb-0">
       <Link
         href="/"
         className={`-ms-2 inline-flex min-h-11 w-fit items-center gap-2 rounded-full px-2 text-sm font-medium text-paper/80 transition-colors hover:text-paper ${focusRingOnDarkClassName}`}
@@ -68,17 +68,19 @@ export function FormStage({
         {intro}
       </p>
       {/*
-        The desk. On phones a low band under the sentence, with its front
-        edge tucked under the form sheet; from lg it hangs past the band.
+        The desk. Phones skip it so the first field is in the first screen
+        (the homepage carries the full render); from sm it is a low band with
+        its front edge tucked under the form sheet, and from lg it hangs past
+        the band.
       */}
-      <div className="form-desk relative mt-4 h-44 w-full max-w-[22rem] self-center overflow-hidden sm:h-56 sm:max-w-[26rem] lg:-mb-24 lg:mt-6 lg:h-auto lg:max-w-[30rem] lg:self-start lg:overflow-visible">
+      <div className="form-desk relative mt-4 hidden h-44 w-full max-w-[22rem] self-center overflow-hidden sm:block sm:h-56 sm:max-w-[26rem] lg:-mb-24 lg:mt-6 lg:h-auto lg:max-w-[30rem] lg:self-start lg:overflow-visible">
         <Image
           src={ART[kind]}
           alt={artAlt}
           width={1200}
           height={900}
           priority
-          sizes="(min-width: 1024px) 36vw, (min-width: 640px) 26rem, 22rem"
+          sizes="(min-width: 1024px) 36vw, (min-width: 640px) 26rem, 1px"
           className="h-full w-full object-cover object-[50%_42%] lg:h-auto lg:object-contain"
         />
       </div>

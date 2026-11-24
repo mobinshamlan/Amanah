@@ -1,7 +1,7 @@
 import type { Catalogue } from "@/i18n/config";
 
 // The staff workspace shell and its main sections (possible matches, claims,
-// reports). The tools agent's catalogue (admin-tools.ts) covers the controls.
+// reports). The controls' strings live in admin-tools.ts.
 // Arabic is short, slightly formal Saudi Arabic for staff; English is direct.
 
 type SectionKey = "matches" | "candidates" | "claims" | "reports" | "monitoring";
@@ -47,19 +47,36 @@ const en = {
   } satisfies Record<SectionKey, string>,
   // Screen-reader noun after a count badge.
   navCount: {
-    matches: (n: number) => enCount(n, "suggestion needs review", "suggestions need review"),
+    matches: (n: number) => enCount(n, "possible match needs your decision", "possible matches need your decision"),
     candidates: (n: number) => enCount(n, "candidate to look at", "candidates to look at"),
-    claims: (n: number) => enCount(n, "claim awaiting a decision", "claims awaiting a decision"),
+    claims: (n: number) => enCount(n, "claim ready for your decision", "claims ready for your decision"),
   },
   alertLastRunFailed: "Last check failed",
   alertNotConfigured: "Matching is not configured",
 
+  // Phone section picker and the first-load summary of staff work.
+  sectionPicker: "Section",
+  needsYou: {
+    title: "Needs you now",
+    claims: (n: number) => `${enCount(n, "claim", "claims")} ready for your decision`,
+    candidates: (n: number) => `${enCount(n, "candidate pair", "candidate pairs")} to look at`,
+    retries: (n: number) => `${enCount(n, "AI assessment", "AI assessments")} to retry`,
+    owners: (n: number) => `${enCount(n, "claim waits", "claims wait")} on the owner`,
+    nothing: "Nothing needs you right now. New work shows up here.",
+  },
+  openNextClaim: "Open the next claim",
+
   // Section sublines: the finding first, then one sentence on what the list is.
   intro: {
-    matches: (n: number) =>
-      n === 0
-        ? "Nothing needs review. The AI ranks report pairs that may describe the same item; it never proves ownership."
-        : `${enCount(n, "suggestion needs", "suggestions need")} review. The AI ranks report pairs that may describe the same item; it never proves ownership.`,
+    // `ready`: the owner has answered and staff decide; `open`: every undecided suggestion.
+    matches: (ready: number, open: number) =>
+      `${
+        open === 0
+          ? "Nothing needs review."
+          : ready === 0
+            ? `No decision is due; ${enCount(open, "open suggestion waits", "open suggestions wait")} on the owner.`
+            : `${enCount(ready, "needs", "need")} your decision, of ${enCount(open, "open suggestion", "open suggestions")}.`
+      } The AI ranks report pairs that may describe the same item; it never proves ownership.`,
     matchesError: "The AI ranks report pairs that may describe the same item; it never proves ownership.",
     candidates: (n: number) =>
       n === 0
@@ -111,6 +128,15 @@ const en = {
 
   // Possible matches
   needsReview: "Needs review",
+  matchesStaffNext: "Your decision is due",
+  matchesStaffNextHelp: "The owner has answered. Decide on the claim.",
+  matchesOwnerNext: "Waiting on the owner",
+  matchesOwnerNextHelp:
+    "Questions are prepared when the owner opens their tracking link. Look the pair over; there is nothing to decide yet.",
+  nextStaff: "Next: your decision",
+  nextOwnerAnswers: "Next: the owner answers",
+  nextOwnerOpens: "Next: the owner opens their link",
+  nextElsewhere: "Next: the claim on the other suggestion",
   reviewedGroup: (n: number) => `Reviewed (${n})`,
   uncertainGroup: (n: number) => `AI: not enough information (${n})`,
   uncertainHelp:
@@ -130,6 +156,8 @@ const en = {
     "Shared clues, differences and unknowns were not recorded for this suggestion (saved before they were collected).",
   aiSummary: "AI summary",
   matchingPanel: "Matching",
+  // Phone and tablet: the folded matching controls above the queue.
+  matchingJump: "Check for matches",
   matchingHelp: "Unchecked pairs, past checks and failures are listed under Monitoring.",
 
   // Ownership verification state inside a match
@@ -161,11 +189,13 @@ const en = {
     awaitingAnswer: (answered: number, total: number) => `Awaiting answer (${answered}/${total})`,
     awaitingFollowup: "Awaiting follow-up answer",
     readyForDecision: "Ready for decision",
-    pendingReview: "Pending review",
+    pendingReview: "Pending staff review",
     noQuestions: "No questions needed",
     answersReceived: "Answers received",
     followupAnswered: "Follow-up answered",
     assessmentMissing: "AI assessment needs a retry",
+    notStarted: "No questions yet",
+    otherSuggestion: "Questions went to another suggestion",
   },
   decision: {
     approved: "Approved for ownership follow-up",
@@ -178,6 +208,18 @@ const en = {
     conflicts: "Answers conflict with the found report",
   } satisfies Record<Assessment, string>,
   questionsAndAnswers: "Questions, answers and AI assessment",
+  aiSuggests: (assessment: string) => `AI suggests: ${assessment}`,
+  recentlyDecidedGroup: "Just decided",
+  recentlyDecidedHelp: "Decisions from the last 30 minutes stay here so you can check or reset them.",
+  olderDecidedGroup: (n: number) => `Earlier decisions (${n})`,
+  openClaim: "Open the claim and decide",
+  // Ready claims after the next one: a compact row that opens on demand.
+  reviewClaim: "Review claim",
+  hideClaim: "Hide claim",
+  changeDecision: "Change this decision",
+  nextDecision: "Next decision",
+  // Phone and tablet: skips the evidence to the decision controls.
+  jumpToDecision: "Jump to staff decision",
   question: (n: number) => `Question ${n}`,
   ownerAnswer: "Owner's answer",
   awaitingAnswer: "Awaiting answer",
@@ -230,6 +272,7 @@ const en = {
     filter === "lost" ? "No lost reports" : "No found reports",
   emptyFiltered: "Try the other filter, or show all reports.",
   showAll: "Show all reports",
+  showMoreReports: (n: number) => `Show ${enCount(n, "more report", "more reports")}`,
 };
 
 const ar: typeof en = {
@@ -254,11 +297,11 @@ const ar: typeof en = {
   navCount: {
     matches: (n) =>
       arCount(n, {
-        zero: "ما فيه اقتراحات تحتاج مراجعة",
-        one: "اقتراح واحد يحتاج مراجعة",
-        two: "اقتراحين يحتاجان مراجعة",
-        few: "اقتراحات تحتاج مراجعة",
-        many: "اقتراحًا يحتاج مراجعة",
+        zero: "ما فيه احتمالات تنتظر قرارك",
+        one: "احتمال تطابق واحد ينتظر قرارك",
+        two: "احتمالين ينتظران قرارك",
+        few: "احتمالات تنتظر قرارك",
+        many: "احتمالًا ينتظر قرارك",
       }),
     candidates: (n) =>
       arCount(n, {
@@ -271,26 +314,81 @@ const ar: typeof en = {
     claims: (n) =>
       arCount(n, {
         zero: "ما فيه طلبات تنتظر قرار",
-        one: "طلب واحد ينتظر قرار",
-        two: "طلبين ينتظران قرار",
-        few: "طلبات تنتظر قرار",
-        many: "طلبًا ينتظر قرار",
+        one: "طلب واحد جاهز لقرارك",
+        two: "طلبين جاهزين لقرارك",
+        few: "طلبات جاهزة لقرارك",
+        many: "طلبًا جاهزًا لقرارك",
       }),
   },
   alertLastRunFailed: "آخر فحص فشل",
   alertNotConfigured: "المطابقة غير مهيّأة",
 
+  sectionPicker: "القسم",
+  needsYou: {
+    title: "يحتاجك الحين",
+    claims: (n) =>
+      arCount(n, {
+        zero: "ما فيه طلبات جاهزة لقرارك",
+        one: "طلب واحد جاهز لقرارك",
+        two: "طلبين جاهزين لقرارك",
+        few: "طلبات جاهزة لقرارك",
+        many: "طلبًا جاهزًا لقرارك",
+      }),
+    candidates: (n) =>
+      arCount(n, {
+        zero: "ما فيه أزواج مرشّحة",
+        one: "زوج مرشّح واحد يحتاج نظرة",
+        two: "زوجين مرشّحين يحتاجان نظرة",
+        few: "أزواج مرشّحة تحتاج نظرة",
+        many: "زوجًا مرشّحًا يحتاج نظرة",
+      }),
+    retries: (n) =>
+      arCount(n, {
+        zero: "ما فيه تقييمات تحتاج إعادة",
+        one: "تقييم ذكاء اصطناعي واحد يحتاج إعادة",
+        two: "تقييمين يحتاجان إعادة",
+        few: "تقييمات تحتاج إعادة",
+        many: "تقييمًا يحتاج إعادة",
+      }),
+    owners: (n) =>
+      arCount(n, {
+        zero: "ما فيه طلبات تنتظر صاحب الغرض",
+        one: "طلب واحد ينتظر صاحب الغرض",
+        two: "طلبين ينتظران صاحب الغرض",
+        few: "طلبات تنتظر صاحب الغرض",
+        many: "طلبًا ينتظر صاحب الغرض",
+      }),
+    nothing: "ما فيه شي يحتاجك الحين. الشغل الجديد يظهر هنا.",
+  },
+  openNextClaim: "افتح الطلب التالي",
+
   intro: {
-    matches: (n) =>
-      n === 0
-        ? "ما فيه شي يحتاج مراجعة. الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية."
-        : `${arCount(n, {
-            zero: "",
-            one: "اقتراح واحد يحتاج",
-            two: "اقتراحين يحتاجان",
-            few: "اقتراحات تحتاج",
-            many: "اقتراحًا يحتاج",
-          })} مراجعة. الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.`,
+    matches: (ready, open) =>
+      `${
+        open === 0
+          ? "ما فيه شي يحتاج مراجعة."
+          : ready === 0
+            ? `ما فيه قرار مطلوب الحين؛ ${arCount(open, {
+                zero: "",
+                one: "اقتراح مفتوح واحد ينتظر",
+                two: "اقتراحين مفتوحين ينتظران",
+                few: "اقتراحات مفتوحة تنتظر",
+                many: "اقتراحًا مفتوحًا ينتظر",
+              })} صاحب الغرض.`
+            : `${arCount(ready, {
+                zero: "",
+                one: "اقتراح واحد ينتظر",
+                two: "اقتراحين ينتظران",
+                few: "اقتراحات تنتظر",
+                many: "اقتراحًا ينتظر",
+              })} قرارك، من أصل ${arCount(open, {
+                zero: "",
+                one: "اقتراح مفتوح واحد",
+                two: "اقتراحين مفتوحين",
+                few: "اقتراحات مفتوحة",
+                many: "اقتراحًا مفتوحًا",
+              })}.`
+      } الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.`,
     matchesError:
       "الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.",
     candidates: (n) =>
@@ -384,6 +482,15 @@ const ar: typeof en = {
   savedAt: (date) => `حُفظ ${date}`,
 
   needsReview: "يحتاج مراجعة",
+  matchesStaffNext: "قرارك مطلوب",
+  matchesStaffNextHelp: "صاحب الغرض جاوب. قرّر في الطلب.",
+  matchesOwnerNext: "بانتظار صاحب الغرض",
+  matchesOwnerNextHelp:
+    "الأسئلة تُجهّز لما يفتح صاحب الغرض رابط المتابعة. راجع الزوج؛ ما فيه قرار مطلوب الحين.",
+  nextStaff: "التالي: قرارك",
+  nextOwnerAnswers: "التالي: صاحب الغرض يجاوب",
+  nextOwnerOpens: "التالي: صاحب الغرض يفتح رابطه",
+  nextElsewhere: "التالي: الطلب على الاقتراح الثاني",
   reviewedGroup: (n) => `تمت مراجعته (${n})`,
   uncertainGroup: (n) => `الذكاء الاصطناعي: التفاصيل ما تكفي (${n})`,
   uncertainHelp:
@@ -410,6 +517,7 @@ const ar: typeof en = {
     "الأدلة المشتركة والاختلافات وغير المعروف ما سُجّلت لهذا الاقتراح (حُفظ قبل أن تُجمع).",
   aiSummary: "ملخص الذكاء الاصطناعي",
   matchingPanel: "المطابقة",
+  matchingJump: "ابحث عن تطابقات",
   matchingHelp: "الأزواج غير المفحوصة والفحوصات السابقة والأعطال تجدها في «المراقبة».",
 
   verificationTitle: "التحقق من الملكية",
@@ -439,11 +547,13 @@ const ar: typeof en = {
     awaitingAnswer: (answered, total) => `بانتظار الجواب (${answered}/${total})`,
     awaitingFollowup: "بانتظار جواب المتابعة",
     readyForDecision: "جاهز للقرار",
-    pendingReview: "قيد المراجعة",
+    pendingReview: "بانتظار مراجعة الموظف",
     noQuestions: "ما يحتاج أسئلة",
     answersReceived: "وصلت الأجوبة",
     followupAnswered: "تمت الإجابة على المتابعة",
     assessmentMissing: "تقييم الذكاء الاصطناعي يحتاج إعادة",
+    notStarted: "ما فيه أسئلة بعد",
+    otherSuggestion: "الأسئلة راحت لاقتراح ثاني",
   },
   decision: {
     approved: "مقبول لمتابعة الاستلام",
@@ -456,6 +566,16 @@ const ar: typeof en = {
     conflicts: "الأجوبة تتعارض مع بلاغ الملقى",
   },
   questionsAndAnswers: "الأسئلة والأجوبة وتقييم الذكاء الاصطناعي",
+  aiSuggests: (assessment) => `اقتراح الذكاء الاصطناعي: ${assessment}`,
+  recentlyDecidedGroup: "قرارات للتو",
+  recentlyDecidedHelp: "قرارات آخر 30 دقيقة تبقى هنا عشان تراجعها أو ترجعها.",
+  olderDecidedGroup: (n) => `قرارات سابقة (${n})`,
+  openClaim: "افتح الطلب وقرّر",
+  reviewClaim: "راجع الطلب",
+  hideClaim: "اخفِ الطلب",
+  changeDecision: "غيّر هذا القرار",
+  nextDecision: "القرار التالي",
+  jumpToDecision: "روح لقرار الموظف",
   question: (n) => `السؤال ${n}`,
   ownerAnswer: "جواب صاحب الغرض",
   awaitingAnswer: "بانتظار الجواب",
@@ -504,6 +624,14 @@ const ar: typeof en = {
   emptyFilteredTitle: (filter) => (filter === "lost" ? "ما فيه بلاغات عن مفقودات" : "ما فيه بلاغات عن أغراض لُقيت"),
   emptyFiltered: "جرّب التصفية الثانية، أو اعرض كل البلاغات.",
   showAll: "اعرض كل البلاغات",
+  showMoreReports: (n) =>
+    `اعرض ${arCount(n, {
+      zero: "",
+      one: "بلاغ واحد زيادة",
+      two: "بلاغين زيادة",
+      few: "بلاغات زيادة",
+      many: "بلاغًا زيادة",
+    })}`,
 };
 
 export type AdminMessages = typeof en;

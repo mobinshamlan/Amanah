@@ -51,7 +51,7 @@ const en = {
     lost: "Lost report",
     found: "Found report",
     foundPrivate: "Found report · private",
-    location: (place: string) => `Where: ${place}`,
+    locationLabel: "Where",
     characters: (used: number, max: number) => `${used}/${max} characters`,
   },
 
@@ -67,6 +67,10 @@ const en = {
     empty:
       "No pairs to review right now. A pair appears here when the saved result says there is not enough information, the item types match, and the reports share a real clue.",
     dismissedTitle: (n: number) => `Marked “not the same item” (${n})`,
+    reviewedTitle: (n: number) => `Marked worth ownership review (${n})`,
+    notReviewed: "Not reviewed yet",
+    reviewPair: "Review pair",
+    moreDifferences: (n: number) => `(+${n} more)`,
     notSetUp:
       "The candidate list works, but saving a review needs the report_candidate_reviews migration applied locally.",
     loadError: "Earlier candidate reviews could not be loaded. Refresh to try again.",
@@ -90,7 +94,7 @@ const en = {
 
     reviewedWorth: "Marked worth ownership review.",
     reviewedDismissed: "Marked not the same item.",
-    reviewNote: (note: string) => `Note: ${note}`,
+    reviewNoteLabel: "Note",
     reviewLogged: "A new review is added to the log; earlier ones stay.",
 
     noteLabel: "Note for the next staff member",
@@ -260,6 +264,7 @@ const en = {
     failed: "failed",
 
     geminiKey: "Gemini key",
+    setupDetails: "Setup details",
     keyPresent: "Present (a key is set; this does not show the service works)",
     keyMissing: "Missing",
     model: "Model",
@@ -290,11 +295,11 @@ const en = {
     kpiProblemsEmpty: "None recorded in this period.",
     kpiProblemsDetail: (checks: number, completed: number, failed: number, stopped: number, truncated: boolean) =>
       `${enCount(checks, "check", "checks")}: ${completed} completed, ${failed} failed, ${stopped} stopped early${truncated ? " (latest checks only)" : ""}.`,
-    kpiReview: "Possible matches to review",
-    kpiReviewDetail: (possible: number, uncertain: number) =>
-      `Saved in total: ${possible} possible, ${uncertain} not enough information.`,
+    kpiReview: "Possible matches that need your decision",
+    kpiReviewDetail: (open: number) => `${enCount(open, "open suggestion", "open suggestions")} in all.`,
+    kpiReviewUnavailable: "Possible matches could not be loaded.",
     reviewMatches: "Review matches",
-    kpiClaims: "Claims awaiting decision",
+    kpiClaims: "Claims without a decision",
     kpiClaimsNone: "None waiting for staff right now.",
     kpiClaimsOldest: (age: string) => `Oldest waiting for staff: ${age}.`,
     kpiClaimsRetry: (n: number) => `${n} ${n === 1 ? "needs" : "need"} an AI assessment retry.`,
@@ -352,6 +357,7 @@ const en = {
     noMatch: "No match",
 
     recentTitle: "Recent checks",
+    moreChecks: (n: number) => `Show ${n} earlier ${n === 1 ? "check" : "checks"}`,
     recentUnavailable: "Run history could not be read, so failures and early stops cannot be shown.",
     recentNever: "No checks have run yet.",
     recentNoneSince:
@@ -379,7 +385,7 @@ const en = {
     lastCompleted: (at: string) => `Last check that completed: ${at}.`,
 
     claimsTitle: "Ownership claims",
-    claimsAwaiting: "Awaiting staff decision",
+    claimsAwaiting: "No staff decision yet",
     claimsRetry: "AI assessment needs a retry",
     claimsAnswers: "Waiting for owner answers",
     claimsNoQuestions: "Staff review without questions",
@@ -422,6 +428,8 @@ const en = {
     day: "Day",
     total: "Total",
     otherDaysNone: (days: number) => `Every other day in the last ${days} days had none.`,
+    oldest: "Oldest",
+    newest: "Newest",
   },
 
   // Returned by server actions. Validation, limits and access checks live in
@@ -481,7 +489,7 @@ const ar: typeof en = {
     lost: "بلاغ المفقود",
     found: "بلاغ الملقى",
     foundPrivate: "بلاغ الملقى · خاص",
-    location: (place) => `المكان: ${place}`,
+    locationLabel: "المكان",
     characters: (used, max) => `${used}/${max} حرف`,
   },
 
@@ -496,6 +504,10 @@ const ar: typeof en = {
     empty:
       "ما فيه أزواج للمراجعة الآن. الزوج يظهر هنا لما تكون النتيجة المحفوظة «معلومات غير كافية»، ونوع الغرض متطابق، وبين البلاغين قرينة حقيقية مشتركة.",
     dismissedTitle: (n) => `مؤشَّر عليها «ليس نفس الغرض» (${n})`,
+    reviewedTitle: (n) => `مؤشَّر عليها: تستاهل مراجعة ملكية (${n})`,
+    notReviewed: "ما تمت مراجعته بعد",
+    reviewPair: "راجع الزوج",
+    moreDifferences: (n) => `(+${n} غيره)`,
     notSetUp:
       "قائمة المرشّحات تعمل، لكن حفظ المراجعة يحتاج تطبيق ترحيل report_candidate_reviews محليًا.",
     loadError: "ما قدرنا نحمّل المراجعات السابقة. حدّث الصفحة وجرّب مرة ثانية.",
@@ -517,7 +529,7 @@ const ar: typeof en = {
 
     reviewedWorth: "مؤشَّر عليه: يستاهل مراجعة ملكية.",
     reviewedDismissed: "مؤشَّر عليه: ليس نفس الغرض.",
-    reviewNote: (note) => `ملاحظة: ${note}`,
+    reviewNoteLabel: "ملاحظة",
     reviewLogged: "المراجعة الجديدة تُضاف للسجل، والسابقة تبقى.",
 
     noteLabel: "ملاحظة للموظف التالي",
@@ -680,6 +692,7 @@ const ar: typeof en = {
     failed: "فشل",
 
     geminiKey: "مفتاح Gemini",
+    setupDetails: "تفاصيل الإعداد",
     keyPresent: "موجود (المفتاح مضبوط فقط؛ هذا لا يثبت أن الخدمة تعمل)",
     keyMissing: "غير موجود",
     model: "النموذج",
@@ -709,11 +722,11 @@ const ar: typeof en = {
     kpiProblemsEmpty: "لا شي مسجّل في هذه الفترة.",
     kpiProblemsDetail: (checks, completed, failed, stopped, truncated) =>
       `${arCount(checks, AR.check)}: ${completed} اكتمل، ${failed} فشل، ${stopped} توقف مبكرًا${truncated ? " (آخر الفحوصات فقط)" : ""}.`,
-    kpiReview: "تطابقات محتملة للمراجعة",
-    kpiReviewDetail: (possible, uncertain) =>
-      `المحفوظ إجمالًا: ${possible} تطابق محتمل، ${uncertain} معلومات غير كافية.`,
+    kpiReview: "تطابقات محتملة تنتظر قرارك",
+    kpiReviewDetail: (open) => `الاقتراحات المفتوحة كلها: ${open}.`,
+    kpiReviewUnavailable: "ما قدرنا نحمّل التطابقات المحتملة.",
     reviewMatches: "راجع التطابقات",
-    kpiClaims: "طلبات تنتظر القرار",
+    kpiClaims: "طلبات بلا قرار",
     kpiClaimsNone: "ما فيه طلب ينتظر الموظفين الآن.",
     kpiClaimsOldest: (age) => `أقدم طلب ينتظر الموظفين: ${age}.`,
     kpiClaimsRetry: (n) => `${n} يحتاج إعادة تقييم الذكاء الاصطناعي.`,
@@ -770,6 +783,7 @@ const ar: typeof en = {
     noMatch: "لا تطابق",
 
     recentTitle: "آخر الفحوصات",
+    moreChecks: (n) => (n === 1 ? "اعرض فحصًا سابقًا" : n === 2 ? "اعرض فحصين سابقين" : n <= 10 ? `اعرض ${n} فحوصات سابقة` : `اعرض ${n} فحصًا سابقًا`),
     recentUnavailable: "ما قدرنا نقرأ سجل التشغيل، فلا يمكن عرض الأخطاء والتوقفات المبكرة.",
     recentNever: "ما جرى أي فحص بعد.",
     recentNoneSince:
@@ -797,7 +811,7 @@ const ar: typeof en = {
     lastCompleted: (at) => `آخر فحص اكتمل: ${at}.`,
 
     claimsTitle: "طلبات الملكية",
-    claimsAwaiting: "تنتظر قرار الموظفين",
+    claimsAwaiting: "بلا قرار من الموظف بعد",
     claimsRetry: "تحتاج إعادة تقييم الذكاء الاصطناعي",
     claimsAnswers: "تنتظر إجابات المالك",
     claimsNoQuestions: "مراجعة موظف بدون أسئلة",
@@ -839,6 +853,8 @@ const ar: typeof en = {
     day: "اليوم",
     total: "الإجمالي",
     otherDaysNone: (days) => `بقية الأيام في آخر ${days} يومًا بلا شي.`,
+    oldest: "الأقدم",
+    newest: "الأحدث",
   },
 
   actions: {

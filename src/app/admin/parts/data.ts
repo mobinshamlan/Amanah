@@ -51,6 +51,8 @@ export type AdminData = {
   followupsAvailable: boolean;
   monitoring: MonitoringLoad;
   monitoringDemo: boolean;
+  // When the data was read; recent decisions stay in view for a while.
+  loadedAt: number;
 };
 
 export function parseFilter(value: string | string[] | undefined): Filter {
@@ -99,6 +101,7 @@ export async function loadAdminData(params: {
     followupsAvailable: false,
     monitoring: { ok: false },
     monitoringDemo,
+    loadedAt: Date.now(),
   };
   // Demo snapshot is built in memory only: no Supabase read/write, no Gemini.
   if (monitoringDemo) {
