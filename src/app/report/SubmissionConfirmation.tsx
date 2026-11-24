@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode, RefObject } from "react";
 import type { PublicMatchingStatus } from "@/utils/matching/publicStatus";
 import { CaseTag } from "@/app/report/track/parts/CaseTag";
@@ -13,7 +12,6 @@ import {
   type SceneMark,
 } from "@/app/report/track/parts/TrackScene";
 import {
-  ArrowEndIcon,
   ClockIcon,
   HandIcon,
   KeyholeGlyph,
@@ -27,7 +25,6 @@ import {
   Spinner,
   primaryButtonClassName,
   secondaryButtonClassName,
-  textLinkClassName,
 } from "@/components/ui";
 import { DEFAULT_LOCALE, isLocale } from "@/i18n/config";
 import { useMessages } from "@/i18n/LocaleProvider";
@@ -265,18 +262,14 @@ export function MoreActions({
   reportAnotherLabel: string;
   onReportAnother: () => void;
 }) {
-  const c = useMessages(common);
   if (waiting) return null;
+  // "Back to home" is already the first link on the page.
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-5">
+    <div>
       <button type="button" onClick={onReportAnother} className={secondaryButtonClassName}>
         <PlusIcon className="size-4" />
         {reportAnotherLabel}
       </button>
-      <Link href="/" className={textLinkClassName}>
-        {c.backHome}
-        <ArrowEndIcon className="size-4" />
-      </Link>
     </div>
   );
 }
@@ -316,6 +309,7 @@ export function FoundConfirmation({
       mark="hand"
       // The tag says how to hand the item in, so on phones it comes first and the render waits.
       stage="task"
+      context={t.found.context}
       title={t.found.title}
       intro={t.found.intro}
       headingRef={headingRef}

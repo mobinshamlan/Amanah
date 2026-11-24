@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   focusRingClassName,
@@ -95,6 +96,7 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
   const t = useMessages(common);
   const dark = tone === "pine";
   const focus = focusFor(tone);
+  const pathname = usePathname();
 
   const links = [
     { href: "/report/lost", label: t.reportLost, quiet: false },
@@ -121,12 +123,15 @@ export function SiteHeader({ tone = "paper" }: { tone?: Tone }) {
           aria-label={t.navLabel}
           className="-ms-2.5 basis-full sm:ms-auto sm:basis-auto"
         >
-          <ul className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+          <ul className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {links.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className={`${navLinkClassName(tone, item.quiet)} ${focus}`}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                  className={`${navLinkClassName(tone, item.quiet)} ${
+                    pathname === item.href ? (dark ? "bg-paper/10 text-paper" : "bg-secondary text-foreground") : ""
+                  } ${focus}`}
                 >
                   {item.label}
                 </Link>

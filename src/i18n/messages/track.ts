@@ -265,8 +265,8 @@ const en = {
   /* The found reporter's confirmation. */
   found: {
     context: "Your report is saved",
-    title: "Hand it to lost-and-found staff",
-    intro: "Thanks — your report is saved. Its details are never public; only lost-and-found staff review them.",
+    title: "Hand it to staff",
+    intro: "Thank you. Only lost-and-found staff see its details.",
     // The finder's progress: only the stages that apply to a found report.
     steps: {
       handIn: "Hand the item in",
@@ -276,10 +276,9 @@ const en = {
     howSteps: [
       "Hand it over as you found it, with anything inside.",
       "Not sure where they are? Ask your organization where found items are handed in.",
-      "If someone says it is theirs, point them to staff. Staff confirm who it belongs to.",
     ],
     nextTitle: "After you hand it in",
-    nextBody: "Staff keep it safe and return it once they confirm the owner. Your part ends there.",
+    nextBody: "Your part ends there. Staff take it from here.",
     finishing: "Your report is already saved. A last background check is finishing; keep this page open a moment.",
     finishingPaused:
       "Your report is already saved. A background check is paused because Amanah is busy; keep this page open, or try again later.",
@@ -589,7 +588,7 @@ const ar: typeof en = {
   found: {
     context: "تم حفظ بلاغك",
     title: "سلّمه لموظفي المفقودات",
-    intro: "شكرًا لك، بلاغك محفوظ. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
+    intro: "شكرًا لك. ما يشوف تفاصيله إلا موظفو المفقودات.",
     steps: {
       handIn: "سلّم الغرض",
       handInShort: "التسليم",
@@ -598,10 +597,9 @@ const ar: typeof en = {
     howSteps: [
       "سلّمه مثل ما لقيته، باللي فيه.",
       "ما تعرف وينهم؟ اسأل جهتك وين تتسلّم الأغراض اللي تنلقى.",
-      "لو أحد قال إنه له، وجّهه للموظف. الموظف هو اللي يتأكد من صاحبه.",
     ],
     nextTitle: "بعد ما تسلّمه",
-    nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون منه. ودورك ينتهي هنا.",
+    nextBody: "دورك ينتهي هنا، والموظف يكمل.",
     finishing: "بلاغك محفوظ خلاص. نخلّص فحص أخير في الخلفية، خلّ الصفحة مفتوحة لحظة.",
     finishingPaused: "بلاغك محفوظ خلاص. فحص في الخلفية واقف لأن أمانة مشغولة، خلّ الصفحة مفتوحة أو جرّب بعدين.",
     stalled: "بعض المعالجة الآلية طوّلت. بلاغك محفوظ. حدّث الصفحة ليكمل.",

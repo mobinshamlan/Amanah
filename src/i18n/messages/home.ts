@@ -16,31 +16,26 @@ const en = {
   reportLost: "Report a lost item",
   reportFound: "Report an item you found",
   trackPrompt: "Already reported?",
-  trackLink: "Follow it from the private link you saved",
+  trackLink: "Open your private link",
   actionsLabel: "Report an item",
   demoLink: "Try the demo",
-  demoHint: "One minute, no typing.",
 
   // What happens after a report
   afterTitle: "What happens after a report?",
-  afterIntro: "Three things, in this order. Nothing is published along the way.",
   scenes: [
     {
       title: "Reports are compared privately",
-      caption:
-        "Your report is compared with reports of the other kind. Nobody browses found items, and nothing is listed.",
+      caption: "Your report is compared with reports of the other kind.",
       alt: "Two blank report slips side by side under a brass magnifier, with a small padlock beside them.",
     },
     {
       title: "A question for the owner",
-      caption:
-        "Only when there is a possible match. The owner answers one or two questions about the item; the AI only suggests.",
+      caption: "Only when there is a possible match. The owner answers one or two questions about the item.",
       alt: "A paper card with a cut-out question mark, standing in a brass holder.",
     },
     {
       title: "Staff review before handover",
-      caption:
-        "Staff check the answers and decide. If you found the item, your part ends once your report is saved.",
+      caption: "Staff check the answers and decide. If you found the item, your part ends once it's saved.",
       alt: "A kraft parcel with a keyhole tag, a desk bell and a stamp, ready for the staff desk.",
     },
   ],
@@ -69,28 +64,25 @@ const ar: typeof en = {
   reportLost: "بلّغ عن مفقود",
   reportFound: "بلّغ عن غرض لقيته",
   trackPrompt: "عندك بلاغ؟",
-  trackLink: "تابعه من الرابط الخاص اللي حفظته",
+  trackLink: "افتح رابطك الخاص",
   actionsLabel: "بلّغ عن غرض",
   demoLink: "جرّب أمانة",
-  demoHint: "دقيقة وحدة، بدون كتابة.",
 
   afterTitle: "وش يصير بعد البلاغ؟",
-  afterIntro: "ثلاث خطوات بهالترتيب، وما ينشر شي في الطريق.",
   scenes: [
     {
       title: "نقارن البلاغات بخصوصية",
-      caption: "بلاغك يُقارن مع بلاغات النوع الثاني بسرّية. ما أحد يتصفح الأغراض، ولا شي يُعرض.",
+      caption: "بلاغك يُقارن مع بلاغات النوع الثاني بسرّية.",
       alt: "ورقتا بلاغ فاضيتين جنب بعض تحت عدسة نحاسية، وقفل صغير بجانبهم.",
     },
     {
       title: "سؤال لصاحب الغرض",
-      caption:
-        "بس إذا في احتمال تطابق. صاحب الغرض يجاوب على سؤال أو سؤالين عن تفاصيله، والذكاء الاصطناعي يقترح بس.",
+      caption: "بس إذا في احتمال تطابق. صاحب الغرض يجاوب على سؤال أو سؤالين عن تفاصيله.",
       alt: "بطاقة ورقية فيها علامة استفهام مفرّغة، واقفة في حامل نحاسي.",
     },
     {
       title: "الموظف يراجع قبل التسليم",
-      caption: "الموظف يراجع الإجابات ويقرر. وإذا أنت اللي لقيت الغرض، دورك ينتهي بعد ما يُحفظ بلاغك.",
+      caption: "الموظف يراجع الإجابات ويقرر. وإذا أنت اللي لقيت الغرض، دورك ينتهي بعد الحفظ.",
       alt: "طرد ورقي عليه بطاقة بفتحة مفتاح، وجرس مكتب، وختم، جاهز لمكتب الموظف.",
     },
   ],

@@ -570,12 +570,6 @@ export default function ReportForm({
                           </>
                         )}
                       </button>
-                      {/* Visible while saving; the sr-only status line above announces it. */}
-                      {isSubmitting ? (
-                        <p aria-hidden className="text-small text-muted-foreground">
-                          {t.savingStatus}
-                        </p>
-                      ) : null}
                     </div>
                     <p className="flex items-start gap-2.5 text-small text-foreground/80">
                       <LockIcon className="mt-1 size-4 shrink-0 text-forest" />
