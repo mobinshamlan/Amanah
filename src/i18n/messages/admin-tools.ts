@@ -67,6 +67,10 @@ const en = {
     empty:
       "No pairs to review right now. A pair appears here when the saved result says there is not enough information, the item types match, and the reports share a real clue.",
     dismissedTitle: (n: number) => `Marked “not the same item” (${n})`,
+    reviewedTitle: (n: number) => `Marked worth ownership review (${n})`,
+    notReviewed: "Not reviewed yet",
+    reviewPair: "Review pair",
+    moreDifferences: (n: number) => `(+${n} more)`,
     notSetUp:
       "The candidate list works, but saving a review needs the report_candidate_reviews migration applied locally.",
     loadError: "Earlier candidate reviews could not be loaded. Refresh to try again.",
@@ -500,6 +504,10 @@ const ar: typeof en = {
     empty:
       "ما فيه أزواج للمراجعة الآن. الزوج يظهر هنا لما تكون النتيجة المحفوظة «معلومات غير كافية»، ونوع الغرض متطابق، وبين البلاغين قرينة حقيقية مشتركة.",
     dismissedTitle: (n) => `مؤشَّر عليها «ليس نفس الغرض» (${n})`,
+    reviewedTitle: (n) => `مؤشَّر عليها: تستاهل مراجعة ملكية (${n})`,
+    notReviewed: "ما تمت مراجعته بعد",
+    reviewPair: "راجع الزوج",
+    moreDifferences: (n) => `(+${n} غيره)`,
     notSetUp:
       "قائمة المرشّحات تعمل، لكن حفظ المراجعة يحتاج تطبيق ترحيل report_candidate_reviews محليًا.",
     loadError: "ما قدرنا نحمّل المراجعات السابقة. حدّث الصفحة وجرّب مرة ثانية.",
