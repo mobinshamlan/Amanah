@@ -155,7 +155,7 @@ export default async function AdminReportsPage({
     monitoring: { subline: t.intro.monitoring },
   };
 
-  // "Needs you now": staff tasks first, then work that waits on owners.
+  // "Needs you now": staff tasks only. Claims waiting on owners stay in their own queue.
   const needsYou: NeedsYouItem[] = [
     // On the claims sheet the status line and "Open the next claim" already say this.
     ...(verificationsLoaded && readyClaims.length > 0 && section !== "claims"
@@ -176,15 +176,6 @@ export default async function AdminReportsPage({
       : []),
     ...(monitoringAlert
       ? [{ href: "/admin?section=monitoring", label: monitoringAlert, tone: "alert" as const }]
-      : []),
-    ...(verificationsLoaded && waitingClaims.length > 0
-      ? [
-          {
-            href: "/admin?section=claims#waiting-heading",
-            label: t.needsYou.owners(waitingClaims.length),
-            tone: "info" as const,
-          },
-        ]
       : []),
   ];
 

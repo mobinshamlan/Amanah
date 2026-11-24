@@ -1,5 +1,5 @@
 import { LockIcon } from "@/components/icons";
-import { Notice, StatusChip } from "@/components/ui";
+import { Notice, StatusChip, focusRingClassName } from "@/components/ui";
 import type { Locale } from "@/i18n/config";
 import { formatDateTime } from "@/i18n/format";
 import type { AdminMessages } from "@/i18n/messages/admin";
@@ -15,7 +15,6 @@ import {
   currentDecision,
   decidedAt,
   single,
-  waitingOnLabel,
   type ReportMatch,
   type Verification,
 } from "@/app/admin/parts/model";
@@ -344,7 +343,8 @@ function ClaimCard({
   return (
     <li
       id={`verification-${verification.id}`}
-      className={`${rowClassName} relative scroll-mt-6 overflow-hidden ${next ? "bg-brass-soft/60 ring-2 ring-brass" : ""}`}
+      tabIndex={-1}
+      className={`${rowClassName} relative scroll-mt-6 overflow-hidden ${focusRingClassName} ${next ? "bg-brass-soft/60 ring-2 ring-brass" : ""}`}
     >
       <div className="flex flex-col gap-2.5 p-4 sm:px-5">
         {next ? (
@@ -359,23 +359,15 @@ function ClaimCard({
             <StatusChip tone={kind === "ready" ? "wait" : "neutral"}>{answersStatus(verification, t)}</StatusChip>
           )}
           {assessment ? (
-            <StatusChip
-              tone="info"
-              icon={null}
-            >
+            <StatusChip tone="info">
               {t.aiSuggests(t.assessment[assessment.assessment])}
             </StatusChip>
           ) : null}
           {assessmentMissing(verification) ? (
-            <StatusChip tone="bad" icon={null}>
+            <StatusChip tone="bad">
               {t.status.assessmentMissing}
             </StatusChip>
           ) : null}
-          {kind === "decided" ? null : (
-            <span className="text-small text-foreground">
-              {t.waitingOn}: <span className="font-semibold">{waitingOnLabel(verification, t)}</span>
-            </span>
-          )}
           {match ? <ScoreNote score={match.ai_similarity_score} t={t} /> : null}
         </div>
         {assessmentMissing(verification) && !decision ? (
@@ -409,7 +401,7 @@ function ClaimCard({
               />
             </div>
           ) : null}
-          <Disclosure label={t.openClaim}>
+          <Disclosure label={t.goToClaim}>
             {evidence}
             <section aria-label={t.staffDecision} className="mb-2 flex min-w-0 flex-col gap-4 rounded-2xl bg-secondary p-4">
               <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>

@@ -30,7 +30,7 @@ export const stampClassName = "text-caption tabular-nums text-muted-foreground";
 /** An inline link in running text, at the 44px target height. */
 export const inlineLinkClassName = `${linkClassName} min-h-11`;
 
-const summaryClassName = `-ms-2 inline-flex min-h-11 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-start text-small font-semibold text-foreground transition-colors duration-150 hover:text-forest [&::-webkit-details-marker]:hidden ${focusRingClassName}`;
+export const summaryClassName = `-ms-2 inline-flex min-h-11 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-full px-2 text-start text-small font-semibold text-foreground transition-colors duration-150 hover:text-forest [&::-webkit-details-marker]:hidden ${focusRingClassName}`;
 
 /**
  * A native disclosure. The chevron turns only when its own details element is

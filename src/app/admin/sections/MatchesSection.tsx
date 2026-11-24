@@ -105,15 +105,6 @@ function MatchRow({
 
   const claimLink = verification ? `/admin?section=claims#verification-${verification.id}` : null;
   const ready = verification ? readyForDecision(verification) : false;
-  const nextStep = decision
-    ? null
-    : ready
-      ? t.nextStaff
-      : verification
-        ? t.nextOwnerAnswers
-        : verifiedElsewhere
-          ? t.nextElsewhere
-          : t.nextOwnerOpens;
 
   return (
     <li className={rowClassName}>
@@ -127,11 +118,10 @@ function MatchRow({
             {verification ? statusLabel : verifiedElsewhere ? t.status.otherSuggestion : t.status.notStarted}
           </StatusChip>
           {match.contradictions.length > 0 ? (
-            <StatusChip tone="bad" icon={null}>
+            <StatusChip tone="bad">
               {t.contradictionsChip(match.contradictions.length)}
             </StatusChip>
           ) : null}
-          {nextStep ? <span className="text-small text-foreground">{nextStep}</span> : null}
           <ScoreNote score={match.ai_similarity_score} t={t} />
           <span className={stampClassName}>{formatDateTime(match.created_at, locale)}</span>
         </div>
@@ -218,7 +208,7 @@ export function MatchesSection(props: Props) {
     <div id="matches" className="grid scroll-mt-6 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
         {/* Below xl: the same matching controls, folded above the queue. */}
-        <Disclosure label={t.matchingJump} className="rounded-[1.25rem] bg-background px-4 py-1.5 sm:px-5 xl:hidden">
+        <Disclosure label={t.matchingPanel} className="rounded-[1.25rem] bg-background px-4 py-1.5 sm:px-5 xl:hidden">
           <div className="mb-3 flex min-w-0 flex-col gap-3">
             <MatchingControls t={t} />
           </div>

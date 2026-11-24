@@ -185,16 +185,3 @@ export function answersStatus(verification: Verification, t: AdminMessages) {
   return verification.questions.length === 0 ? t.status.noQuestions : t.status.answersReceived;
 }
 
-/** Who the claim is waiting on, in words. */
-export function waitingOnLabel(verification: Verification, t: AdminMessages) {
-  if (currentDecision(verification)) {
-    return t.waitingNobody;
-  }
-  if (!allAnswered(verification)) {
-    return t.waitingOwner(answeredCount(verification), verification.questions.length);
-  }
-  if (followupPending(verification)) {
-    return t.waitingOwnerFollowup;
-  }
-  return t.waitingStaff;
-}

@@ -247,7 +247,7 @@ const chipStyle: Record<ChipTone, { frame: string; Icon: typeof InfoIcon | null 
   bad: { frame: "bg-bad-soft text-bad-ink", Icon: XIcon },
   wait: { frame: "bg-wait-soft text-wait-ink", Icon: ClockIcon },
   info: { frame: "bg-accent text-pine", Icon: InfoIcon },
-  neutral: { frame: "bg-secondary text-foreground", Icon: null },
+  neutral: { frame: "bg-secondary text-foreground", Icon: ClockIcon },
 };
 
 /**
