@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { ArrowEndIcon, ChevronDownIcon, LockIcon } from "@/components/icons";
 import { ReportKindCue, StatusChip, focusRingClassName, linkClassName } from "@/components/ui";
+import type { Locale } from "@/i18n/config";
 import type { AdminMessages } from "@/i18n/messages/admin";
+import { clueSegments } from "@/i18n/messages/clues";
 import type { MatchedReport, ReportMatch } from "@/app/admin/parts/model";
 
 // Small server-safe pieces shared by the staff sections: disclosures, queue
@@ -56,6 +58,40 @@ export function Disclosure({
       </summary>
       <div className="mt-2 flex min-w-0 flex-col gap-3">{children}</div>
     </details>
+  );
+}
+
+/**
+ * A clue line in the staff's language; each report value keeps its own
+ * direction. `isolate={false}` leaves the line bare so a `dir="auto"` parent
+ * can take its direction from the wording (it skips `<bdi>` children).
+ */
+export function ClueText({
+  text,
+  locale,
+  isolate = true,
+  className,
+}: {
+  text: string;
+  locale: Locale;
+  isolate?: boolean;
+  className?: string;
+}) {
+  const parts = clueSegments(text, locale).map((segment, index) =>
+    segment.value ? (
+      <bdi key={index} dir="auto">
+        {segment.text}
+      </bdi>
+    ) : (
+      segment.text
+    ),
+  );
+  return isolate ? (
+    <bdi dir="auto" className={className}>
+      {parts}
+    </bdi>
+  ) : (
+    <>{parts}</>
   );
 }
 

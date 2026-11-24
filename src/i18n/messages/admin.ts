@@ -156,7 +156,7 @@ const en = {
     "Shared clues, differences and unknowns were not recorded for this suggestion (saved before they were collected).",
   aiSummary: "AI summary",
   matchingPanel: "Matching",
-  // Phone and tablet: a jump from the top of the queue to the matching panel.
+  // Phone and tablet: the folded matching controls above the queue.
   matchingJump: "Check for matches",
   matchingHelp: "Unchecked pairs, past checks and failures are listed under Monitoring.",
 
@@ -218,6 +218,8 @@ const en = {
   hideClaim: "Hide claim",
   changeDecision: "Change this decision",
   nextDecision: "Next decision",
+  // Phone and tablet: skips the evidence to the decision controls.
+  jumpToDecision: "Jump to staff decision",
   question: (n: number) => `Question ${n}`,
   ownerAnswer: "Owner's answer",
   awaitingAnswer: "Awaiting answer",
@@ -573,6 +575,7 @@ const ar: typeof en = {
   hideClaim: "اخفِ الطلب",
   changeDecision: "غيّر هذا القرار",
   nextDecision: "القرار التالي",
+  jumpToDecision: "روح لقرار الموظف",
   question: (n) => `السؤال ${n}`,
   ownerAnswer: "جواب صاحب الغرض",
   awaitingAnswer: "بانتظار الجواب",

@@ -26,7 +26,7 @@ import {
   textareaClassName,
 } from "@/components/ui";
 import { useLocale, useMessages } from "@/i18n/LocaleProvider";
-import { localizeClue } from "@/i18n/messages/clues";
+import { ClueText } from "@/app/admin/parts/ui";
 import { adminTools } from "@/i18n/messages/admin-tools";
 import {
   CANDIDATE_NOTE_MAX,
@@ -99,7 +99,7 @@ function ClueList({
               <span aria-hidden className="mt-1 shrink-0">
                 {icon}
               </span>
-              <bdi className="min-w-0 break-words">{localizeClue(item, locale)}</bdi>
+              <ClueText text={item} locale={locale} className="min-w-0 break-words" />
             </li>
           ))}
         </ul>
@@ -267,7 +267,7 @@ function CandidateCard({
           <XIcon className="mt-1 size-4 shrink-0 text-destructive" />
           <span className="min-w-0">
             <span className="font-semibold">{t.differences}: </span>
-            <bdi className="break-words">{localizeClue(firstDifference, locale)}</bdi>
+            <ClueText text={firstDifference} locale={locale} className="break-words" />
             {item.comparison.differences.length > 1 ? (
               <span className="text-muted-foreground"> {t.moreDifferences(item.comparison.differences.length - 1)}</span>
             ) : null}

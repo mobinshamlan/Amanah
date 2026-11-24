@@ -19,6 +19,7 @@ import {
   type ReportMatch,
   type Verification,
 } from "@/app/admin/parts/model";
+import { JumpButton } from "@/app/admin/parts/JumpButton";
 import { ClaimExpander } from "@/app/admin/parts/ClaimExpander";
 import {
   Disclosure,
@@ -315,7 +316,12 @@ function ClaimCard({
       className={`grid border-t xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] ${next ? "border-brass/40" : "border-border/80"}`}
     >
       <div className="min-w-0 px-4 py-2 sm:px-5">{evidence}</div>
-      <section aria-label={t.staffDecision} className="flex min-w-0 flex-col gap-4 bg-secondary p-4 sm:p-5">
+      <section
+        id={`decision-${verification.id}`}
+        tabIndex={-1}
+        aria-label={t.staffDecision}
+        className="flex min-w-0 scroll-mt-4 flex-col gap-4 bg-secondary p-4 focus:outline-none sm:p-5"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>
           <StatusChip tone="wait">{t.status.pendingReview}</StatusChip>
@@ -374,6 +380,10 @@ function ClaimCard({
         </div>
         {assessmentMissing(verification) && !decision ? (
           <RetryAssessmentButton verificationId={verification.id} />
+        ) : null}
+        {/* Below xl the decision follows the evidence; this skips to it. */}
+        {kind === "ready" && next ? (
+          <JumpButton targetId={`decision-${verification.id}`} label={t.jumpToDecision} className="-my-1 xl:hidden" />
         ) : null}
       </div>
 
