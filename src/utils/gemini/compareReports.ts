@@ -71,8 +71,12 @@ export const GEMINI_BATCH_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
 export const MAX_CANDIDATES_PER_REQUEST = 10;
 
 // The public test version answers fast instead: after this long without an
-// answer, matching and ownership compare locally (see utils/sandbox).
-export const SANDBOX_GEMINI_BUDGET_MS = 12_000;
+// answer, matching and ownership compare locally (see utils/sandbox). Once
+// Gemini has stayed busy, the next SANDBOX_BUSY_SKIP_MS of requests in this
+// server instance skip it and go local at once, so a visitor waits only once.
+export const SANDBOX_GEMINI_BUDGET_MS = 6_000;
+export const SANDBOX_BUSY_SKIP_MS = 60_000;
+let sandboxBusyUntil = 0;
 
 export class GeminiConfigError extends Error {
   constructor(message = "Gemini is not configured.") {
@@ -395,12 +399,16 @@ export async function requestJson({
   await assertGeminiUsageAllowed();
   const apiKey = requireGeminiApiKey();
 
+  const sandbox = isSandboxMode();
+  if (sandbox && Date.now() < sandboxBusyUntil) {
+    throw new GeminiApiError("Gemini was busy moments ago (test version).", 503);
+  }
   const timeout = requestOptions.timeout_ms ?? GEMINI_REQUEST_OPTIONS.timeout_ms ?? 20_000;
-  const budgeted = isSandboxMode()
+  const budgeted = sandbox
     ? { ...requestOptions, timeout_ms: Math.min(timeout, SANDBOX_GEMINI_BUDGET_MS) }
     : requestOptions;
 
-  return withModelFallback(
+  const sent = withModelFallback(
     (model, options, fallback) =>
       sendJsonRequest({
         apiKey,
@@ -413,6 +421,13 @@ export async function requestJson({
       }),
     { requestOptions: budgeted },
   );
+  if (!sandbox) return sent;
+  return sent.catch((error: unknown) => {
+    if (error instanceof GeminiApiError) {
+      sandboxBusyUntil = Date.now() + SANDBOX_BUSY_SKIP_MS;
+    }
+    throw error;
+  });
 }
 
 function retryable(error: unknown) {
