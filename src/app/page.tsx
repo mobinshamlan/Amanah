@@ -109,7 +109,7 @@ export default async function Home() {
               </p>
               <div className="flex w-full flex-col gap-4 motion-safe:animate-rise motion-safe:[animation-delay:180ms] sm:gap-5">
                 <ReportActions t={t} label={t.actionsLabel} />
-                <Link href="/demo" className={demoButtonClassName}>
+                <Link href="/demo" className={`${demoButtonClassName} self-start`}>
                   <UmbrellaGlyph className="size-5 shrink-0" />
                   {t.demoLink}
                 </Link>
