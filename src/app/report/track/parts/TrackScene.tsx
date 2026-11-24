@@ -76,9 +76,13 @@ export function TrackScene({
   sheet,
   aside,
   stage = "status",
+  context,
 }: {
   art: SceneArt;
   mark: SceneMark;
+  // A small confirmation above the headline, e.g. "Your report is saved"
+  // once the result has taken the headline on the first visit.
+  context?: ReactNode;
   title: ReactNode;
   intro: ReactNode;
   headingRef?: RefObject<HTMLHeadingElement | null>;
@@ -112,7 +116,15 @@ export function TrackScene({
             <ArrowStartIcon className="size-4" />
             {c.backHome}
           </Link>
-          <div className="mt-4 flex items-start motion-safe:animate-rise sm:mt-6 sm:gap-4">
+          {context ? (
+            <p className="mt-4 flex items-center gap-2 text-small font-medium text-paper/85 sm:mt-6">
+              <CheckIcon className="size-4 shrink-0 text-brass-light" />
+              {context}
+            </p>
+          ) : null}
+          <div
+            className={`flex items-start motion-safe:animate-rise sm:gap-4 ${context ? "mt-2 sm:mt-3" : "mt-4 sm:mt-6"}`}
+          >
             <span className="mt-1 sm:mt-1.5">
               <Mark mark={mark} />
             </span>
