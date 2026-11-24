@@ -4,6 +4,8 @@ import { isFixtureMode } from "@/utils/fixtures/mode";
 import { fakeGeminiJson } from "@/utils/fixtures/fakeGemini";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+// Answers instead when the main model stays overloaded (see requestJson).
+export const DEFAULT_GEMINI_FALLBACK_MODEL = "gemini-3.5-flash";
 
 export const COMPARISON_DECISIONS = [
   "match",
@@ -47,6 +49,15 @@ export const GEMINI_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
   },
   retry_codes: ["500", "502", "503", "504"],
 };
+
+// Status codes that mean the model itself is busy or down, so the same request
+// is sent once more to the fallback model. 429 is not included: Gemini does not
+// say whether a quota error is per model or for the whole key.
+export const FALLBACK_STATUSES = [500, 502, 503, 504];
+
+// With a fallback model, each model gets one attempt plus one retry (wait
+// 1.5 s), so four attempts in total take about as long as the three above.
+const RETRIES_WITH_FALLBACK = 1;
 
 // A batch answer is longer than a single comparison, so it gets more time.
 export const GEMINI_BATCH_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
@@ -212,6 +223,12 @@ export function getGeminiModel() {
   return configured || DEFAULT_GEMINI_MODEL;
 }
 
+/** The model to try when the main one is overloaded, or null when it is the same model. */
+export function getGeminiFallbackModel() {
+  const fallback = process.env.GEMINI_FALLBACK_MODEL?.trim() || DEFAULT_GEMINI_FALLBACK_MODEL;
+  return fallback === getGeminiModel() ? null : fallback;
+}
+
 /** True when Gemini can be called: a key is set, or development fixture mode answers instead. */
 export function isGeminiConfigured() {
   return isFixtureMode() || Boolean(process.env.GEMINI_API_KEY?.trim());
@@ -312,6 +329,9 @@ function asDataRecord(report: ReportComparisonInput) {
 export type GeminiAttempt = {
   ms: number;
   status: number | "network_error" | "aborted";
+  // The model this attempt was sent to; fixture mode leaves it out.
+  model?: string;
+  fallback?: boolean;
 };
 
 // Times each HTTP attempt (including SDK retries) until response headers arrive.
@@ -336,7 +356,10 @@ function timedFetch(onAttempt: (attempt: GeminiAttempt) => void): typeof fetch {
 
 type CompareOptions = { onAttempt?: (attempt: GeminiAttempt) => void };
 
-/** Sends one structured request and returns Gemini's parsed JSON output. */
+/**
+ * Sends one structured request (falling back to a second model when the main
+ * one is overloaded) and returns Gemini's parsed JSON output.
+ */
 export async function requestJson({
   input,
   systemInstruction,
@@ -355,9 +378,93 @@ export async function requestJson({
     return fakeGeminiJson({ input, schema, onAttempt });
   }
 
-  // Every Gemini call pays the durable app, IP, and report limits first.
+  // Every Gemini call pays the durable app, IP, and report limits first. Like
+  // SDK retries, a fallback attempt is part of the same call and is not counted again.
   await assertGeminiUsageAllowed();
   const apiKey = requireGeminiApiKey();
+
+  return withModelFallback(
+    (model, options, fallback) =>
+      sendJsonRequest({
+        apiKey,
+        model,
+        input,
+        systemInstruction,
+        schema,
+        requestOptions: options,
+        onAttempt: onAttempt && ((attempt) => onAttempt({ ...attempt, model, fallback })),
+      }),
+    { requestOptions },
+  );
+}
+
+function withMaxRetries(
+  requestOptions: GoogleGenAIRequestOptions,
+  maxRetries: number,
+): GoogleGenAIRequestOptions {
+  const retries = requestOptions.retries;
+  if (retries?.strategy !== "attempt-count-backoff") {
+    return requestOptions;
+  }
+  return {
+    ...requestOptions,
+    retries: { ...retries, maxRetries: Math.min(retries.maxRetries, maxRetries) },
+  };
+}
+
+/**
+ * Sends the request to the main model. When it fails with an overloaded or
+ * unavailable status (FALLBACK_STATUSES) after its retries, sends the same
+ * request once to the fallback model. Quota errors, timeouts, client errors,
+ * and invalid answers are never sent to the fallback.
+ */
+export async function withModelFallback<T>(
+  send: (model: string, requestOptions: GoogleGenAIRequestOptions, fallback: boolean) => Promise<T>,
+  {
+    requestOptions,
+    model = getGeminiModel(),
+    fallbackModel = getGeminiFallbackModel(),
+  }: {
+    requestOptions: GoogleGenAIRequestOptions;
+    model?: string;
+    fallbackModel?: string | null;
+  },
+): Promise<T> {
+  if (!fallbackModel || fallbackModel === model) {
+    return send(model, requestOptions, false);
+  }
+  const options = withMaxRetries(requestOptions, RETRIES_WITH_FALLBACK);
+  try {
+    return await send(model, options, false);
+  } catch (error) {
+    if (
+      !(error instanceof GeminiApiError) ||
+      error.status === undefined ||
+      !FALLBACK_STATUSES.includes(error.status)
+    ) {
+      throw error;
+    }
+    return send(fallbackModel, options, true);
+  }
+}
+
+async function sendJsonRequest({
+  apiKey,
+  model,
+  input,
+  systemInstruction,
+  schema,
+  requestOptions,
+  onAttempt,
+}: {
+  apiKey: string;
+  model: string;
+  input: string;
+  systemInstruction: string;
+  schema: Record<string, unknown>;
+  requestOptions: GoogleGenAIRequestOptions;
+  onAttempt?: (attempt: GeminiAttempt) => void;
+}): Promise<unknown> {
   const client = new GoogleGenAI({
     apiKey,
     httpOptions: onAttempt ? { fetch: timedFetch(onAttempt) } : undefined,
@@ -367,7 +474,7 @@ export async function requestJson({
   try {
     interaction = await client.interactions.create(
       {
-        model: getGeminiModel(),
+        model,
         input,
         store: false,
         system_instruction: systemInstruction,
@@ -406,6 +513,11 @@ export async function requestJson({
   } catch {
     throw new GeminiInvalidResponseError("Comparison result was not valid JSON.");
   }
+}
+
+/** The model that answered: the last attempt's model, or the main model when none was recorded. */
+export function answeringModel(attempts: GeminiAttempt[]) {
+  return attempts.at(-1)?.model ?? getGeminiModel();
 }
 
 export async function compareLostAndFoundReports(

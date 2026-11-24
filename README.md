@@ -189,6 +189,7 @@ npm run dev
 | `SUPABASE_SECRET_KEY` | Server key. Server only; saves reports and runs matching. |
 | `GEMINI_API_KEY` | Gemini key for matching and ownership questions. Server only. |
 | `GEMINI_MODEL` | Optional. Defaults to `gemini-3.5-flash-lite`. |
+| `GEMINI_FALLBACK_MODEL` | Optional. Answers when `GEMINI_MODEL` is overloaded or unavailable (500/502/503/504). Defaults to `gemini-3.5-flash`; set it to the same value as `GEMINI_MODEL` to turn the fallback off. |
 
 Never commit `.env.local`. Apply the SQL files in `supabase/migrations/` in filename order, for example with `supabase migration up` (local) or `supabase db push` (linked project).
 

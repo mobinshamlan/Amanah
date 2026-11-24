@@ -58,7 +58,7 @@ Each run takes up to 4 pairs that have not been checked, newest pairs first, so 
 
 ## Timing logs
 
-The dev server logs one line per pair (Gemini duration, each HTTP attempt's duration and status, decision) and one line per run (database load, total Gemini time, total save time, counts). Report contents, IDs, and keys are never logged.
+The dev server logs one line per pair (Gemini duration, each HTTP attempt's duration and status, decision; an attempt sent to `GEMINI_FALLBACK_MODEL` after the main model was overloaded is marked `@fallback`, and the saved rows record the model that answered) and one line per run (database load, total Gemini time, total save time, counts). Report contents, IDs, and keys are never logged.
 
 ## Monitoring (local admin)
 
