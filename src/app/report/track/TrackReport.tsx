@@ -17,6 +17,7 @@ import { CaseTag } from "@/app/report/track/parts/CaseTag";
 import { LinkTag } from "@/app/report/track/parts/LinkTag";
 import { SceneNote, TrackScene } from "@/app/report/track/parts/TrackScene";
 import { OwnershipVerification, type OwnershipControl } from "@/app/report/track/OwnershipVerification";
+import { NextSteps } from "@/app/report/track/parts/NextSteps";
 import { TryStaffRole } from "@/app/report/track/parts/TryStaffRole";
 import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
@@ -297,6 +298,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
           onStageChange={setOwnershipStage}
           controlRef={verificationRef}
           headlineShown
+          sandbox={sandbox}
         />
       ) : null;
     // Test version: once nothing is left to answer, the visitor may play staff.
@@ -326,6 +328,13 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         ) : null}
       </LostProgress>
     );
+    // Once nothing is left to answer, the page ends on what the owner does next.
+    const nextSteps =
+      ownership === "approved" || ownership === "rejected" ? (
+        <NextSteps kind={ownership} />
+      ) : ownership === "staff_review" || ownership === "answers_received" ? (
+        <NextSteps kind="waiting" />
+      ) : null;
     // The AI note describes the possible match itself, never a staff follow-up.
     const aiNote =
       headline.tone === "match" && ownership !== "followup" ? (
@@ -385,7 +394,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
                 </section>
               )}
               {aiNote}
-              {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+              {nextSteps ?? <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
               {sandbox ? <SandboxNote /> : null}
               <MoreActions
                 waiting={isContinuing}
@@ -429,7 +438,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         aside={
           <>
             {aiNote}
-            {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+            {nextSteps ?? <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
             {sandbox ? <SandboxNote /> : null}
             <MoreActions
               waiting={isContinuing}
