@@ -92,7 +92,7 @@ const en = {
     },
     approved: {
       title: "Staff approved your claim",
-      intro: "The found item matches your report. Here's how to collect it.",
+      intro: "Staff will arrange the hand-over with you in person.",
     },
     rejected: {
       title: "Staff couldn't confirm ownership",
@@ -116,21 +116,20 @@ const en = {
       steps: [
         "Staff compare your report and answers with the found item.",
         "Their decision shows on this link. We don't send messages, so keep it.",
-        "If they approve, you collect your item from the lost-and-found office.",
+        "If they approve, they arrange the hand-over with you.",
       ],
     },
     approved: {
-      title: "How to collect your item",
+      title: "What to do now",
       steps: [
-        "Go to your organization's lost-and-found office.",
-        "Bring your ID and open this link.",
-        "Staff check them and hand your item over.",
+        "Contact your organization's lost-and-found staff.",
+        "Show them this link. They arrange the hand-over with you.",
       ],
     },
     rejected: {
       title: "What you can do",
       steps: [
-        "If you think it's a mistake, visit the lost-and-found office with this link.",
+        "Think it's a mistake? Contact your organization's lost-and-found staff with this link.",
         "Staff can look at your claim again.",
       ],
     },
@@ -347,7 +346,7 @@ const en = {
       },
       approved: {
         title: "Staff approved your claim",
-        body: "The found item matches your report. Here's how to collect it.",
+        body: "Staff will arrange the hand-over with you in person.",
       },
       rejected: {
         title: "Staff couldn't confirm ownership",
@@ -449,7 +448,7 @@ const ar: typeof en = {
     },
     approved: {
       title: "وافق الموظف على طلبك",
-      intro: "الغرض الملقى يطابق بلاغك. هذي طريقة استلامه.",
+      intro: "الموظف بيرتّب معك الاستلام حضوريًا.",
     },
     rejected: {
       title: "الموظف ما قدر يتأكد من الملكية",
@@ -471,21 +470,20 @@ const ar: typeof en = {
       steps: [
         "الموظف يقارن بلاغك وإجاباتك بالغرض الملقى.",
         "قراره يطلع في هذا الرابط. ما نرسل رسائل، فاحفظ الرابط.",
-        "إذا وافق، تستلم غرضك من مكتب المفقودات.",
+        "إذا وافق، يرتب معك الاستلام.",
       ],
     },
     approved: {
-      title: "كيف تستلم غرضك",
+      title: "وش تسوي الحين؟",
       steps: [
-        "روح مكتب المفقودات في جهتك.",
-        "خذ معك هويتك وافتح هذا الرابط.",
-        "الموظف يتأكد ويسلّمك غرضك.",
+        "تواصل مع موظفي المفقودات في جهتك.",
+        "وريهم هذا الرابط، وهم يرتبون معك الاستلام.",
       ],
     },
     rejected: {
       title: "وش تقدر تسوي؟",
       steps: [
-        "لو تشوف إن في خطأ، روح مكتب المفقودات ومعك هذا الرابط.",
+        "تشوف إن في خطأ؟ تواصل مع موظفي المفقودات ومعك هذا الرابط.",
         "الموظف يقدر يراجع طلبك مرة ثانية.",
       ],
     },
@@ -684,7 +682,7 @@ const ar: typeof en = {
       },
       approved: {
         title: "وافق الموظف على طلبك",
-        body: "الغرض الملقى يطابق بلاغك. هذي طريقة استلامه.",
+        body: "الموظف بيرتّب معك الاستلام حضوريًا.",
       },
       rejected: {
         title: "الموظف ما قدر يتأكد من الملكية",
