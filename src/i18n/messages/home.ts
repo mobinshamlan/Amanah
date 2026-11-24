@@ -35,7 +35,7 @@ const en = {
     },
     {
       title: "Staff review before handover",
-      caption: "Staff check the answers and decide. If you found the item, your part ends once it's saved.",
+      caption: "Staff check the answers and decide. If you found the item, your part ends once you hand it in.",
       alt: "A kraft parcel with a keyhole tag, a desk bell and a stamp, ready for the staff desk.",
     },
   ],
@@ -82,7 +82,7 @@ const ar: typeof en = {
     },
     {
       title: "الموظف يراجع قبل التسليم",
-      caption: "الموظف يراجع الإجابات ويقرر. وإذا أنت اللي لقيت الغرض، دورك ينتهي بعد الحفظ.",
+      caption: "الموظف يراجع الإجابات ويقرر. وإذا أنت اللي لقيت الغرض، دورك ينتهي بعد ما تسلّمه.",
       alt: "طرد ورقي عليه بطاقة بفتحة مفتاح، وجرس مكتب، وختم، جاهز لمكتب الموظف.",
     },
   ],

@@ -79,8 +79,8 @@ const en = {
     matchesError: "The AI ranks report pairs that may describe the same item; it never proves ownership.",
     candidates: (n: number) =>
       n === 0
-        ? "No pairs to look at."
-        : `${enCount(n, "pair needs", "pairs need")} a look.`,
+        ? "No pairs to look at. Pairs land here when the AI can't decide, or when staff add them."
+        : `${enCount(n, "pair needs", "pairs need")} a look. Pairs land here when the AI can't decide, or when staff add them.`,
     candidatesError: "Plausible pairs the AI could not confirm; a low score can still appear here.",
     claims: (ready: number, waiting: number) => {
       if (ready === 0 && waiting === 0) {
@@ -370,14 +370,14 @@ const ar: typeof en = {
       "الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.",
     candidates: (n) =>
       n === 0
-        ? "ما فيه أزواج تحتاج نظرة."
+        ? "ما فيه أزواج تحتاج نظرة. هنا الأزواج اللي ما حسمها الذكاء الاصطناعي، أو أضافها الموظف."
         : `${arCount(n, {
             zero: "",
             one: "زوج واحد يحتاج",
             two: "زوجين يحتاجان",
             few: "أزواج تحتاج",
             many: "زوجًا يحتاج",
-          })} نظرة.`,
+          })} نظرة. هنا الأزواج اللي ما حسمها الذكاء الاصطناعي، أو أضافها الموظف.`,
     candidatesError:
       "أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة.",
     claims: (ready, waiting) => {
