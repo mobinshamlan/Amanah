@@ -5,10 +5,10 @@ import { createHash } from "node:crypto";
 // file if a shared network (one public IP for many people) hits them during
 // normal use. They are not a Google Cloud billing budget.
 
-export const GEMINI_APP_PER_DAY = 300;
+export const GEMINI_APP_PER_DAY = 400;
 export const GEMINI_IP_PER_DAY = 120;
 export const GEMINI_REPORT_PER_DAY = 40;
-export const REPORTS_PER_IP_PER_HOUR = 8;
+export const REPORTS_PER_IP_PER_HOUR = 12;
 export const REPORTS_PER_IP_PER_DAY = 30;
 
 export const USAGE_LABELS = [

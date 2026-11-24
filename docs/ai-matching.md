@@ -81,9 +81,9 @@ Caps live in `src/utils/limits/usageBuckets.ts`. Counters are Postgres rows keye
 
 | Limit | Value |
 |---|---|
-| Reports per IP, per UTC hour (`submit_hour`) | 8 |
+| Reports per IP, per UTC hour (`submit_hour`) | 12 |
 | Reports per IP, per UTC day (`submit_day`) | 30 |
-| Gemini requests, whole app, per UTC day (`gemini_app`) | 300 |
+| Gemini requests, whole app, per UTC day (`gemini_app`) | 400 |
 | Gemini requests per IP, per UTC day (`gemini_ip`) | 120 |
 | Gemini requests per report, per UTC day (`gemini_report`) | 40 |
 
