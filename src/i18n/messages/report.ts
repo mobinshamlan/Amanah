@@ -4,12 +4,17 @@ import type { Catalogue } from "@/i18n/config";
 // way the person at the desk would ask; English is just as direct. Found-item
 // details are used only privately, to check an owner's answers, so the found
 // form asks for the general picture plus the one or two details only the
-// owner would know. Each field has one tappable example that fills it in.
+// owner would know. Each kind has three example sets (item, description and
+// place that belong together); one is picked per visit, and each field's chip
+// fills only that field. The lost sets describe the same items as the test
+// version's sample found reports, so trying one shows a possible match.
 
 type Kind = "lost" | "found";
 
 // Limits read as "2,000" in both languages (Latin digits, grouped).
 const digits = (n: number) => n.toLocaleString("en");
+
+type ExampleSet = { itemName: string; description: string; location: string };
 
 type KindCopy = {
   metaTitle: string;
@@ -18,14 +23,12 @@ type KindCopy = {
   title: string;
   intro: string;
   formLabel: string;
-  // One tappable example per field; tapping writes it into the field.
-  itemNameFill: string;
+  // Three example sets; one is shown per visit, and each chip fills its field.
+  examples: [ExampleSet, ExampleSet, ExampleSet];
   descriptionLabel: string;
   descriptionHint: string;
-  descriptionFill: string;
   locationLabel: string;
   locationHint: string;
-  locationFill: string;
   locationRequired: string;
   afterTitle: string;
   afterSteps: string[];
@@ -39,6 +42,8 @@ type KindCopy = {
 
 const en = {
   required: "Every field is needed.",
+  // Only in the test version, beside the save button.
+  sandboxNote: "Test version: your report is deleted after 3 days.",
   // The chip under each field: tapping it writes the example into the field.
   fillLabel: "Try an example",
   fillGroupLabel: (field: string) => `Example that fills “${field}”`,
@@ -74,14 +79,28 @@ const en = {
         "Describe it so it can be recognised. You get a private link to follow your report; found items are never shown to you.",
       artAlt: "Two report slips under a brass magnifier on the desk, with a closed padlock beside them.",
       formLabel: "Lost item report",
-      itemNameFill: "Blue umbrella",
+      examples: [
+        {
+          itemName: "Blue folding umbrella",
+          description: "Blue folding umbrella with a curved yellow handle. A bus card was in the sleeve.",
+          location: "The library, second floor, near the study tables, Tuesday afternoon",
+        },
+        {
+          itemName: "Black leather wallet",
+          description:
+            "Black leather wallet with my university ID and a bank card, and a little cash.",
+          location: "The cafeteria, near the drinks counter, around noon",
+        },
+        {
+          itemName: "Set of keys with a leather tag",
+          description: "Three keys on a metal ring with a small brown leather tag, and a car key.",
+          location: "Main building entrance, by the parking, this morning",
+        },
+      ],
       descriptionLabel: "Describe it",
       descriptionHint: "Colour, brand, size, what was inside, marks or scratches.",
-      descriptionFill:
-        "Navy folding umbrella with a curved yellow handle and a small tear on one panel. Had a bus card in the sleeve.",
       locationLabel: "Where did you last have it?",
       locationHint: "A building, room or area, and when if you remember.",
-      locationFill: "Building B library, second floor, Tuesday afternoon",
       locationRequired: "Tell us where you last had it, even roughly.",
       afterTitle: "After you save",
       afterSteps: [
@@ -104,15 +123,31 @@ const en = {
         "Describe it in general, then add a detail or two only the owner would know. Staff use them privately to confirm the owner.",
       artAlt: "A wrapped parcel with a tag on the desk, next to a service bell and a brass stamp.",
       formLabel: "Found item report",
-      itemNameFill: "Set of keys",
+      examples: [
+        {
+          itemName: "Phone in a green case",
+          description:
+            "A phone in a dark green silicone case with a card holder on the back. The lock screen photo is of a cat.",
+          location: "Lecture hall 3, back row, after the morning class",
+        },
+        {
+          itemName: "Grey backpack",
+          description:
+            "Grey backpack with a laptop pocket. Inside: a red notebook, a charger and a water bottle with stickers.",
+          location: "The prayer room by the gym, around Asr",
+        },
+        {
+          itemName: "White earbuds case",
+          description:
+            "A white earbuds case with both earbuds inside. There is a small scratch and a blue dot sticker on the lid.",
+          location: "Bus stop outside the main gate, early evening",
+        },
+      ],
       descriptionLabel: "Describe it",
       descriptionHint:
         "The general look, plus one or two details only the owner would know (a keyring, what is inside, a name).",
-      descriptionFill:
-        "Three keys on a ring with a small leather tag. One is a car key. The tag has initials on it.",
       locationLabel: "Where did you find it?",
       locationHint: "A building, room or area, and when.",
-      locationFill: "Cafeteria, table by the window, around noon",
       locationRequired: "Tell us where you found it.",
       afterTitle: "After you save",
       afterSteps: [
@@ -130,6 +165,7 @@ const en = {
 
 const ar: typeof en = {
   required: "كل الخانات مطلوبة.",
+  sandboxNote: "نسخة تجريبية: بلاغك ينحذف بعد 3 أيام.",
   fillLabel: "جرّب مثال",
   fillGroupLabel: (field) => `مثال يعبّي «${field}»`,
   afterLead: "بعد الحفظ",
@@ -161,14 +197,27 @@ const ar: typeof en = {
       intro: "اوصفه بشكل يخلّينا نعرفه. تاخذ رابط خاص تتابع فيه بلاغك، وما نعرض لك أي غرض لُقي.",
       artAlt: "ورقتي بلاغ تحت عدسة نحاسية على الطاولة، وجنبها قفل مغلق.",
       formLabel: "بلاغ عن غرض مفقود",
-      itemNameFill: "مظلة زرقا",
+      examples: [
+        {
+          itemName: "مظلة زرقاء",
+          description: "مظلة زرقاء قابلة للطي، مقبضها أصفر منحني. كان في غلافها بطاقة باص.",
+          location: "المكتبة، الطابق الثاني قرب طاولات المذاكرة، الثلاثاء العصر",
+        },
+        {
+          itemName: "محفظة جلد سوداء",
+          description: "محفظة جلد سوداء فيها بطاقتي الجامعية وبطاقة بنكية، وشوية كاش.",
+          location: "الكافتيريا الرئيسية قرب الكاشير، حول الظهر",
+        },
+        {
+          itemName: "مفاتيح مع ميدالية جلد",
+          description: "ثلاثة مفاتيح في حلقة واحدة مع ميدالية جلد بنية صغيرة، ومعها مفتاح سيارة.",
+          location: "مدخل المبنى عند مواقف السيارات، الصباح",
+        },
+      ],
       descriptionLabel: "اوصفه",
       descriptionHint: "اللون، الماركة، الحجم، وش كان فيه، علامات أو خدوش.",
-      descriptionFill:
-        "مظلة كحلية تنطوي، مقبضها أصفر معقوف، وفيها قطع صغير بجهة وحدة. كان في غلافها بطاقة باص.",
       locationLabel: "وين آخر مكان كان معك؟",
       locationHint: "مبنى أو قاعة أو منطقة، ومتى إذا تذكر.",
-      locationFill: "مكتبة مبنى ب، الدور الثاني، الثلاثاء العصر",
       locationRequired: "قل لنا وين آخر مكان كان معك، حتى لو تقريبي.",
       afterTitle: "بعد الحفظ",
       afterSteps: [
@@ -189,14 +238,27 @@ const ar: typeof en = {
       intro: "اوصفه بشكل عام، وأضف تفصيل أو تفصيلين ما يعرفها إلا صاحبه. الموظف يستخدمها بخصوصية يتأكد منه.",
       artAlt: "طرد مربوط عليه بطاقة على الطاولة، وجنبه جرس خدمة وختم نحاسي.",
       formLabel: "بلاغ عن غرض لقيته",
-      itemNameFill: "مفاتيح",
+      examples: [
+        {
+          itemName: "جوال بكفر أخضر",
+          description: "جوال بكفر سيليكون أخضر غامق، وراه جيب بطاقات. خلفية القفل صورة قطوة.",
+          location: "قاعة 3، الصف الأخير، بعد محاضرة الصباح",
+        },
+        {
+          itemName: "شنطة ظهر رمادية",
+          description: "شنطة ظهر رمادية فيها جيب لابتوب. داخلها دفتر أحمر وشاحن وقارورة موية عليها ملصقات.",
+          location: "المصلى اللي جنب النادي، وقت العصر",
+        },
+        {
+          itemName: "علبة سماعات بيضا",
+          description: "علبة سماعات بيضا والسماعتين داخلها. على الغطا خدش صغير وملصق نقطة زرقا.",
+          location: "موقف الباص عند البوابة الرئيسية، أول المغرب",
+        },
+      ],
       descriptionLabel: "اوصفه",
       descriptionHint: "الشكل العام، مع تفصيل أو تفصيلين ما يعرفها إلا صاحبه (ميدالية، وش فيه، اسم).",
-      descriptionFill:
-        "ثلاث مفاتيح بحلقة ومعها ميدالية جلد صغيرة. واحد منها مفتاح سيارة. على الميدالية حرفين.",
       locationLabel: "وين لقيته؟",
       locationHint: "مبنى أو قاعة أو منطقة، ومتى.",
-      locationFill: "الكافتيريا، الطاولة اللي عند الشباك، حول الظهر",
       locationRequired: "قل لنا وين لقيته.",
       afterTitle: "بعد الحفظ",
       afterSteps: [

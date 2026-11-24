@@ -6,7 +6,8 @@ import { RELATIONS, TABLES, type Row, type TableDef } from "@/utils/fixtures/sch
 // network connection.
 //
 // Supported: from(table).select(columns, { count, head }), insert(row | rows),
-// update(values), filters eq / neq / in / is / lt / lte / gt / gte / ilike /
+// upsert(rows, { onConflict, ignoreDuplicates: true }), update(values),
+// delete({ count }) with ON DELETE CASCADE along schema foreign keys, filters eq / neq / in / is / lt / lte / gt / gte / ilike /
 // not(column, op, value) / or("a.is.null,a.lt.x"), order (several, with
 // nullsFirst), limit, maybeSingle, single, and rpc("consume_usage").
 // Results resolve like supabase-js: { data, error, count, status, statusText }.
@@ -288,6 +289,33 @@ function prepareInsert(db: FixtureDb, table: string, def: TableDef, input: Row, 
   return row;
 }
 
+/**
+ * Removes rows and, like the migrations' ON DELETE CASCADE, every row that
+ * references them through a schema foreign key. Returns the rows removed from
+ * `table` itself.
+ */
+function deleteRows(db: FixtureDb, table: string, doomed: Row[]): Row[] {
+  if (doomed.length === 0) {
+    return [];
+  }
+  const removed = new Set(doomed);
+  db.tables[table] = db.tables[table].filter((row) => !removed.has(row));
+  for (const [child, def] of Object.entries(TABLES)) {
+    for (const key of def.foreignKeys ?? []) {
+      if (key.table !== table) {
+        continue;
+      }
+      const dependents = db.tables[child].filter((row) =>
+        doomed.some((parent) =>
+          key.columns.every((column, index) => equals(row[column], parent[key.refColumns[index]])),
+        ),
+      );
+      deleteRows(db, child, dependents);
+    }
+  }
+  return doomed;
+}
+
 // ---------------------------------------------------------------------------
 // Query builder
 
@@ -296,7 +324,8 @@ type Order = { column: string; ascending: boolean; nullsFirst: boolean };
 class FakeQuery implements PromiseLike<Result> {
   private db: FixtureDb;
   private table: string;
-  private action: "select" | "insert" | "update" = "select";
+  private action: "select" | "insert" | "upsert" | "update" | "delete" = "select";
+  private conflictColumns: string[] = [];
   private columns: string | null = null;
   private countMode: "exact" | null = null;
   private head = false;
@@ -327,9 +356,28 @@ class FakeQuery implements PromiseLike<Result> {
     return this;
   }
 
+  // Only ON CONFLICT DO NOTHING, which is all the app uses.
+  upsert(values: Row | Row[], options: { onConflict?: string; ignoreDuplicates?: boolean } = {}) {
+    this.action = "upsert";
+    this.values = values;
+    this.conflictColumns = (options.onConflict ?? "id").split(",").map((column) => column.trim());
+    if (!options.ignoreDuplicates) {
+      this.deferredError ??= fakeError("PGRST100", "The fixture upsert supports only ignoreDuplicates: true.");
+    }
+    return this;
+  }
+
   update(values: Row) {
     this.action = "update";
     this.values = values;
+    return this;
+  }
+
+  delete(options: { count?: "exact" | "planned" | "estimated" } = {}) {
+    this.action = "delete";
+    if (options.count) {
+      this.countMode = "exact";
+    }
     return this;
   }
 
@@ -513,6 +561,33 @@ class FakeQuery implements PromiseLike<Result> {
           return { data: null, error: null, count: null, status: 201, statusText: "Created" };
         }
         return { ...this.output(pending), status: 201, statusText: "Created" };
+      }
+
+      if (this.action === "upsert") {
+        const inputs = Array.isArray(this.values) ? this.values : [this.values ?? {}];
+        const pending: Row[] = [];
+        for (const input of inputs) {
+          const conflict = [...this.db.tables[this.table], ...pending].some((other) =>
+            this.conflictColumns.every((column) => equals(other[column], input[column])),
+          );
+          if (!conflict) {
+            pending.push(prepareInsert(this.db, this.table, def, input, pending));
+          }
+        }
+        this.db.tables[this.table].push(...pending);
+        if (this.columns === null) {
+          return { data: null, error: null, count: null, status: 201, statusText: "Created" };
+        }
+        return { ...this.output(pending), status: 201, statusText: "Created" };
+      }
+
+      if (this.action === "delete") {
+        const rows = deleteRows(this.db, this.table, this.matchingRows());
+        const count = this.countMode ? rows.length : null;
+        if (this.columns === null) {
+          return { data: null, error: null, count, status: 204, statusText: "No Content" };
+        }
+        return { ...this.output(rows), count };
       }
 
       if (this.action === "update") {

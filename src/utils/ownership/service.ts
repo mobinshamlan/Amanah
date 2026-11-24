@@ -201,7 +201,7 @@ export function ownerView(record: VerificationRecord): OwnerVerificationView {
 }
 
 /** Returns the lost report this credential belongs to, or null. */
-async function authorizeLostReport(store: OwnershipStore, credential: unknown) {
+export async function authorizeLostReport(store: OwnershipStore, credential: unknown) {
   if (!isSubmissionCredential(credential)) {
     return null;
   }

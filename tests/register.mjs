@@ -1,6 +1,6 @@
 // Lets Node's built-in test runner load the app's TypeScript sources:
 // resolves the "@/..." path alias and extensionless relative imports.
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -8,7 +8,10 @@ const srcRoot = new URL("../src/", import.meta.url);
 const EXTENSIONS = [".ts", ".tsx", "/index.ts"];
 
 function withExtension(url) {
-  if (/\.[cm]?[jt]sx?$/.test(url.pathname) || existsSync(fileURLToPath(url))) {
+  // A folder with the same name as a file (utils/sandbox and utils/sandbox.ts)
+  // must not win over the file.
+  const path = fileURLToPath(url);
+  if (/\.[cm]?[jt]sx?$/.test(url.pathname) || (existsSync(path) && statSync(path).isFile())) {
     return url;
   }
   for (const extension of EXTENSIONS) {

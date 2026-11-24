@@ -12,7 +12,7 @@ The site is bilingual: Arabic (RTL) by default, with English one switch away. It
 
 ![Amanah homepage: report a lost or found item, or try the demo](docs/screenshots/home.png)
 
-> ⚠️ **Status:** Amanah is an MVP. AI suggestions are not ownership decisions, and the similarity score is not a probability. The staff workspace (`/admin`) has no sign-in yet, so it runs only in local development. The guided demo and fixture mode use fictional data.
+> ⚠️ **Status:** Amanah is an MVP. AI suggestions are not ownership decisions, and the similarity score is not a probability. The staff workspace (`/admin`) has no sign-in yet, so it runs only in local development. The live site runs in [test mode](#test-mode), where visitors play the staff role on their own test claim; the guided demo and fixture mode use fictional data.
 
 ## Features
 
@@ -25,6 +25,7 @@ The site is bilingual: Arabic (RTL) by default, with English one switch away. It
 | 🧑‍💼 **Staff decision** | Staff see the suggestion, the evidence and the owner's answers. They approve the claim for hand-over follow-up, reject it, reset it, or ask a follow-up question. Every decision is added to a log, never overwritten. Staff can also review lower-confidence pairs and link two reports by hand. |
 | 📊 **Monitoring** | Counts and times only: unchecked pairs, check failures, claims waiting, and the staff approval rate by score band. No report text, IDs or answers. |
 | 🎬 **Guided demo** | `/demo` runs in the browser with fictional data. You play the owner of a blue umbrella lost in the library, answer one question, and see a simulated staff decision. |
+| 🧪 **Test mode** | The live site runs as a public test version: tap an example to fill the lost form, get a real possible match against sample reports, answer the ownership questions, then approve or reject your own claim as staff to see both outcomes. Test reports are deleted after 3 days. See [Test mode](#test-mode). |
 
 ![The guided demo: a lost blue umbrella, one ownership question, and a simulated staff approval](docs/screenshots/demo.png)
 
@@ -129,6 +130,18 @@ The caps are constants in `src/utils/limits/usageBuckets.ts`:
 | Gemini requests per report, per UTC day | 40 |
 
 One Gemini request is one use, including a batch of up to 10 comparisons. IP addresses are stored as a SHA-256 hash with no secret, which keeps them out of plain sight but is not anonymisation. The counters are created by `supabase/migrations/20261101140000_usage_limits_and_private_report_inserts.sql`. Until it is applied, submissions fail closed and nothing is saved. Fixture mode always allows requests.
+
+## Test mode
+
+Set `AMANAH_SANDBOX=1` to run a public test version. **Use it only on a database that holds test data:** it treats every report as a visitor's test.
+
+- Eleven sample found reports in Arabic and English (`src/utils/sandbox/samples.ts`) are always kept, so a visitor reporting a lost umbrella, wallet or keys gets a possible match and real ownership questions.
+- On a claim waiting for staff, the visitor can play the staff role on their own claim (approve, or switch to reject) to see what the owner sees. The page labels this as simulated.
+- Every other report is removed by the next daily cleanup once it is 3 days old, with its matches and claims. A claim linked to an expired found report goes with it.
+- Vercel Cron calls `GET /api/sandbox/cleanup` daily (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`, and the route answers with counts only. `POST /api/sandbox/cleanup?purge=all` with the same header removes every non-sample report at once, for a deliberate clean.
+- Apply `supabase/migrations/20261124120000_sandbox_report_cleanup.sql` before the first cleanup.
+
+Without the setting, the route does not exist and only staff decide.
 
 ## Project structure
 

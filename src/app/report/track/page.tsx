@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import TrackReport from "@/app/report/track/TrackReport";
 import { getMessages } from "@/i18n/server";
 import { track } from "@/i18n/messages/track";
+import { isSandboxMode } from "@/utils/sandbox";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getMessages(track);
@@ -13,5 +14,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function TrackReportPage() {
-  return <TrackReport />;
+  return <TrackReport sandbox={isSandboxMode()} />;
 }

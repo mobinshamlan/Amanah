@@ -108,6 +108,35 @@ const en = {
   staffDecide: "Staff decide, not the AI.",
   staffContact: "Questions or news? Contact your organization's lost-and-found staff.",
 
+  /* The public test version only. */
+  sandbox: {
+    note: "Test version: your report is deleted after 3 days.",
+    // The visitor plays the staff role on their own claim. Always labelled as simulated.
+    staff: {
+      label: "Simulated · test version",
+      title: "Try the staff role",
+      intro: "In the test version you can decide yourself and see what the report's owner sees.",
+      approve: "Approve",
+      reject: "Reject",
+      saving: "Saving the decision…",
+      decided: {
+        approved: "You approved as staff. This is what the owner sees after an approval.",
+        rejected: "You rejected as staff. This is what the owner sees when staff can't confirm.",
+      },
+      tryOther: "Try the other decision",
+      announce: {
+        approved: "Simulated decision saved: approved.",
+        rejected: "Simulated decision saved: not confirmed.",
+      },
+      errors: {
+        not_ready: "There is still a question to answer first, so a decision can't be made yet.",
+        save_failed: "The decision was not saved. Try again.",
+        invalid_link: "This link no longer works, so the decision was not saved.",
+        not_sandbox: "Trying the staff role is not available right now.",
+      },
+    },
+  },
+
   /* The saved-link moment, right after a lost report is submitted. */
   saved: {
     context: "Your report is saved",
@@ -401,6 +430,33 @@ const ar: typeof en = {
   aiNote: "هذا اقتراح من الذكاء الاصطناعي، وما يعني إن الغرض لك. ما يُسلَّم شي قبل ما يتأكد الموظف.",
   staffDecide: "الموظف هو اللي يقرر، مو الذكاء الاصطناعي.",
   staffContact: "عندك سؤال أو جديد؟ تواصل مع موظفي المفقودات في جهتك.",
+
+  sandbox: {
+    note: "نسخة تجريبية: بلاغك ينحذف بعد 3 أيام.",
+    staff: {
+      label: "محاكاة · نسخة تجريبية",
+      title: "جرّب دور الموظف",
+      intro: "في النسخة التجريبية تقدر تقرر بنفسك وتشوف وش يشوف صاحب البلاغ.",
+      approve: "وافق",
+      reject: "ارفض",
+      saving: "نحفظ القرار…",
+      decided: {
+        approved: "وافقت بدور الموظف. هذا اللي يشوفه صاحب البلاغ لما يوافق الموظف.",
+        rejected: "رفضت بدور الموظف. هذا اللي يشوفه صاحب البلاغ لما ما يتأكد الموظف.",
+      },
+      tryOther: "جرّب القرار الثاني",
+      announce: {
+        approved: "انحفظ القرار التجريبي: وافق الموظف.",
+        rejected: "انحفظ القرار التجريبي: ما تأكد.",
+      },
+      errors: {
+        not_ready: "باقي سؤال لازم تجاوب عليه أول، فما نقدر نقرر الحين.",
+        save_failed: "ما انحفظ القرار. جرّب مرة ثانية.",
+        invalid_link: "هذا الرابط ما عاد يشتغل، فما انحفظ القرار.",
+        not_sandbox: "تجربة دور الموظف مو متاحة الحين.",
+      },
+    },
+  },
 
   saved: {
     context: "تم حفظ بلاغك",

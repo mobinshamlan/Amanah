@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import type { OwnershipStage } from "@/app/report/SubmissionConfirmation";
 import {
   getOwnershipVerification,
@@ -78,6 +78,9 @@ function QuestionProgress({ number, total }: { number: number; total: number }) 
   );
 }
 
+/** Lets the tracking page show a view it got elsewhere, e.g. a simulated staff decision. */
+export type OwnershipControl = { applyView: (view: OwnerVerificationView) => void };
+
 /**
  * Asks the owner the private verification questions one at a time. It only
  * ever receives the owner-safe view: never the found report or expected answers.
@@ -89,11 +92,13 @@ export function OwnershipVerification({
   credential,
   onStageChange,
   headlineShown = false,
+  controlRef,
 }: {
   credential: string;
   // Lets the tracking page show the same state in its heading and progress steps.
   onStageChange?: (stage: OwnershipStage | null) => void;
   headlineShown?: boolean;
+  controlRef?: Ref<OwnershipControl>;
 }) {
   const t = useMessages(track);
   const [view, setView] = useState<OwnerVerificationView | null>(null);
@@ -125,6 +130,17 @@ export function OwnershipVerification({
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  useImperativeHandle(
+    controlRef,
+    () => ({
+      applyView: (next) => {
+        setLoading(false);
+        setView(next);
+      },
+    }),
+    [],
+  );
 
   const stage = stageOf(loading, view);
   useEffect(() => {

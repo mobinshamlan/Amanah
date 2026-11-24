@@ -16,10 +16,11 @@ import {
 import { CaseTag } from "@/app/report/track/parts/CaseTag";
 import { LinkTag } from "@/app/report/track/parts/LinkTag";
 import { SceneNote, TrackScene } from "@/app/report/track/parts/TrackScene";
-import { OwnershipVerification } from "@/app/report/track/OwnershipVerification";
+import { OwnershipVerification, type OwnershipControl } from "@/app/report/track/OwnershipVerification";
+import { TryStaffRole } from "@/app/report/track/parts/TryStaffRole";
 import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { ArrowEndIcon, ChevronDownIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
+import { ArrowEndIcon, ChevronDownIcon, ClockIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import { LoadingRow, textLinkClassName, textLinkOnDarkClassName } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
@@ -117,7 +118,21 @@ function BrokenLink() {
   );
 }
 
-export default function TrackReport() {
+// Nothing is left for the owner to answer: staff decide, or already did.
+const settledStages: ReadonlySet<OwnershipStage> = new Set([
+  "staff_review",
+  "answers_received",
+  "approved",
+  "rejected",
+]);
+
+/** Test version only: a quiet line that saved reports are deleted after a few days. */
+function SandboxNote() {
+  const t = useMessages(track);
+  return <SceneNote icon={<ClockIcon className="size-4" />}>{t.sandbox.note}</SceneNote>;
+}
+
+export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) {
   const router = useRouter();
   const t = useMessages(track);
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
@@ -140,6 +155,9 @@ export default function TrackReport() {
     "outcome" in matching &&
     matching.outcome === "no_match";
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // Right after saving, the status has its own heading beside the link card.
+  const statusHeadingRef = useRef<HTMLHeadingElement>(null);
+  const verificationRef = useRef<OwnershipControl>(null);
   // Token whose status fetch has not yet painted; cleared when the hash is empty.
   const [pendingToken, setPendingToken] = useState<string | null>(null);
   const [ownershipStage, setOwnershipStage] = useState<OwnershipStage | null>(null);
@@ -191,19 +209,18 @@ export default function TrackReport() {
     wasContinuing.current = isContinuing;
   }, [isContinuing, justSaved, definitiveNoMatch]);
 
-  // After the last answer, the ownership card shrinks to a chip and the
-  // headline becomes the result: move focus to the headline.
+  // After the last answer, or a decision tried in the test version, the
+  // ownership card steps aside and the status heading says the result: move
+  // focus to it.
   const previousStage = useRef<OwnershipStage | null>(null);
   useEffect(() => {
     const was = previousStage.current;
     previousStage.current = ownershipStage;
+    if (!ownershipStage || !settledStages.has(ownershipStage) || was === ownershipStage) return;
     const answered = was === "question" || was === "followup";
-    const settled =
-      ownershipStage === "answers_received" ||
-      ownershipStage === "staff_review" ||
-      ownershipStage === "approved" ||
-      ownershipStage === "rejected";
-    if (answered && settled && !justSaved) {
+    const decided = was !== null && settledStages.has(was);
+    if (answered || decided) {
+      // The first visit promotes these results to the main heading too.
       headingRef.current?.focus();
     }
   }, [ownershipStage, justSaved]);
@@ -240,6 +257,35 @@ export default function TrackReport() {
   const headline = matching ? lostHeadline(t, matching, isContinuing, ownership) : null;
   const decided = ownership === "approved" || ownership === "rejected";
 
+  // Right after saving, the link card needs only the URL: show it at once,
+  // under the same headline, while the status loads beside it. The same
+  // scene element follows, so the card stays put when the status arrives.
+  function savedLoadingView(url: string) {
+    return (
+      <TrackScene
+        art="compare"
+        mark="check"
+        stage="task"
+        title={t.saved.title}
+        intro={t.saved.intro}
+        headingRef={headingRef}
+        sheet={
+          <>
+            <LinkTag url={url} focal />
+          </>
+        }
+        aside={
+          <>
+            <div aria-busy="true">
+              <LoadingRow>{t.loadingStatus}</LoadingRow>
+            </div>
+            {sandbox ? <SandboxNote /> : null}
+          </>
+        }
+      />
+    );
+  }
+
   function statusView() {
     if (!matching || !headline) return <Opening />;
     const scene = sceneFor(headline, ownership);
@@ -249,7 +295,17 @@ export default function TrackReport() {
           key={credential}
           credential={credential}
           onStageChange={setOwnershipStage}
-          headlineShown={!justSaved}
+          controlRef={verificationRef}
+          headlineShown
+        />
+      ) : null;
+    // Test version: once nothing is left to answer, the visitor may play staff.
+    const tryStaff =
+      sandbox && showVerification && credential && ownership && settledStages.has(ownership) ? (
+        <TryStaffRole
+          credential={credential}
+          decision={decided ? (ownership as "approved" | "rejected") : null}
+          onDecided={(view) => verificationRef.current?.applyView(view)}
         />
       ) : null;
     const task =
@@ -279,33 +335,46 @@ export default function TrackReport() {
     if (justSaved) {
       // Right after saving, the page is about keeping the link: one tag on the
       // counter. While checking runs (or stops short of a clear answer) the
-      // headline says the report is saved and the status follows below; once
-      // every pair is compared with no match, that result becomes the
-      // headline, as it is when the link is reopened, and "saved" stays as a
-      // small confirmation above it. The result is shown once, not twice.
+      // headline says the report is saved and the status follows below. Once
+      // there is a clear result (every pair compared with no match, answers
+      // sent, or a decision) that result becomes the headline, as it is when
+      // the link is reopened, and "saved" stays as a small confirmation above
+      // it. The result is shown once, not twice.
+      const promote =
+        definitiveNoMatch ||
+        ownership === "answers_received" ||
+        ownership === "staff_review" ||
+        ownership === "approved" ||
+        ownership === "rejected";
       return (
         <TrackScene
           art={scene.art}
-          mark={definitiveNoMatch ? scene.mark : "check"}
+          mark={promote ? scene.mark : "check"}
           stage="task"
-          context={definitiveNoMatch ? t.saved.context : undefined}
-          title={definitiveNoMatch ? headline.title : t.saved.title}
-          intro={definitiveNoMatch ? headline.intro : t.saved.intro}
+          context={promote ? t.saved.context : undefined}
+          title={promote ? headline.title : t.saved.title}
+          intro={promote ? headline.intro : t.saved.intro}
           headingRef={headingRef}
           progress={progress}
           sheet={
             <>
               {linkUrl ? <LinkTag url={linkUrl} focal /> : null}
               {verification}
-              {/* The report itself, as on every later visit, so the visitor sees what was saved and where it stands. */}
-              <CaseTag view={matching} waiting={isContinuing} ownership={ownership} />
+              {/* The status is said once, beside the link; the tag carries only a decision's stamp. */}
+              {decided ? <CaseTag view={matching} waiting={isContinuing} ownership={ownership} /> : null}
+              {tryStaff}
             </>
           }
           aside={
             <>
-              {definitiveNoMatch ? null : (
+              {promote ? null : (
                 <section aria-labelledby="saved-status-title" aria-busy={isContinuing} className="flex flex-col gap-3">
-                  <h2 id="saved-status-title" className="text-subheading text-foreground">
+                  <h2
+                    id="saved-status-title"
+                    ref={statusHeadingRef}
+                    tabIndex={-1}
+                    className="text-subheading text-foreground outline-none"
+                  >
                     {headline.title}
                   </h2>
                   <p className="max-w-[52ch] text-body text-foreground/85">
@@ -315,7 +384,8 @@ export default function TrackReport() {
                 </section>
               )}
               {aiNote}
-              <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>
+              {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+              {sandbox ? <SandboxNote /> : null}
               <MoreActions
                 waiting={isContinuing}
                 reportAnotherLabel={t.actions.reportAnotherLost}
@@ -350,6 +420,7 @@ export default function TrackReport() {
             <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
               {canContinue(matching, isContinuing, canRetry) ? retry : null}
             </CaseTag>
+            {tryStaff}
             {/* The compact link sits on the counter under the tag. */}
             {linkUrl ? <LinkTag url={linkUrl} /> : null}
           </>
@@ -358,6 +429,7 @@ export default function TrackReport() {
           <>
             {aiNote}
             {decided ? null : <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+            {sandbox ? <SandboxNote /> : null}
             <MoreActions
               waiting={isContinuing}
               reportAnotherLabel={t.actions.reportAnotherLost}
@@ -387,7 +459,11 @@ export default function TrackReport() {
         </p>
 
         {!linkReady || (linkWorks && statusLoading) ? (
-          <Opening />
+          justSaved && linkUrl ? (
+            savedLoadingView(linkUrl)
+          ) : (
+            <Opening />
+          )
         ) : linkMissing ? (
           <NoLink />
         ) : !linkWorks ? (
