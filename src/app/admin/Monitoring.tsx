@@ -200,8 +200,8 @@ function HealthSummary({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: C
     [t.geminiKey, snapshot.geminiConfigured ? t.keyPresent : t.keyMissing],
     [t.model, snapshot.model],
   ];
+  // History and failed checks are listed under "Recent checks".
   const facts: [string, string][] = [
-    [t.runHistory, historyFact(snapshot, ctx)],
     [
       t.lastSuccessful,
       snapshot.lastSuccessfulRun
@@ -221,7 +221,8 @@ function HealthSummary({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: C
         state.tone === "ok" ? "bg-ok-soft" : state.tone === "problem" ? "bg-bad-soft" : "bg-background"
       }`}
     >
-      <div role="status" className="flex items-start gap-3">
+      {/* A failed latest check is announced; otherwise the state is a status. */}
+      <div role={state.tone === "problem" ? "alert" : "status"} className="flex items-start gap-3">
         <Icon
           className={`mt-1 size-6 shrink-0 ${
             state.tone === "ok" ? "text-ok-ink" : state.tone === "problem" ? "text-destructive" : "text-forest"
@@ -242,28 +243,6 @@ function HealthSummary({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: C
           </div>
         ))}
       </dl>
-      {snapshot.history.available ? (
-        <div className="text-small sm:ps-9">
-          {snapshot.recentFailures.length === 0 ? (
-            <p className="text-muted-foreground">{t.noFailed}</p>
-          ) : (
-            <>
-              <p className="font-semibold text-foreground">{t.recentFailed}</p>
-              <ul className="mt-1 flex flex-col gap-0.5 text-foreground">
-                {snapshot.recentFailures.map((failure) => (
-                  <li key={`${failure.finishedAt}-${failure.kind}`}>
-                    {/* Isolated parts keep "Gemini" and the date in order in Arabic. */}
-                    <bdi>{t.failureKinds[failure.kind]}</bdi>{" "}
-                    <span className="text-muted-foreground">
-                      · <bdi>{time(failure.finishedAt, locale)}</bdi> · <bdi>{t.sources[failure.source]}</bdi>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-      ) : null}
       {snapshot.demoExcluded ? (
         <div className="sm:ps-9">
           <DemoExcludedNote excluded={snapshot.demoExcluded} t={t} />
@@ -634,12 +613,27 @@ function RecentChecks({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: Ct
   return (
     <section className={panelClassName}>
       <h3 className={panelTitleClassName}>{t.recentTitle}</h3>
-      {body}
-      {snapshot.lastSuccessfulRunAt && snapshot.health === "last_run_failed" ? (
-        <p className="flex items-center gap-2 text-small text-muted-foreground">
-          <ClockIcon className="size-4 shrink-0" />
-          {t.lastCompleted(time(snapshot.lastSuccessfulRunAt, locale))}
+      {history.available ? (
+        <p className="text-small text-foreground">
+          <span className="text-muted-foreground">{t.runHistory}:</span>{" "}
+          <span className="font-medium">{historyFact(snapshot, ctx)}</span>
         </p>
+      ) : null}
+      {body}
+      {history.available && snapshot.recentFailures.length > 0 ? (
+        <Disclosure label={`${t.recentFailed} (${n(snapshot.recentFailures.length)})`}>
+          <ul className="flex flex-col gap-1 text-small text-foreground">
+            {snapshot.recentFailures.map((failure) => (
+              <li key={`${failure.finishedAt}-${failure.kind}`}>
+                {/* Isolated parts keep "Gemini" and the date in order in Arabic. */}
+                <bdi>{t.failureKinds[failure.kind]}</bdi>{" "}
+                <span className="text-muted-foreground">
+                  · <bdi>{time(failure.finishedAt, locale)}</bdi> · <bdi>{t.sources[failure.source]}</bdi>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Disclosure>
       ) : null}
     </section>
   );
