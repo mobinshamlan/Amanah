@@ -57,6 +57,12 @@ export default async function AdminReportsPage({
     const verification = verificationByMatch.get(match.id);
     return !verification || currentDecision(verification) === null;
   });
+  // Of those, the ones where the owner has answered and staff decide now. The
+  // nav badge, the sublines and the first-load route all count this list.
+  const staffReadyMatches = needsReviewMatches.filter((match) => {
+    const verification = verificationByMatch.get(match.id);
+    return verification ? readyForDecision(verification) : false;
+  });
   const reviewedMatches = possibleMatches.filter((match) => {
     const verification = verificationByMatch.get(match.id);
     return verification ? currentDecision(verification) !== null : false;
@@ -80,7 +86,7 @@ export default async function AdminReportsPage({
     requestedSection ??
     (readyClaims.length > 0
       ? "claims"
-      : needsReviewMatches.length > 0
+      : staffReadyMatches.length > 0
         ? "matches"
         : unmarkedCandidates.length > 0
           ? "candidates"
@@ -100,7 +106,7 @@ export default async function AdminReportsPage({
       label: t.section.matches,
       count: data.matchesError
         ? null
-        : { value: needsReviewMatches.length, label: t.navCount.matches(needsReviewMatches.length) },
+        : { value: staffReadyMatches.length, label: t.navCount.matches(staffReadyMatches.length) },
     },
     {
       key: "candidates",
@@ -132,7 +138,7 @@ export default async function AdminReportsPage({
 
   const sublines: Record<AdminSectionKey, { subline: string; actions?: ReactNode }> = {
     matches: {
-      subline: data.matchesError ? t.intro.matchesError : t.intro.matches(needsReviewMatches.length),
+      subline: data.matchesError ? t.intro.matchesError : t.intro.matches(staffReadyMatches.length, needsReviewMatches.length),
     },
     candidates: {
       subline: data.matchesError ? t.intro.candidatesError : t.intro.candidates(unmarkedCandidates.length),
@@ -164,9 +170,7 @@ export default async function AdminReportsPage({
           },
         ]
       : []),
-    ...(!data.matchesError && needsReviewMatches.length > 0
-      ? [{ href: "/admin?section=matches", label: t.needsYou.matches(needsReviewMatches.length) }]
-      : []),
+    // Possible matches staff can act on are the ready claims above, so they are not listed twice.
     ...(!data.matchesError && unmarkedCandidates.length > 0
       ? [{ href: "/admin?section=candidates", label: t.needsYou.candidates(unmarkedCandidates.length) }]
       : []),
@@ -205,7 +209,8 @@ export default async function AdminReportsPage({
           t={t}
           locale={locale}
           error={data.matchesError}
-          needsReview={needsReviewMatches}
+          staffNext={staffReadyMatches}
+          ownerNext={needsReviewMatches.filter((match) => !staffReadyMatches.includes(match))}
           reviewed={reviewedMatches}
           uncertain={uncertainMatches}
           verificationByMatch={verificationByMatch}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowEndIcon } from "@/components/icons";
+import { ArrowEndIcon, ChevronDownIcon } from "@/components/icons";
 import { Notice, StatusChip } from "@/components/ui";
 import type { Locale } from "@/i18n/config";
 import { formatDateTime } from "@/i18n/format";
@@ -34,8 +34,10 @@ type Props = {
   t: AdminMessages;
   locale: Locale;
   error: boolean;
-  // Undecided possible matches; split below by who acts next.
-  needsReview: ReportMatch[];
+  // Undecided possible matches, split by who acts next: staff decide on the
+  // claim, or the owner still has to open or answer it.
+  staffNext: ReportMatch[];
+  ownerNext: ReportMatch[];
   reviewed: ReportMatch[];
   uncertain: ReportMatch[];
   verificationByMatch: Map<string, Verification>;
@@ -195,22 +197,22 @@ function MatchList({
 }
 
 export function MatchesSection(props: Props) {
-  const { t, error, needsReview, reviewed, uncertain, verificationByMatch } = props;
-  const staffNext = needsReview.filter((match) => {
-    const verification = verificationByMatch.get(match.id);
-    return verification ? readyForDecision(verification) : false;
-  });
-  const ownerNext = needsReview.filter((match) => !staffNext.includes(match));
+  const { t, error, staffNext, ownerNext, reviewed, uncertain } = props;
   return (
     <div id="matches" className="grid scroll-mt-6 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="flex min-w-0 flex-col gap-6">
+        {/* Below xl the matching panel follows the queue; this jumps to it. */}
+        <a href="#matching-panel" className={`${inlineLinkClassName} -mb-3 xl:hidden`}>
+          {t.matchingJump}
+          <ChevronDownIcon className="size-4" />
+        </a>
         {error ? (
           <Notice tone="error" role="alert">
             {t.errorMatches}
           </Notice>
         ) : (
           <>
-            {needsReview.length === 0 ? (
+            {staffNext.length + ownerNext.length === 0 ? (
               <section aria-labelledby="needs-review-heading" className="flex flex-col gap-3">
                 <QueueHeading id="needs-review-heading" title={t.needsReview} count={0} />
                 <EmptyState title={t.emptyMatchesTitle}>{t.emptyMatches}</EmptyState>
@@ -269,8 +271,15 @@ export function MatchesSection(props: Props) {
 
       {/* Desktop: a side column. Smaller screens: after the queue, which is the main job. */}
       <aside className="flex flex-col gap-4 xl:sticky xl:top-4">
-        <section className="flex min-w-0 flex-col gap-3 rounded-[1.25rem] bg-background p-5">
-          <h2 className="text-subheading text-foreground">{t.matchingPanel}</h2>
+        <section
+          id="matching-panel"
+          tabIndex={-1}
+          aria-labelledby="matching-panel-heading"
+          className="flex min-w-0 scroll-mt-6 flex-col gap-3 rounded-[1.25rem] bg-background p-5 focus:outline-none"
+        >
+          <h2 id="matching-panel-heading" className="text-subheading text-foreground">
+            {t.matchingPanel}
+          </h2>
           <RunMatching stacked />
           <p className="text-small text-muted-foreground">
             {t.matchingHelp}{" "}

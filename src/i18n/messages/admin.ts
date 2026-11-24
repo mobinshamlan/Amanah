@@ -47,7 +47,7 @@ const en = {
   } satisfies Record<SectionKey, string>,
   // Screen-reader noun after a count badge.
   navCount: {
-    matches: (n: number) => enCount(n, "suggestion needs review", "suggestions need review"),
+    matches: (n: number) => enCount(n, "possible match needs your decision", "possible matches need your decision"),
     candidates: (n: number) => enCount(n, "candidate to look at", "candidates to look at"),
     claims: (n: number) => enCount(n, "claim ready for your decision", "claims ready for your decision"),
   },
@@ -59,7 +59,6 @@ const en = {
   needsYou: {
     title: "Needs you now",
     claims: (n: number) => `${enCount(n, "claim", "claims")} ready for your decision`,
-    matches: (n: number) => `${enCount(n, "possible match", "possible matches")} to review`,
     candidates: (n: number) => `${enCount(n, "candidate pair", "candidate pairs")} to look at`,
     retries: (n: number) => `${enCount(n, "AI assessment", "AI assessments")} to retry`,
     owners: (n: number) => `${enCount(n, "claim waits", "claims wait")} on the owner`,
@@ -69,10 +68,15 @@ const en = {
 
   // Section sublines: the finding first, then one sentence on what the list is.
   intro: {
-    matches: (n: number) =>
-      n === 0
-        ? "Nothing needs review. The AI ranks report pairs that may describe the same item; it never proves ownership."
-        : `${enCount(n, "suggestion needs", "suggestions need")} review. The AI ranks report pairs that may describe the same item; it never proves ownership.`,
+    // `ready`: the owner has answered and staff decide; `open`: every undecided suggestion.
+    matches: (ready: number, open: number) =>
+      `${
+        open === 0
+          ? "Nothing needs review."
+          : ready === 0
+            ? `No decision is due; ${enCount(open, "open suggestion waits", "open suggestions wait")} on the owner.`
+            : `${enCount(ready, "needs", "need")} your decision, of ${enCount(open, "open suggestion", "open suggestions")}.`
+      } The AI ranks report pairs that may describe the same item; it never proves ownership.`,
     matchesError: "The AI ranks report pairs that may describe the same item; it never proves ownership.",
     candidates: (n: number) =>
       n === 0
@@ -152,6 +156,8 @@ const en = {
     "Shared clues, differences and unknowns were not recorded for this suggestion (saved before they were collected).",
   aiSummary: "AI summary",
   matchingPanel: "Matching",
+  // Phone and tablet: a jump from the top of the queue to the matching panel.
+  matchingJump: "Check for matches",
   matchingHelp: "Unchecked pairs, past checks and failures are listed under Monitoring.",
 
   // Ownership verification state inside a match
@@ -286,11 +292,11 @@ const ar: typeof en = {
   navCount: {
     matches: (n) =>
       arCount(n, {
-        zero: "ما فيه اقتراحات تحتاج مراجعة",
-        one: "اقتراح واحد يحتاج مراجعة",
-        two: "اقتراحين يحتاجان مراجعة",
-        few: "اقتراحات تحتاج مراجعة",
-        many: "اقتراحًا يحتاج مراجعة",
+        zero: "ما فيه احتمالات تنتظر قرارك",
+        one: "احتمال تطابق واحد ينتظر قرارك",
+        two: "احتمالين ينتظران قرارك",
+        few: "احتمالات تنتظر قرارك",
+        many: "احتمالًا ينتظر قرارك",
       }),
     candidates: (n) =>
       arCount(n, {
@@ -323,14 +329,6 @@ const ar: typeof en = {
         few: "طلبات جاهزة لقرارك",
         many: "طلبًا جاهزًا لقرارك",
       }),
-    matches: (n) =>
-      arCount(n, {
-        zero: "ما فيه احتمالات تطابق للمراجعة",
-        one: "احتمال تطابق واحد للمراجعة",
-        two: "احتمالين تطابق للمراجعة",
-        few: "احتمالات تطابق للمراجعة",
-        many: "احتمال تطابق للمراجعة",
-      }),
     candidates: (n) =>
       arCount(n, {
         zero: "ما فيه أزواج مرشّحة",
@@ -360,16 +358,32 @@ const ar: typeof en = {
   openNextClaim: "افتح الطلب التالي",
 
   intro: {
-    matches: (n) =>
-      n === 0
-        ? "ما فيه شي يحتاج مراجعة. الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية."
-        : `${arCount(n, {
-            zero: "",
-            one: "اقتراح واحد يحتاج",
-            two: "اقتراحين يحتاجان",
-            few: "اقتراحات تحتاج",
-            many: "اقتراحًا يحتاج",
-          })} مراجعة. الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.`,
+    matches: (ready, open) =>
+      `${
+        open === 0
+          ? "ما فيه شي يحتاج مراجعة."
+          : ready === 0
+            ? `ما فيه قرار مطلوب الحين؛ ${arCount(open, {
+                zero: "",
+                one: "اقتراح مفتوح واحد ينتظر",
+                two: "اقتراحين مفتوحين ينتظران",
+                few: "اقتراحات مفتوحة تنتظر",
+                many: "اقتراحًا مفتوحًا ينتظر",
+              })} صاحب الغرض.`
+            : `${arCount(ready, {
+                zero: "",
+                one: "اقتراح واحد ينتظر",
+                two: "اقتراحين ينتظران",
+                few: "اقتراحات تنتظر",
+                many: "اقتراحًا ينتظر",
+              })} قرارك، من أصل ${arCount(open, {
+                zero: "",
+                one: "اقتراح مفتوح واحد",
+                two: "اقتراحين مفتوحين",
+                few: "اقتراحات مفتوحة",
+                many: "اقتراحًا مفتوحًا",
+              })}.`
+      } الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.`,
     matchesError:
       "الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.",
     candidates: (n) =>
@@ -498,6 +512,7 @@ const ar: typeof en = {
     "الأدلة المشتركة والاختلافات وغير المعروف ما سُجّلت لهذا الاقتراح (حُفظ قبل أن تُجمع).",
   aiSummary: "ملخص الذكاء الاصطناعي",
   matchingPanel: "المطابقة",
+  matchingJump: "ابحث عن تطابقات",
   matchingHelp: "الأزواج غير المفحوصة والفحوصات السابقة والأعطال تجدها في «المراقبة».",
 
   verificationTitle: "التحقق من الملكية",
