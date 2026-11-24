@@ -2,6 +2,10 @@
   "name": "amanah",
   "version": "0.1.0",
   "private": true,
+  "description": "Privacy-first, bilingual lost and found for one organisation. Gemini suggests matches privately; staff decide every claim.",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:fixtures": "AMANAH_FIXTURES=1 next dev -p 3100",
