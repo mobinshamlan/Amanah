@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { runMatching } from "@/app/admin/actions";
 import type { MatchingRunSummary } from "@/utils/matching/runMatchingBatch";
 import { AlertIcon, CheckIcon, ClockIcon, CompareIcon, ChevronDownIcon } from "@/components/icons";
@@ -106,6 +106,9 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
     });
   }
 
+  // Phones and desktop each render a copy of these controls; each needs its own help id.
+  const helpId = useId();
+
   return (
     <div className="@container flex min-w-0 flex-col gap-4">
       {/* Stacked: button above its help text, for narrow side panels. */}
@@ -114,7 +117,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
           type="button"
           onClick={handleRun}
           disabled={isPending}
-          aria-describedby="run-matching-help"
+          aria-describedby={helpId}
           className={primaryButtonClassName}
         >
           {isPending ? (
@@ -129,7 +132,7 @@ export function RunMatching({ stacked = false }: { stacked?: boolean } = {}) {
             </>
           )}
         </button>
-        <p id="run-matching-help" className="text-small text-muted-foreground">
+        <p id={helpId} className="text-small text-muted-foreground">
           {t.help}
         </p>
       </div>

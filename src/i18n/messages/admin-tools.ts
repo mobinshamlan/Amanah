@@ -296,8 +296,7 @@ const en = {
     kpiProblemsDetail: (checks: number, completed: number, failed: number, stopped: number, truncated: boolean) =>
       `${enCount(checks, "check", "checks")}: ${completed} completed, ${failed} failed, ${stopped} stopped early${truncated ? " (latest checks only)" : ""}.`,
     kpiReview: "Possible matches that need your decision",
-    kpiReviewDetail: (open: number, ownerNext: number) =>
-      `${enCount(open, "open suggestion", "open suggestions")} in all; ${ownerNext} ${ownerNext === 1 ? "waits" : "wait"} on the owner.`,
+    kpiReviewDetail: (open: number) => `${enCount(open, "open suggestion", "open suggestions")} in all.`,
     kpiReviewUnavailable: "Possible matches could not be loaded.",
     reviewMatches: "Review matches",
     kpiClaims: "Claims without a decision",
@@ -724,7 +723,7 @@ const ar: typeof en = {
     kpiProblemsDetail: (checks, completed, failed, stopped, truncated) =>
       `${arCount(checks, AR.check)}: ${completed} اكتمل، ${failed} فشل، ${stopped} توقف مبكرًا${truncated ? " (آخر الفحوصات فقط)" : ""}.`,
     kpiReview: "تطابقات محتملة تنتظر قرارك",
-    kpiReviewDetail: (open, ownerNext) => `الاقتراحات المفتوحة كلها: ${open}، منها ${ownerNext} تنتظر المالك.`,
+    kpiReviewDetail: (open) => `الاقتراحات المفتوحة كلها: ${open}.`,
     kpiReviewUnavailable: "ما قدرنا نحمّل التطابقات المحتملة.",
     reviewMatches: "راجع التطابقات",
     kpiClaims: "طلبات بلا قرار",

@@ -347,7 +347,7 @@ function Metrics({
         detail={
           reviewNeeded === null
             ? t.kpiReviewUnavailable
-            : t.kpiReviewDetail(reviewNeeded.open, reviewNeeded.open - reviewNeeded.staffReady)
+            : t.kpiReviewDetail(reviewNeeded.open)
         }
       >
         <Link href="/admin?section=matches" className={linkClass}>
