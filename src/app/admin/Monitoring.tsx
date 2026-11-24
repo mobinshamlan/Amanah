@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AlertIcon, ArrowEndIcon, CheckIcon, ClockIcon, InfoIcon } from "@/components/icons";
 import { Notice, focusRingClassName, textLinkClassName } from "@/components/ui";
+import { Disclosure } from "@/app/admin/parts/ui";
 import { DailyBars, type BarCategory, type BarLabels, type BarPoint } from "@/app/admin/DailyBars";
 import type { RunFailure } from "@/utils/monitoring/runLog";
 import {
@@ -194,9 +195,12 @@ function HealthSummary({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: C
   const { t, locale } = ctx;
   const state = healthMessage(snapshot, ctx);
   const Icon = state.tone === "ok" ? CheckIcon : state.tone === "problem" ? AlertIcon : InfoIcon;
-  const facts: [string, string][] = [
+  // Key presence and model name are setup facts, kept out of the main view.
+  const setup: [string, string][] = [
     [t.geminiKey, snapshot.geminiConfigured ? t.keyPresent : t.keyMissing],
     [t.model, snapshot.model],
+  ];
+  const facts: [string, string][] = [
     [t.runHistory, historyFact(snapshot, ctx)],
     [
       t.lastSuccessful,
@@ -265,6 +269,20 @@ function HealthSummary({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: C
           <DemoExcludedNote excluded={snapshot.demoExcluded} t={t} />
         </div>
       ) : null}
+      <div className="sm:ps-9">
+        <Disclosure label={t.setupDetails}>
+          <dl className="grid gap-x-6 gap-y-2 text-small sm:grid-cols-2">
+            {setup.map(([label, value]) => (
+              <div key={label} className="flex min-w-0 flex-wrap gap-x-1.5">
+                <dt className="text-muted-foreground">{label}:</dt>
+                <dd dir="auto" className="min-w-0 break-words font-medium text-foreground">
+                  {value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </Disclosure>
+      </div>
     </section>
   );
 }
@@ -434,7 +452,10 @@ function ChartCard<K extends string>({
   unitPlural,
   footnote,
   ctx,
+  bare = false,
 }: {
+  // Inside a disclosure: no panel fill and no repeated title.
+  bare?: boolean;
   title: string;
   description: string;
   series: DailySeries<K>;
@@ -454,11 +475,13 @@ function ChartCard<K extends string>({
     day: chart.day,
     total: chart.total,
     otherDaysNone: chart.otherDaysNone(series.points.length),
+    oldest: chart.oldest,
+    newest: chart.newest,
   };
   return (
-    <section className={panelClassName}>
+    <section aria-label={bare ? title : undefined} className={bare ? "flex min-w-0 flex-col gap-3" : panelClassName}>
       <div>
-        <h3 className={panelTitleClassName}>{title}</h3>
+        {bare ? null : <h3 className={panelTitleClassName}>{title}</h3>}
         <p className="mt-1 text-small text-muted-foreground">{description}</p>
       </div>
       <p className="text-small text-foreground">{seriesSummary(series, count, unitPlural, ctx)}</p>
@@ -475,6 +498,44 @@ function ChartCard<K extends string>({
 }
 
 /* Recent checks */
+
+// Checks shown on a phone before "Show more".
+const PHONE_RUNS = 3;
+
+function PhoneRuns({
+  runs,
+  counts,
+  ctx,
+}: {
+  runs: MatchingRun[];
+  counts: (run: MatchingRun) => [string, string][];
+  ctx: Ctx;
+}) {
+  const { t, locale } = ctx;
+  return (
+    <ol className="flex flex-col gap-2">
+      {runs.map((run, index) => (
+        <li key={`${run.finishedAt}-${index}`} className="rounded-2xl bg-card p-4">
+          <p className={`text-small font-semibold ${run.failure ? "text-destructive" : "text-foreground"}`}>
+            {runResult(run, t)}
+          </p>
+          <p className="text-small text-muted-foreground">
+            <bdi>{time(run.finishedAt, locale)}</bdi> · <bdi>{t.sources[run.source]}</bdi> ·{" "}
+            <bdi>{formatDuration(run.durationMs, ctx)}</bdi>
+          </p>
+          <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-small">
+            {counts(run).map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium tabular-nums text-foreground">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function RecentChecks({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: Ctx }) {
   const { t, locale } = ctx;
@@ -514,27 +575,14 @@ function RecentChecks({ snapshot, ctx }: { snapshot: MonitoringSnapshot; ctx: Ct
         ) : null}
 
         {/* Phone: one block per check. */}
-        <ol className="flex flex-col gap-2 md:hidden">
-          {recentRuns.map((run, index) => (
-            <li key={`${run.finishedAt}-${index}`} className="rounded-2xl bg-card p-4">
-              <p className={`text-small font-semibold ${run.failure ? "text-destructive" : "text-foreground"}`}>
-                {runResult(run, t)}
-              </p>
-              <p className="text-small text-muted-foreground">
-                {time(run.finishedAt, locale)} · {t.sources[run.source]} · {formatDuration(run.durationMs, ctx)}
-              </p>
-              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-small">
-                {counts(run).map(([label, value]) => (
-                  <div key={label} className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="font-medium tabular-nums text-foreground">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </li>
-          ))}
-        </ol>
-
+        <div className="flex flex-col gap-2 md:hidden">
+          <PhoneRuns runs={recentRuns.slice(0, PHONE_RUNS)} counts={counts} ctx={ctx} />
+          {recentRuns.length > PHONE_RUNS ? (
+            <Disclosure label={t.moreChecks(recentRuns.length - PHONE_RUNS)}>
+              <PhoneRuns runs={recentRuns.slice(PHONE_RUNS)} counts={counts} ctx={ctx} />
+            </Disclosure>
+          ) : null}
+        </div>
         {/* Wider screens: a real table. */}
         <div
           role="region"
@@ -690,10 +738,8 @@ function MatchReviewPanel({ review, ctx }: { review: MatchReview | null; ctx: Ct
             </p>
           ) : null}
 
-          <div>
-            <h4 className="text-body font-semibold text-foreground">{t.bandsTitle}</h4>
-            <p className="mt-1 text-small text-muted-foreground">{t.bandsIntro}</p>
-          </div>
+          <Disclosure label={t.bandsTitle}>
+            <p className="text-small text-muted-foreground">{t.bandsIntro}</p>
           <ul className="grid divide-y divide-border rounded-2xl bg-card md:grid-cols-3 md:divide-x md:divide-y-0">
             {review.bands.map((band) => (
               <li key={band.key} className="flex min-w-0 flex-col gap-1.5 p-4">
@@ -712,6 +758,7 @@ function MatchReviewPanel({ review, ctx }: { review: MatchReview | null; ctx: Ct
               </li>
             ))}
           </ul>
+          </Disclosure>
           <p className="max-w-[72ch] text-small text-muted-foreground">{t.approvalFootnote(review.unscored)}</p>
         </>
       )}
@@ -779,28 +826,17 @@ export async function MonitoringPanel({
       <HealthSummary snapshot={snapshot} ctx={ctx} />
       <Metrics snapshot={snapshot} reviewNeeded={reviewNeeded} ctx={ctx} />
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <ChartCard
-          title={t.reportsTitle}
-          description={t.reportsIntro(TREND_DAYS)}
-          series={snapshot.reportsDaily}
-          categories={reportCategories}
-          count={t.reports}
-          unitPlural={t.reportsPlural}
-          footnote={t.reportsFootnote}
-          ctx={ctx}
-        />
-        <ChartCard
-          title={t.comparisonsTitle}
-          description={t.comparisonsIntro(TREND_DAYS)}
-          series={snapshot.comparisonsDaily}
-          categories={comparisonCategories}
-          count={t.comparisons}
-          unitPlural={t.comparisonsPlural}
-          footnote={t.comparisonsFootnote}
-          ctx={ctx}
-        />
-      </div>
+      {/* One chart answers "is checking keeping up?"; report intake is on demand. */}
+      <ChartCard
+        title={t.comparisonsTitle}
+        description={t.comparisonsIntro(TREND_DAYS)}
+        series={snapshot.comparisonsDaily}
+        categories={comparisonCategories}
+        count={t.comparisons}
+        unitPlural={t.comparisonsPlural}
+        footnote={t.comparisonsFootnote}
+        ctx={ctx}
+      />
 
       <div className="grid items-start gap-5 min-[1600px]:grid-cols-[minmax(0,1fr)_20rem]">
         <RecentChecks snapshot={snapshot} ctx={ctx} />
@@ -808,6 +844,22 @@ export async function MonitoringPanel({
       </div>
 
       <MatchReviewPanel review={snapshot.matchReview} ctx={ctx} />
+
+      <Disclosure label={t.reportsTitle} className="rounded-[1.5rem] bg-background px-4 py-1.5 sm:px-5">
+        <div className="mb-3">
+          <ChartCard
+            title={t.reportsTitle}
+            description={t.reportsIntro(TREND_DAYS)}
+            series={snapshot.reportsDaily}
+            categories={reportCategories}
+            count={t.reports}
+            unitPlural={t.reportsPlural}
+            footnote={t.reportsFootnote}
+            ctx={ctx}
+            bare
+          />
+        </div>
+      </Disclosure>
     </div>
   );
 }

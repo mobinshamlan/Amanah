@@ -260,6 +260,7 @@ const en = {
     failed: "failed",
 
     geminiKey: "Gemini key",
+    setupDetails: "Setup details",
     keyPresent: "Present (a key is set; this does not show the service works)",
     keyMissing: "Missing",
     model: "Model",
@@ -294,7 +295,7 @@ const en = {
     kpiReviewDetail: (possible: number, uncertain: number) =>
       `Saved in total: ${possible} possible, ${uncertain} not enough information.`,
     reviewMatches: "Review matches",
-    kpiClaims: "Claims awaiting decision",
+    kpiClaims: "Claims without a decision",
     kpiClaimsNone: "None waiting for staff right now.",
     kpiClaimsOldest: (age: string) => `Oldest waiting for staff: ${age}.`,
     kpiClaimsRetry: (n: number) => `${n} ${n === 1 ? "needs" : "need"} an AI assessment retry.`,
@@ -352,6 +353,7 @@ const en = {
     noMatch: "No match",
 
     recentTitle: "Recent checks",
+    moreChecks: (n: number) => `Show ${n} earlier ${n === 1 ? "check" : "checks"}`,
     recentUnavailable: "Run history could not be read, so failures and early stops cannot be shown.",
     recentNever: "No checks have run yet.",
     recentNoneSince:
@@ -379,7 +381,7 @@ const en = {
     lastCompleted: (at: string) => `Last check that completed: ${at}.`,
 
     claimsTitle: "Ownership claims",
-    claimsAwaiting: "Awaiting staff decision",
+    claimsAwaiting: "No staff decision yet",
     claimsRetry: "AI assessment needs a retry",
     claimsAnswers: "Waiting for owner answers",
     claimsNoQuestions: "Staff review without questions",
@@ -422,6 +424,8 @@ const en = {
     day: "Day",
     total: "Total",
     otherDaysNone: (days: number) => `Every other day in the last ${days} days had none.`,
+    oldest: "Oldest",
+    newest: "Newest",
   },
 
   // Returned by server actions. Validation, limits and access checks live in
@@ -680,6 +684,7 @@ const ar: typeof en = {
     failed: "فشل",
 
     geminiKey: "مفتاح Gemini",
+    setupDetails: "تفاصيل الإعداد",
     keyPresent: "موجود (المفتاح مضبوط فقط؛ هذا لا يثبت أن الخدمة تعمل)",
     keyMissing: "غير موجود",
     model: "النموذج",
@@ -713,7 +718,7 @@ const ar: typeof en = {
     kpiReviewDetail: (possible, uncertain) =>
       `المحفوظ إجمالًا: ${possible} تطابق محتمل، ${uncertain} معلومات غير كافية.`,
     reviewMatches: "راجع التطابقات",
-    kpiClaims: "طلبات تنتظر القرار",
+    kpiClaims: "طلبات بلا قرار",
     kpiClaimsNone: "ما فيه طلب ينتظر الموظفين الآن.",
     kpiClaimsOldest: (age) => `أقدم طلب ينتظر الموظفين: ${age}.`,
     kpiClaimsRetry: (n) => `${n} يحتاج إعادة تقييم الذكاء الاصطناعي.`,
@@ -770,6 +775,7 @@ const ar: typeof en = {
     noMatch: "لا تطابق",
 
     recentTitle: "آخر الفحوصات",
+    moreChecks: (n) => (n === 1 ? "اعرض فحصًا سابقًا" : n === 2 ? "اعرض فحصين سابقين" : n <= 10 ? `اعرض ${n} فحوصات سابقة` : `اعرض ${n} فحصًا سابقًا`),
     recentUnavailable: "ما قدرنا نقرأ سجل التشغيل، فلا يمكن عرض الأخطاء والتوقفات المبكرة.",
     recentNever: "ما جرى أي فحص بعد.",
     recentNoneSince:
@@ -797,7 +803,7 @@ const ar: typeof en = {
     lastCompleted: (at) => `آخر فحص اكتمل: ${at}.`,
 
     claimsTitle: "طلبات الملكية",
-    claimsAwaiting: "تنتظر قرار الموظفين",
+    claimsAwaiting: "بلا قرار من الموظف بعد",
     claimsRetry: "تحتاج إعادة تقييم الذكاء الاصطناعي",
     claimsAnswers: "تنتظر إجابات المالك",
     claimsNoQuestions: "مراجعة موظف بدون أسئلة",
@@ -839,6 +845,8 @@ const ar: typeof en = {
     day: "اليوم",
     total: "الإجمالي",
     otherDaysNone: (days) => `بقية الأيام في آخر ${days} يومًا بلا شي.`,
+    oldest: "الأقدم",
+    newest: "الأحدث",
   },
 
   actions: {
