@@ -12,7 +12,7 @@ It runs entirely in the browser with fictional data. It needs no Supabase, no Ge
 
 ![Amanah guided demo](docs/screenshots/demo.png)
 
-The live site is https://amanah-iota.vercel.app, and the guided demo is at https://amanah-iota.vercel.app/demo.
+The live site is https://amanahz.vercel.app, and the guided demo is at https://amanahz.vercel.app/demo.
 
 ## Setup
 

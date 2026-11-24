@@ -7,7 +7,7 @@ import type { Locale } from "@/i18n/config";
   description and address around them. Metadata merges shallowly, so every
   page that sets its own title passes it through here.
 */
-export const SITE_URL = "https://amanah-iota.vercel.app";
+export const SITE_URL = "https://amanahz.vercel.app";
 
 export function pageMetadata({
   title,
