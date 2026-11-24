@@ -61,7 +61,6 @@ const en = {
     claims: (n: number) => `${enCount(n, "claim", "claims")} ready for your decision`,
     candidates: (n: number) => `${enCount(n, "candidate pair", "candidate pairs")} to look at`,
     retries: (n: number) => `${enCount(n, "AI assessment", "AI assessments")} to retry`,
-    owners: (n: number) => `${enCount(n, "claim waits", "claims wait")} on the owner`,
     nothing: "Nothing needs you right now. New work shows up here.",
   },
   openNextClaim: "Open the next claim",
@@ -76,21 +75,21 @@ const en = {
           : ready === 0
             ? `No decision is due; ${enCount(open, "open suggestion waits", "open suggestions wait")} on the owner.`
             : `${enCount(ready, "needs", "need")} your decision, of ${enCount(open, "open suggestion", "open suggestions")}.`
-      } The AI ranks report pairs that may describe the same item; it never proves ownership.`,
+      }`,
     matchesError: "The AI ranks report pairs that may describe the same item; it never proves ownership.",
     candidates: (n: number) =>
       n === 0
-        ? "No pairs to look at. Plausible pairs the AI could not confirm; a low score can still appear here."
-        : `${enCount(n, "pair needs", "pairs need")} a look. Plausible pairs the AI could not confirm; a low score can still appear here.`,
+        ? "No pairs to look at. Pairs land here when the AI can't decide, or when staff add them."
+        : `${enCount(n, "pair needs", "pairs need")} a look. Pairs land here when the AI can't decide, or when staff add them.`,
     candidatesError: "Plausible pairs the AI could not confirm; a low score can still appear here.",
     claims: (ready: number, waiting: number) => {
       if (ready === 0 && waiting === 0) {
-        return "No claim is waiting. Owners answer private questions through their tracking link; staff make every decision.";
+        return "No claim is waiting.";
       }
       const parts = [];
       if (ready > 0) parts.push(`${enCount(ready, "claim is", "claims are")} ready for your decision`);
       if (waiting > 0) parts.push(`${enCount(waiting, "is", "are")} waiting on the owner`);
-      return `${parts.join("; ")}. Staff make every decision.`;
+      return `${parts.join("; ")}.`;
     },
     claimsError: "Owners answer private questions through their tracking link; staff make every decision.",
     reports: (n: number, filter: Filter) =>
@@ -132,10 +131,6 @@ const en = {
   matchesOwnerNext: "Waiting on the owner",
   matchesOwnerNextHelp:
     "Questions are prepared when the owner opens their tracking link. Look the pair over; there is nothing to decide yet.",
-  nextStaff: "Next: your decision",
-  nextOwnerAnswers: "Next: the owner answers",
-  nextOwnerOpens: "Next: the owner opens their link",
-  nextElsewhere: "Next: the claim on the other suggestion",
   reviewedGroup: (n: number) => `Reviewed (${n})`,
   uncertainGroup: (n: number) => `AI: not enough information (${n})`,
   uncertainHelp:
@@ -156,7 +151,6 @@ const en = {
   aiSummary: "AI summary",
   matchingPanel: "Matching",
   // Phone and tablet: the folded matching controls above the queue.
-  matchingJump: "Check for matches",
   matchingHelp: "Unchecked pairs, past checks and failures are listed under Monitoring.",
 
   // Ownership verification state inside a match
@@ -177,11 +171,6 @@ const en = {
     "A claim starts when an owner opens their tracking link after a possible match and answers the questions.",
   emptyReadyTitle: "Nothing is ready for a decision",
   emptyReady: "Claims appear here once the owner has answered every question.",
-  waitingOn: "Waiting on",
-  waitingOwner: (answered: number, total: number) => `the owner (${answered} of ${total} answered)`,
-  waitingOwnerFollowup: "the owner (follow-up question)",
-  waitingStaff: "staff",
-  waitingNobody: "nobody; decided",
   status: {
     staffReviewRequired: "Staff review required",
     awaitingAnswer: (answered: number, total: number) => `Awaiting answer (${answered}/${total})`,
@@ -346,14 +335,6 @@ const ar: typeof en = {
         few: "تقييمات تحتاج إعادة",
         many: "تقييمًا يحتاج إعادة",
       }),
-    owners: (n) =>
-      arCount(n, {
-        zero: "ما فيه طلبات تنتظر صاحب الغرض",
-        one: "طلب واحد ينتظر صاحب الغرض",
-        two: "طلبين ينتظران صاحب الغرض",
-        few: "طلبات تنتظر صاحب الغرض",
-        many: "طلبًا ينتظر صاحب الغرض",
-      }),
     nothing: "ما فيه شي يحتاجك الحين. الشغل الجديد يظهر هنا.",
   },
   openNextClaim: "افتح الطلب التالي",
@@ -384,24 +365,24 @@ const ar: typeof en = {
                 few: "اقتراحات مفتوحة",
                 many: "اقتراحًا مفتوحًا",
               })}.`
-      } الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.`,
+      }`,
     matchesError:
       "الذكاء الاصطناعي يرتّب أزواج البلاغات اللي يمكن تصف نفس الغرض، وما يثبت الملكية.",
     candidates: (n) =>
       n === 0
-        ? "ما فيه أزواج تحتاج نظرة. أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة."
+        ? "ما فيه أزواج تحتاج نظرة. هنا الأزواج اللي ما حسمها الذكاء الاصطناعي، أو أضافها الموظف."
         : `${arCount(n, {
             zero: "",
             one: "زوج واحد يحتاج",
             two: "زوجين يحتاجان",
             few: "أزواج تحتاج",
             many: "زوجًا يحتاج",
-          })} نظرة. أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة.`,
+          })} نظرة. هنا الأزواج اللي ما حسمها الذكاء الاصطناعي، أو أضافها الموظف.`,
     candidatesError:
       "أزواج معقولة ما قدر الذكاء الاصطناعي يؤكدها، وقد تظهر هنا حتى لو كانت الدرجة منخفضة.",
     claims: (ready, waiting) => {
       if (ready === 0 && waiting === 0) {
-        return "ما فيه طلب ينتظر. صاحب الغرض يجاوب على أسئلة خاصة من رابطه، والموظف يتخذ كل قرار.";
+        return "ما فيه طلب ينتظر.";
       }
       const parts = [];
       if (ready > 0) {
@@ -426,7 +407,7 @@ const ar: typeof en = {
           }),
         );
       }
-      return `${parts.join("، و")}. الموظف يتخذ كل قرار.`;
+      return `${parts.join("، و")}.`;
     },
     claimsError: "صاحب الغرض يجاوب على أسئلة خاصة من رابطه، والموظف يتخذ كل قرار.",
     reports: (n, filter) => {
@@ -482,10 +463,6 @@ const ar: typeof en = {
   matchesOwnerNext: "بانتظار صاحب الغرض",
   matchesOwnerNextHelp:
     "الأسئلة تُجهّز لما يفتح صاحب الغرض رابط المتابعة. راجع الزوج؛ ما فيه قرار مطلوب الحين.",
-  nextStaff: "التالي: قرارك",
-  nextOwnerAnswers: "التالي: صاحب الغرض يجاوب",
-  nextOwnerOpens: "التالي: صاحب الغرض يفتح رابطه",
-  nextElsewhere: "التالي: الطلب على الاقتراح الثاني",
   reviewedGroup: (n) => `تمت مراجعته (${n})`,
   uncertainGroup: (n) => `الذكاء الاصطناعي: التفاصيل ما تكفي (${n})`,
   uncertainHelp:
@@ -512,7 +489,6 @@ const ar: typeof en = {
     "الأدلة المشتركة والاختلافات وغير المعروف ما سُجّلت لهذا الاقتراح (حُفظ قبل أن تُجمع).",
   aiSummary: "ملخص الذكاء الاصطناعي",
   matchingPanel: "المطابقة",
-  matchingJump: "ابحث عن تطابقات",
   matchingHelp: "الأزواج غير المفحوصة والفحوصات السابقة والأعطال تجدها في «المراقبة».",
 
   verificationTitle: "التحقق من الملكية",
@@ -531,11 +507,6 @@ const ar: typeof en = {
     "الطلب يبدأ عندما يفتح صاحب الغرض رابط المتابعة بعد احتمال تطابق ويجاوب على الأسئلة.",
   emptyReadyTitle: "ما فيه شي جاهز للقرار",
   emptyReady: "الطلبات تظهر هنا بعد أن يجاوب صاحب الغرض على كل الأسئلة.",
-  waitingOn: "بانتظار",
-  waitingOwner: (answered, total) => `صاحب الغرض (جاوب على ${answered} من ${total})`,
-  waitingOwnerFollowup: "صاحب الغرض (سؤال المتابعة)",
-  waitingStaff: "الموظف",
-  waitingNobody: "لا أحد؛ تم القرار",
   status: {
     staffReviewRequired: "يحتاج مراجعة الموظف",
     awaitingAnswer: (answered, total) => `بانتظار الجواب (${answered}/${total})`,

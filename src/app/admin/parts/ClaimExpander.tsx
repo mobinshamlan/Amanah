@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { ChevronDownIcon } from "@/components/icons";
-import { secondaryButtonClassName } from "@/components/ui";
+import { summaryClassName } from "@/app/admin/parts/ui";
 
 /**
  * A ready claim that is not the next one: a compact row with a "Review claim"
@@ -37,13 +37,13 @@ export function ClaimExpander({
 
   return (
     <>
-      <div className="px-4 pb-4 sm:px-5">
+      <div className="px-4 pb-2 sm:px-5">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((value) => !value)}
-          className={`${secondaryButtonClassName} w-full sm:w-auto`}
+          className={summaryClassName}
         >
           {open ? openLabel : label}
           <ChevronDownIcon

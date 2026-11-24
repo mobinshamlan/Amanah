@@ -109,13 +109,10 @@ export default async function Home() {
               </p>
               <div className="flex w-full flex-col gap-4 motion-safe:animate-rise motion-safe:[animation-delay:180ms] sm:gap-5">
                 <ReportActions t={t} label={t.actionsLabel} />
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-small text-paper/80">
-                  <Link href="/demo" className={demoButtonClassName}>
-                    <UmbrellaGlyph className="size-5 shrink-0" />
-                    {t.demoLink}
-                  </Link>
-                  <span>{t.demoHint}</span>
-                </p>
+                <Link href="/demo" className={demoButtonClassName}>
+                  <UmbrellaGlyph className="size-5 shrink-0" />
+                  {t.demoLink}
+                </Link>
                 <p className="flex flex-wrap items-center gap-x-2 text-small text-paper/80">
                   <span>{t.trackPrompt}</span>
                   <Link href="/report/track" className={`${textLinkOnDarkClassName} text-small`}>
@@ -131,12 +128,11 @@ export default async function Home() {
         {/* What happens after a report: three scenes along one counter. */}
         <section aria-labelledby="after-title" className="overflow-hidden bg-background text-foreground">
           <div
-            className={`${frameClassName} grid gap-3 pt-20 sm:pt-28 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:items-end lg:gap-12 lg:pt-32`}
+            className={`${frameClassName} pt-20 sm:pt-28 lg:pt-32`}
           >
             <h2 id="after-title" className="text-title text-foreground">
               {t.afterTitle}
             </h2>
-            <p className="max-w-[40ch] text-lead text-foreground/85 lg:pb-2">{t.afterIntro}</p>
           </div>
 
           <div className="relative mt-4 sm:mt-6 lg:mt-8">

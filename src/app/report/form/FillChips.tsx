@@ -5,7 +5,7 @@ import { focusRingClassName } from "@/components/ui";
 
 /*
   One example per field that writes straight into it. A quiet line under the
-  field, not a pill: the lead ("Try an example:") and the example sit in one
+  field, not a pill: the lead ("Fill with example:") and the example sit in one
   real button, so the tap target is the whole line and its name says it
   fills. A long example shows its first line with an ellipsis; the button's
   accessible name keeps the full text. Once the field holds exactly that text

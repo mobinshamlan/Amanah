@@ -45,11 +45,11 @@ const en = {
   // Only in the test version, beside the save button.
   sandboxNote: "Test version: your report is deleted after 3 days.",
   // The chip under each field: tapping it writes the example into the field.
-  fillLabel: "Try an example",
+  fillLabel: "Fill with example",
   fillGroupLabel: (field: string) => `Example that fills “${field}”`,
   itemNameLabel: "What is it?",
   itemNameHint: "A few words that name the item.",
-  itemNameRequired: "Write what the item is, for example “black wallet”.",
+  itemNameRequired: "Write what the item is.",
   itemNameTooLong: (max: number) => `Keep the item name to ${digits(max)} characters.`,
   descriptionRequired: "Add a short description so the item can be recognised.",
   descriptionTooLong: (max: number) => `Keep the description to ${digits(max)} characters.`,
@@ -58,7 +58,7 @@ const en = {
   counterLabel: "Characters used",
   overLimit: (over: string) => `${over} over the limit`,
   privacy: "Your report is never published. It is compared privately using Google Gemini to find possible matches.",
-  privacyFound: "Only staff see these details, and they are compared privately using Google Gemini. Staff use them to check an owner’s answers.",
+  privacyFound: "Only staff see these details. They are compared privately using Google Gemini.",
   fixHighlighted: "Please fix the highlighted fields.",
   saveFailed: "Your report was not saved. Check your connection and try again.",
   busy: "Amanah is busy right now. Your report was not saved. Please try again in a few minutes.",
@@ -74,8 +74,7 @@ const en = {
         "Describe what you lost. Your report stays private and you get a private link to follow it.",
       kind: "Lost",
       title: "What did you lose?",
-      intro:
-        "Describe it so it can be recognised. You get a private link to follow your report; found items are never shown to you.",
+      intro: "Describe it so it can be recognised.",
       artAlt: "Two report slips under a brass magnifier on the desk, with a closed padlock beside them.",
       formLabel: "Lost item report",
       examples: [
@@ -118,8 +117,7 @@ const en = {
         "Describe what you found. Details stay private and are used only to confirm the owner.",
       kind: "Found",
       title: "What did you find?",
-      intro:
-        "Describe it in general, then add a detail or two only the owner would know. Staff use them privately to confirm the owner.",
+      intro: "Describe it, plus a detail only the owner would know.",
       artAlt: "A wrapped parcel with a tag on the desk, next to a service bell and a brass stamp.",
       formLabel: "Found item report",
       examples: [
@@ -143,8 +141,7 @@ const en = {
         },
       ],
       descriptionLabel: "Describe it",
-      descriptionHint:
-        "The general look, plus one or two details only the owner would know (a keyring, what is inside, a name).",
+      descriptionHint: "The general look, plus one or two details only the owner would know.",
       locationLabel: "Where did you find it?",
       locationHint: "A building, room or area, and when.",
       locationRequired: "Tell us where you found it.",
@@ -152,7 +149,6 @@ const en = {
       afterSteps: [
         "Hand the item to the lost-and-found staff.",
         "Your part ends there. Matching happens privately and you are not told about it.",
-        "The details you write stay private and are used only to check an owner’s answers.",
       ],
       submit: "Save report",
       saving: "Saving…",
@@ -165,11 +161,11 @@ const en = {
 const ar: typeof en = {
   required: "كل الخانات مطلوبة.",
   sandboxNote: "نسخة تجريبية: بلاغك ينحذف بعد 3 أيام.",
-  fillLabel: "جرّب مثال",
+  fillLabel: "عبّها بمثال",
   fillGroupLabel: (field) => `مثال يعبّي «${field}»`,
   itemNameLabel: "وش هو؟",
   itemNameHint: "كلمتين تسمّي فيها الغرض.",
-  itemNameRequired: "اكتب وش الغرض، مثلاً «محفظة سودا».",
+  itemNameRequired: "اكتب وش الغرض.",
   itemNameTooLong: (max) => `اسم الغرض لازم يكون ${digits(max)} حرف أو أقل.`,
   descriptionRequired: "أضف وصف مختصر حتى نقدر نعرف الغرض.",
   descriptionTooLong: (max) => `الوصف لازم يكون ${digits(max)} حرف أو أقل.`,
@@ -178,7 +174,7 @@ const ar: typeof en = {
   counterLabel: "عدد الأحرف",
   overLimit: (over) => `زيادة ${over} حرف عن الحد`,
   privacy: "بلاغك ما يُنشر أبدًا. نقارنه بخصوصية باستخدام Google Gemini عشان نلقى احتمالات التطابق.",
-  privacyFound: "ما يشوف هالتفاصيل إلا الموظف، ونقارنها بخصوصية باستخدام Google Gemini. الموظف يستخدمها يتأكد من إجابات صاحب الغرض.",
+  privacyFound: "ما يشوف هالتفاصيل إلا الموظف، ونقارنها بخصوصية باستخدام Google Gemini.",
   fixHighlighted: "راجع الخانات المعلّمة.",
   saveFailed: "ما انحفظ بلاغك. تأكد من الاتصال وجرّب مرة ثانية.",
   busy: "أمانة مشغولة حالياً وما انحفظ بلاغك. جرّب بعد دقايق.",
@@ -192,7 +188,7 @@ const ar: typeof en = {
       metaDescription: "اوصف اللي ضاع منك. بلاغك خاص، وتاخذ رابط خاص تتابعه فيه.",
       kind: "مفقود",
       title: "وش اللي ضاع منك؟",
-      intro: "اوصفه بشكل يخلّينا نعرفه. تاخذ رابط خاص تتابع فيه بلاغك، وما نعرض لك أي غرض لُقي.",
+      intro: "اوصفه بشكل يخلّينا نعرفه.",
       artAlt: "ورقتي بلاغ تحت عدسة نحاسية على الطاولة، وجنبها قفل مغلق.",
       formLabel: "بلاغ عن غرض مفقود",
       examples: [
@@ -233,7 +229,7 @@ const ar: typeof en = {
       metaDescription: "اوصف اللي لقيته. التفاصيل تبقى خاصة، ونستخدمها بس نتأكد من صاحبه.",
       kind: "ملقى",
       title: "وش اللي لقيته؟",
-      intro: "اوصفه بشكل عام، وأضف تفصيل أو تفصيلين ما يعرفها إلا صاحبه. الموظف يستخدمها بخصوصية يتأكد منه.",
+      intro: "اوصفه، وأضف تفصيل ما يعرفه إلا صاحبه.",
       artAlt: "طرد مربوط عليه بطاقة على الطاولة، وجنبه جرس خدمة وختم نحاسي.",
       formLabel: "بلاغ عن غرض لقيته",
       examples: [
@@ -254,7 +250,7 @@ const ar: typeof en = {
         },
       ],
       descriptionLabel: "اوصفه",
-      descriptionHint: "الشكل العام، مع تفصيل أو تفصيلين ما يعرفها إلا صاحبه (ميدالية، وش فيه، اسم).",
+      descriptionHint: "الشكل العام، مع تفصيل أو تفصيلين ما يعرفها إلا صاحبه.",
       locationLabel: "وين لقيته؟",
       locationHint: "مبنى أو قاعة أو منطقة، ومتى.",
       locationRequired: "قل لنا وين لقيته.",
@@ -262,7 +258,6 @@ const ar: typeof en = {
       afterSteps: [
         "سلّم الغرض لموظف المفقودات.",
         "دورك ينتهي هناك. المقارنة تصير بخصوصية وما نخبرك بنتيجتها.",
-        "التفاصيل اللي تكتبها تبقى خاصة، ونستخدمها بس نتأكد من إجابات صاحبه.",
       ],
       submit: "احفظ البلاغ",
       saving: "جاري الحفظ…",

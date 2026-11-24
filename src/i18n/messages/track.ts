@@ -48,13 +48,11 @@ const en = {
     },
     noMatch: {
       title: "No match so far",
-      intro:
-        "We compared your report with every found item reported so far. Items found later are checked when you open this link again, so keep it and come back.",
+      intro: "We compared it with every found item so far. Keep this link: new items are checked each time you open it.",
     },
     uncertain: {
       title: "No confirmed match so far",
-      intro:
-        "One or more found-item reports could not be judged from the details, so staff may review them. Come back to this link from time to time.",
+      intro: "Some found items need a closer look from staff. Come back to this link later.",
     },
     possibleMatch: {
       title: "There is a possible match",
@@ -92,11 +90,11 @@ const en = {
     },
     approved: {
       title: "Staff approved your claim",
-      intro: "The found item matches your report. Here's how to collect it.",
+      intro: "Contact your organization's lost-and-found staff and show them this link. They arrange the hand-over with you.",
     },
     rejected: {
       title: "Staff couldn't confirm ownership",
-      intro: "Your answers weren't enough to confirm the found item is yours.",
+      intro: "Your answers weren't enough to confirm the found item is yours. Think it's a mistake? Contact the lost-and-found staff with this link.",
     },
     retry: {
       title: "There is a possible match",
@@ -114,27 +112,11 @@ const en = {
     waiting: {
       title: "What happens next",
       steps: [
-        "Staff compare your report and answers with the found item.",
-        "Their decision shows on this link. We don't send messages, so keep it.",
-        "If they approve, you collect your item from the lost-and-found office.",
+        "The staff decision shows on this link. We don't send messages, so keep it.",
+        "If staff approve, they arrange the hand-over with you.",
       ],
     },
-    approved: {
-      title: "How to collect your item",
-      steps: [
-        "Go to your organization's lost-and-found office.",
-        "Bring your ID and open this link.",
-        "Staff check them and hand your item over.",
-      ],
-    },
-    rejected: {
-      title: "What you can do",
-      steps: [
-        "If you think it's a mistake, visit the lost-and-found office with this link.",
-        "Staff can look at your claim again.",
-      ],
-    },
-  } satisfies Record<string, { title: string; steps: string[] }>,
+  } satisfies Record<"waiting", { title: string; steps: string[] }>,
 
   /* The public test version only. */
   sandbox: {
@@ -266,8 +248,12 @@ const en = {
   /* Someone opened /report/track without a link. */
   noLink: {
     title: "Open your private link",
-    intro:
-      "When you reported a lost item, you got a private link for it. Open that exact link from wherever you saved it.",
+    intro: "Paste the private link you got when you reported a lost item.",
+    pasteLabel: "Your private link",
+    pastePlaceholder: "https://…/report/track#…",
+    pasteSubmit: "Open",
+    pasteInvalid: "That isn't a full Amanah tracking link. Copy the whole link, including the part after #.",
+    placesTitle: "Can't find it? Look in:",
     places: ["Your browser's bookmarks", "A message you sent yourself", "Your browser history (search for “Amanah”)"],
     lostLink:
       "Lost the link? It cannot be recovered, because it is never stored on our side. You can report the item again.",
@@ -278,13 +264,14 @@ const en = {
     title: "This link doesn't open",
     intro: "Check that you opened the whole link, exactly as you saved it when you reported the item.",
     help: "If it still doesn't open, contact your organization's lost-and-found staff.",
+    tryAnother: "Paste another link",
   },
 
   /* The found reporter's confirmation. */
   found: {
     context: "Your report is saved",
-    title: "Hand it to lost-and-found staff",
-    intro: "Thanks — your report is saved. Its details are never public; only lost-and-found staff review them.",
+    title: "Hand it to staff",
+    intro: "Thank you. Your report stays private, and lost-and-found staff review it.",
     // The finder's progress: only the stages that apply to a found report.
     steps: {
       handIn: "Hand the item in",
@@ -294,10 +281,9 @@ const en = {
     howSteps: [
       "Hand it over as you found it, with anything inside.",
       "Not sure where they are? Ask your organization where found items are handed in.",
-      "If someone says it is theirs, point them to staff. Staff confirm who it belongs to.",
     ],
     nextTitle: "After you hand it in",
-    nextBody: "Staff keep it safe and return it once they confirm the owner. Your part ends there.",
+    nextBody: "Your part ends there. Staff take it from here.",
     finishing: "Your report is already saved. A last background check is finishing; keep this page open a moment.",
     finishingPaused:
       "Your report is already saved. A background check is paused because Amanah is busy; keep this page open, or try again later.",
@@ -315,11 +301,11 @@ const en = {
   verify: {
     loadingTitle: "Preparing your questions",
     loadingRow: "Preparing your questions…",
-    questionIntro: "Answer from memory, in your own words. If you are not sure, say so rather than guessing.",
+    questionIntro: "Answer from memory. If you're not sure, say so.",
     followupTitle: "A question from staff",
     followupIntro: "Answer from memory, or say that you are not sure.",
     progress: (n: number, total: number) => `Question ${n} of ${total}`,
-    help: "Answers can't be edited once sent. Staff decide; an answer alone doesn't prove ownership.",
+    help: "You can't edit an answer once it's sent.",
     submit: "Send answer",
     // Test version only: ready answers that send in one tap.
     quick: {
@@ -347,11 +333,11 @@ const en = {
       },
       approved: {
         title: "Staff approved your claim",
-        body: "The found item matches your report. Here's how to collect it.",
+        body: "Contact your organization's lost-and-found staff and show them this link. They arrange the hand-over with you.",
       },
       rejected: {
         title: "Staff couldn't confirm ownership",
-        body: "Your answers weren't enough to confirm the found item is yours.",
+        body: "Your answers weren't enough to confirm the found item is yours. Think it's a mistake? Contact the lost-and-found staff with this link.",
       },
     },
     retry: {
@@ -407,13 +393,11 @@ const ar: typeof en = {
     },
     noMatch: {
       title: "ما لقينا تطابق للحين",
-      intro:
-        "قارنّا بلاغك بكل الأغراض اللي انبلغ عنها للحين. اللي ينلقى بعدين نقارنه لما تفتح هذا الرابط مرة ثانية، فاحفظه وارجع له.",
+      intro: "قارنّا بلاغك بكل اللي انبلغ عنه. احفظ الرابط، نقارن الجديد كل ما فتحته.",
     },
     uncertain: {
       title: "ما تأكد تطابق للحين",
-      intro:
-        "في بلاغ أو أكثر ما قدرنا نحكم عليه من التفاصيل، وممكن الموظف يراجعه. ارجع لهذا الرابط بين فترة وفترة.",
+      intro: "بعض البلاغات تحتاج نظرة من الموظف. ارجع لهذا الرابط بعدين.",
     },
     possibleMatch: {
       title: "في احتمال تطابق",
@@ -449,11 +433,11 @@ const ar: typeof en = {
     },
     approved: {
       title: "وافق الموظف على طلبك",
-      intro: "الغرض الملقى يطابق بلاغك. هذي طريقة استلامه.",
+      intro: "تواصل مع موظفي المفقودات في جهتك ووريهم هذا الرابط، وهم يرتبون معك الاستلام.",
     },
     rejected: {
       title: "الموظف ما قدر يتأكد من الملكية",
-      intro: "إجاباتك ما كانت كافية نتأكد إن الغرض الملقى لك.",
+      intro: "إجاباتك ما كانت كافية نتأكد إن الغرض الملقى لك. تشوف إن في خطأ؟ تواصل مع موظفي المفقودات ومعك هذا الرابط.",
     },
     retry: {
       title: "في احتمال تطابق",
@@ -469,24 +453,8 @@ const ar: typeof en = {
     waiting: {
       title: "وش يصير بعدين؟",
       steps: [
-        "الموظف يقارن بلاغك وإجاباتك بالغرض الملقى.",
-        "قراره يطلع في هذا الرابط. ما نرسل رسائل، فاحفظ الرابط.",
-        "إذا وافق، تستلم غرضك من مكتب المفقودات.",
-      ],
-    },
-    approved: {
-      title: "كيف تستلم غرضك",
-      steps: [
-        "روح مكتب المفقودات في جهتك.",
-        "خذ معك هويتك وافتح هذا الرابط.",
-        "الموظف يتأكد ويسلّمك غرضك.",
-      ],
-    },
-    rejected: {
-      title: "وش تقدر تسوي؟",
-      steps: [
-        "لو تشوف إن في خطأ، روح مكتب المفقودات ومعك هذا الرابط.",
-        "الموظف يقدر يراجع طلبك مرة ثانية.",
+        "قرار الموظف يطلع في هذا الرابط. ما نرسل رسائل، فاحفظ الرابط.",
+        "إذا وافق الموظف، يرتب معك الاستلام.",
       ],
     },
   },
@@ -611,7 +579,12 @@ const ar: typeof en = {
 
   noLink: {
     title: "افتح رابطك الخاص",
-    intro: "لما بلّغت عن مفقود، أعطيناك رابطًا خاصًا بالبلاغ. افتح الرابط نفسه من المكان اللي حفظته فيه.",
+    intro: "الصق الرابط الخاص اللي أخذته لما بلّغت عن مفقود.",
+    pasteLabel: "رابطك الخاص",
+    pastePlaceholder: "https://…/report/track#…",
+    pasteSubmit: "افتح",
+    pasteInvalid: "هذا مو رابط متابعة كامل. انسخ الرابط كله، مع الجزء اللي بعد #.",
+    placesTitle: "ما لقيته؟ دوّر في:",
     places: ["الإشارات المرجعية في متصفحك", "رسالة أرسلتها لنفسك", "سجل المتصفح (ابحث عن «أمانة»)"],
     lostLink: "ضيّعت الرابط؟ ما نقدر نرجّعه، لأنه ما يُخزَّن عندنا. تقدر تبلّغ عن الغرض من جديد.",
   },
@@ -620,12 +593,13 @@ const ar: typeof en = {
     title: "هذا الرابط ما يفتح",
     intro: "تأكد إنك فتحت الرابط كاملًا، مثل ما حفظته لما بلّغت.",
     help: "لو ما زال ما يفتح، تواصل مع موظفي المفقودات في جهتك.",
+    tryAnother: "الصق رابط ثاني",
   },
 
   found: {
     context: "تم حفظ بلاغك",
     title: "سلّمه لموظفي المفقودات",
-    intro: "شكرًا لك، بلاغك محفوظ. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
+    intro: "شكرًا لك. بلاغك يبقى خاص، ويراجعه موظفو المفقودات.",
     steps: {
       handIn: "سلّم الغرض",
       handInShort: "التسليم",
@@ -634,10 +608,9 @@ const ar: typeof en = {
     howSteps: [
       "سلّمه مثل ما لقيته، باللي فيه.",
       "ما تعرف وينهم؟ اسأل جهتك وين تتسلّم الأغراض اللي تنلقى.",
-      "لو أحد قال إنه له، وجّهه للموظف. الموظف هو اللي يتأكد من صاحبه.",
     ],
     nextTitle: "بعد ما تسلّمه",
-    nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون منه. ودورك ينتهي هنا.",
+    nextBody: "دورك ينتهي هنا، والموظف يكمل.",
     finishing: "بلاغك محفوظ خلاص. نخلّص فحص أخير في الخلفية، خلّ الصفحة مفتوحة لحظة.",
     finishingPaused: "بلاغك محفوظ خلاص. فحص في الخلفية واقف لأن أمانة مشغولة، خلّ الصفحة مفتوحة أو جرّب بعدين.",
     stalled: "بعض المعالجة الآلية طوّلت. بلاغك محفوظ. حدّث الصفحة ليكمل.",
@@ -653,11 +626,11 @@ const ar: typeof en = {
   verify: {
     loadingTitle: "نجهّز أسئلتك",
     loadingRow: "نجهّز أسئلتك…",
-    questionIntro: "جاوب من ذاكرتك وبكلامك. لو ما أنت متأكد قل كذا، أحسن من التخمين.",
+    questionIntro: "جاوب من ذاكرتك. لو مو متأكد، قل كذا.",
     followupTitle: "سؤال من الموظف",
     followupIntro: "جاوب من ذاكرتك، أو قل إنك ما أنت متأكد.",
     progress: (n, total) => `السؤال ${n} من ${total}`,
-    help: "ما تقدر تعدّل الإجابة بعد إرسالها. القرار للموظف، والإجابة لحالها ما تثبت الملكية.",
+    help: "ما تقدر تعدّل الإجابة بعد إرسالها.",
     submit: "أرسل الإجابة",
     quick: {
       label: "إجابات جاهزة · نسخة تجريبية",
@@ -684,11 +657,11 @@ const ar: typeof en = {
       },
       approved: {
         title: "وافق الموظف على طلبك",
-        body: "الغرض الملقى يطابق بلاغك. هذي طريقة استلامه.",
+        body: "تواصل مع موظفي المفقودات في جهتك ووريهم هذا الرابط، وهم يرتبون معك الاستلام.",
       },
       rejected: {
         title: "الموظف ما قدر يتأكد من الملكية",
-        body: "إجاباتك ما كانت كافية نتأكد إن الغرض الملقى لك.",
+        body: "إجاباتك ما كانت كافية نتأكد إن الغرض الملقى لك. تشوف إن في خطأ؟ تواصل مع موظفي المفقودات ومعك هذا الرابط.",
       },
     },
     retry: {

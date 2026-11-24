@@ -32,15 +32,12 @@ const en = {
   typing: "The desk is writing",
 
   // The desk opens.
-  greeting: "Hi, this is the Amanah lost-property desk. Lost something? Tell me what it is.",
-  starterHint: "Tap the suggestion to send it.",
+  greeting: "Lost something? Tell me what it is.",
+  starterHint: "Pick the suggestion to send it.",
   starter: "I lost my blue umbrella in the library",
-  composer: "In the demo, pick a suggestion",
-  composerNote: "Typing is off in the demo.",
 
   // Saved, then the possible match with its one question.
-  saved:
-    "Your report is saved privately. It is not published anywhere. I am comparing it with found-item reports now.",
+  saved: "Saved privately. Comparing it with found reports now.",
   matchLead: "There is a possible match. One question so staff can check it:",
   question: "What color is the handle?",
   questionNote: "The found report stays private. You never see it.",
@@ -48,15 +45,13 @@ const en = {
   answer: "Yellow",
 
   // Staff review, then the simulated decision.
-  review:
-    "Your answer is in and has gone to staff review. Staff compare it with the found report and decide, not the AI.",
+  review: "Sent to staff review. Staff decide, not the AI.",
   reviewChip: "Pending staff review",
   showDecision: "Show the staff decision · simulated",
   decisionStamp: "Approved",
   decisionStampNote: "simulated",
   decisionTitle: "Staff approved your claim",
-  decisionBody:
-    "Your answer matched the found report. Approval does not hand the umbrella over by itself; that happens with staff in person. This decision is a simulation for the demo.",
+  decisionBody: "Your answer matched the found report. Staff then arrange the hand-over with you in person.",
   reveal: "See how it matched",
   hideReveal: "Hide the comparison",
 
@@ -68,13 +63,13 @@ const en = {
     foundKind: "Found",
     status: "Status",
     handle: "Handle",
-    handleUnknown: "not known yet",
-    handleKnown: "yellow",
+    handleUnknown: "Not known yet",
+    handleKnown: "Yellow",
     artAlt: "A blue folding umbrella. The handle is blank until staff verify its color.",
     artAltKnown: "A blue folding umbrella with a yellow handle.",
     // The tag's back face, shown when the decision lands.
     back: "Back of the case tag",
-    backNote: "Pick it up in person at the desk.",
+    backNote: "Staff arrange the hand-over in person.",
     flip: "Turn the tag over",
     stages: {
       start: "Waiting for your report",
@@ -91,8 +86,7 @@ const en = {
   preview: {
     label: "Demo staff preview",
     title: "How the two reports matched",
-    intro:
-      "Staff see both reports side by side. The owner never sees the found report; this preview exists only in the demo.",
+    intro: "Staff see both reports side by side. The owner never does.",
     cluesTitle: "Shared clues",
     clues: {
       blue: "Blue",
@@ -105,8 +99,8 @@ const en = {
     lostSlip: "Lost report · you",
     foundSlip: "Found report · the finder",
     sharedLegend: "Highlighted: details both reports share",
-    verifiedLegend: "Green: verified by the owner's answer",
-    handleTitle: "The handle color verified ownership",
+    verifiedLegend: "Green: matched by the owner's answer",
+    handleTitle: "The handle color matched the found report",
     handleBody:
       "The lost report never mentioned the handle. The found report did, so that was the question for the owner.",
     asked: "Question",
@@ -175,27 +169,24 @@ const ar: typeof en = {
   youName: "أنت",
   typing: "المكتب يكتب",
 
-  greeting: "هلا، معك مكتب المفقودات في أمانة. ضيّعت شي؟ قل لي وش هو.",
-  starterHint: "اضغط الاقتراح وينرسل.",
+  greeting: "ضيّعت شي؟ قل لي وش هو.",
+  starterHint: "اختر الاقتراح وينرسل.",
   starter: "ضيّعت مظلتي الزرقاء في المكتبة",
-  composer: "في التجربة، اختر اقتراح",
-  composerNote: "الكتابة متوقفة في التجربة.",
 
-  saved: "تم حفظ بلاغك بخصوصية. ما ينشر في أي مكان، والحين أقارنه مع بلاغات الأغراض اللي انلقت.",
+  saved: "انحفظ بلاغك بخصوصية، والحين أقارنه بالأغراض الملقاة.",
   matchLead: "في احتمال تطابق. سؤال واحد عشان يتأكد الموظف:",
   question: "وش لون المقبض؟",
   questionNote: "بلاغ الغرض الملقى يبقى خاص، ما تشوفه.",
   answerChip: "أصفر · إجابة تجريبية",
   answer: "أصفر",
 
-  review: "وصلت إجابتك وراحت لمراجعة الموظف. الموظف يقارنها ببلاغ الغرض الملقى ويقرر، مو الذكاء الاصطناعي.",
+  review: "راحت لمراجعة الموظف. الموظف يقرر، مو الذكاء الاصطناعي.",
   reviewChip: "بانتظار مراجعة الموظف",
   showDecision: "اعرض قرار الموظف · محاكاة",
   decisionStamp: "موافَق عليه",
   decisionStampNote: "محاكاة",
   decisionTitle: "الموظف وافق على طلب الاستلام",
-  decisionBody:
-    "إجابتك طابقت بلاغ الغرض الملقى. الموافقة ما تعني إن المظلة تسلّمت؛ الاستلام يصير مع الموظف بنفسك. هذا القرار محاكاة للتجربة.",
+  decisionBody: "إجابتك طابقت بلاغ الغرض الملقى. بعدها الموظف يرتب معك الاستلام حضوريًا.",
   reveal: "شوف كيف تطابق",
   hideReveal: "أخفِ المقارنة",
 
@@ -211,7 +202,7 @@ const ar: typeof en = {
     artAlt: "مظلة زرقاء تنطوي. مقبضها فاضي لين يتأكد الموظف من لونه.",
     artAltKnown: "مظلة زرقاء تنطوي مقبضها أصفر.",
     back: "ظهر بطاقة الحالة",
-    backNote: "استلمها بنفسك من المكتب.",
+    backNote: "الموظف يرتب معك الاستلام حضوريًا.",
     flip: "اقلب البطاقة",
     stages: {
       start: "بانتظار بلاغك",
@@ -227,7 +218,7 @@ const ar: typeof en = {
   preview: {
     label: "معاينة الموظف · تجربة",
     title: "كيف تطابق البلاغان",
-    intro: "الموظف يشوف البلاغين جنب بعض. صاحب الغرض ما يشوف بلاغ الغرض الملقى أبدًا، وهذي المعاينة موجودة في التجربة بس.",
+    intro: "الموظف يشوف البلاغين جنب بعض، وصاحب الغرض ما يشوفهم.",
     cluesTitle: "تفاصيل مشتركة",
     clues: {
       blue: "زرقاء",
@@ -240,8 +231,8 @@ const ar: typeof en = {
     lostSlip: "بلاغ المفقود · أنت",
     foundSlip: "بلاغ الغرض الملقى · اللي لقاها",
     sharedLegend: "المظلَّل: تفاصيل موجودة في البلاغين",
-    verifiedLegend: "الأخضر: أكّدته إجابة صاحبها",
-    handleTitle: "لون المقبض هو اللي أكّد الملكية",
+    verifiedLegend: "الأخضر: طابق إجابة صاحبها",
+    handleTitle: "لون المقبض طابق بلاغ الغرض الملقى",
     handleBody: "بلاغ المفقود ما ذكر المقبض أبدًا، وبلاغ الغرض الملقى ذكره. عشان كذا كان هو سؤال التأكد.",
     asked: "السؤال",
     ownerSaid: "إجابة صاحبها",

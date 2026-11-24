@@ -25,7 +25,7 @@ export function ReportFilter({ filter, t }: { filter: Filter; t: AdminMessages }
             <Link
               href={filterHref(value)}
               aria-current={filter === value ? "page" : undefined}
-              className={`inline-flex min-h-10 min-w-16 cursor-pointer items-center justify-center rounded-full px-4 text-small transition-colors duration-150 ${focusRingClassName} ${
+              className={`inline-flex min-h-11 min-w-16 cursor-pointer items-center justify-center rounded-full px-4 text-small transition-colors duration-150 ${focusRingClassName} ${
                 filter === value
                   ? "bg-primary font-semibold text-primary-foreground"
                   : "text-foreground/80 hover:bg-card hover:text-foreground"
@@ -80,7 +80,7 @@ function PhoneRows({ reports, t, locale }: { reports: Report[]; t: AdminMessages
             </ReportKindCue>
           </div>
           <p className="break-words text-small text-muted-foreground">
-            <bdi dir="auto">{report.location}</bdi> · <span className="tabular-nums">{formatDateTime(report.created_at, locale)}</span>
+            <bdi dir="auto">{report.location}</bdi> · <span className="whitespace-nowrap tabular-nums">{formatDateTime(report.created_at, locale)}</span>
           </p>
           <DescriptionPreview text={report.description} lines={1} />
         </li>

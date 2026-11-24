@@ -11,6 +11,7 @@ import {
   KeyholeMark,
   LockIcon,
   RefreshIcon,
+  SearchIcon,
   SendIcon,
   TagIcon,
 } from "@/components/icons";
@@ -265,7 +266,7 @@ export function GuidedDemo() {
         className={`${frameClassName} grid gap-x-16 gap-y-6 pb-10 pt-6 sm:pt-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:pb-12`}
       >
         <div className="lg:col-start-1">
-          <h1 className="text-heading text-paper">{t.title}</h1>
+          <h1 className="text-title text-paper">{t.title}</h1>
           <p className="mt-2 max-w-[52ch] text-body text-paper/80">{t.intro}</p>
           <ProgressLine steps={steps} label={tr.steps.title} className="mt-7 hidden lg:flex" />
         </div>
@@ -293,7 +294,7 @@ export function GuidedDemo() {
           aria-label={t.tag.label}
           onPointerMove={onTagPointerMove}
           onPointerLeave={onTagPointerLeave}
-          className="hidden lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block lg:self-start"
+          className="hidden lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:block"
         >
           <div className="demo-tag-stage sticky top-6 mx-auto w-full max-w-[22rem]">
             <span aria-hidden className="relative block h-12 w-full">
@@ -365,10 +366,6 @@ export function GuidedDemo() {
                           <p className="text-subheading text-foreground">{t.tag.item}</p>
                           <p className="text-body text-foreground/80">{t.tag.backNote}</p>
                         </div>
-                        <button type="button" onClick={restart} className={quietButtonClassName}>
-                          <RefreshIcon className="size-4" />
-                          {t.restart}
-                        </button>
                       </div>
                     ) : null}
                   </div>
@@ -469,7 +466,7 @@ export function GuidedDemo() {
                   >
                     {t.decisionTitle}
                   </h2>
-                  <p className="mt-3 max-w-[52ch] text-body text-foreground/85">{t.decisionBody}</p>
+                  <p className="mt-3 max-w-[52ch] text-body text-foreground/85 sm:pe-36">{t.decisionBody}</p>
                   <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                     <button
                       type="button"
@@ -478,7 +475,7 @@ export function GuidedDemo() {
                       aria-controls="demo-preview"
                       className={secondaryButtonClassName}
                     >
-                      <EyeOffIcon className="size-4" />
+                      {revealed ? <EyeOffIcon className="size-4" /> : <SearchIcon className="size-4" />}
                       {revealed ? t.hideReveal : t.reveal}
                     </button>
                     <button type="button" onClick={restart} className={quietButtonClassName}>
@@ -493,14 +490,6 @@ export function GuidedDemo() {
             </ol>
           </div>
 
-          {/* The composer, visibly off: in the demo the suggestion does the typing. */}
-          <p className="mt-6 flex min-h-14 items-center gap-3 rounded-full border border-paper/25 bg-paper/10 py-1.5 pe-2 ps-5 text-body text-paper/75">
-            <span className="min-w-0 flex-1">{t.composer}</span>
-            <span className="sr-only">{t.composerNote}</span>
-            <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-paper/15">
-              <SendIcon className="size-4" />
-            </span>
-          </p>
         </section>
 
         {/* The stage ends as a stub tears off the pad. */}

@@ -23,7 +23,16 @@ import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
 import { ArrowEndIcon, ChevronDownIcon, ClockIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
-import { LoadingRow, textLinkClassName, textLinkOnDarkClassName } from "@/components/ui";
+import {
+  FieldError,
+  LoadingRow,
+  fieldClassName,
+  labelClassName,
+  primaryButtonClassName,
+  secondaryButtonClassName,
+  textLinkClassName,
+  textLinkOnDarkClassName,
+} from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { track } from "@/i18n/messages/track";
 
@@ -71,6 +80,9 @@ function NoLink() {
       intro={t.noLink.intro}
       sheet={
         <Slip label={t.noLink.title}>
+          <PasteLink />
+          <span aria-hidden className="perforation my-5 block text-foreground/20" />
+          <p className="mb-3 text-small font-semibold text-foreground">{t.noLink.placesTitle}</p>
           <ul className="flex flex-col gap-4">
             {t.noLink.places.map((place) => (
               <li key={place} className="flex items-start gap-3 text-body text-foreground">
@@ -92,6 +104,72 @@ function NoLink() {
   );
 }
 
+// The shape of a private credential (src/utils/matching/submissionCredential.ts is server-only).
+const CREDENTIAL_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+
+/** The credential from a pasted Amanah tracking link, or null when it isn't one. */
+function credentialFromLink(value: string) {
+  try {
+    const url = new URL(value.trim(), window.location.origin);
+    const credential = url.hash.slice(1);
+    return url.pathname === "/report/track" && CREDENTIAL_SHAPE.test(credential) ? credential : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Opens a pasted tracking link in place; the page follows the new hash. */
+function PasteLink() {
+  const t = useMessages(track);
+  const [value, setValue] = useState("");
+  const [invalid, setInvalid] = useState(false);
+  return (
+    <form
+      noValidate
+      className="flex flex-col gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const credential = credentialFromLink(value);
+        if (!credential) {
+          setInvalid(true);
+          return;
+        }
+        window.location.hash = credential;
+      }}
+    >
+      <label htmlFor="paste-link" className={labelClassName}>
+        {t.noLink.pasteLabel}
+      </label>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <input
+            id="paste-link"
+            type="url"
+            dir="ltr"
+            inputMode="url"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={t.noLink.pastePlaceholder}
+            value={value}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setInvalid(false);
+            }}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? "paste-link-error" : undefined}
+            className={fieldClassName}
+          />
+          {invalid ? <FieldError id="paste-link-error">{t.noLink.pasteInvalid}</FieldError> : null}
+        </div>
+        <button type="submit" className={primaryButtonClassName}>
+          {t.noLink.pasteSubmit}
+          <ArrowEndIcon className="size-4" />
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /** A malformed or unknown credential, or a found report's credential. */
 function BrokenLink() {
   const t = useMessages(track);
@@ -109,10 +187,16 @@ function BrokenLink() {
             <span className="min-w-0">{t.broken.help}</span>
           </p>
           <span aria-hidden className="perforation my-5 block text-foreground/20" />
-          <Link href="/report/lost" className={textLinkClassName}>
-            {t.actions.reportLost}
-            <ArrowEndIcon className="size-4" />
-          </Link>
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
+            {/* An empty hash brings back the page where a link can be pasted. */}
+            <button type="button" onClick={() => (window.location.hash = "")} className={secondaryButtonClassName}>
+              {t.broken.tryAnother}
+            </button>
+            <Link href="/report/lost" className={textLinkClassName}>
+              {t.actions.reportLost}
+              <ArrowEndIcon className="size-4" />
+            </Link>
+          </div>
         </Slip>
       }
     />
@@ -255,7 +339,12 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
     "outcome" in matching &&
     matching.outcome === "possible_match";
   const ownership = showVerification ? ownershipStage : null;
-  const headline = matching ? lostHeadline(t, matching, isContinuing, ownership) : null;
+  // Reopening a link: until the ownership status arrives, say only that it is
+  // loading, so a decided claim never flashes "possible match" first.
+  const ownershipLoading = showVerification && !justSaved && (ownershipStage === null || ownershipStage === "loading");
+  const resolved = matching ? lostHeadline(t, matching, isContinuing, ownership) : null;
+  const headline =
+    resolved && ownershipLoading ? { ...resolved, ...t.opening, extra: undefined } : resolved;
   const decided = ownership === "approved" || ownership === "rejected";
 
   // Right after saving, the link card needs only the URL: show it at once,
@@ -328,13 +417,14 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         ) : null}
       </LostProgress>
     );
-    // Once nothing is left to answer, the page ends on what the owner does next.
+    // While staff review, the page ends on what happens next. A decision's
+    // next step is already in its headline.
     const nextSteps =
-      ownership === "approved" || ownership === "rejected" ? (
-        <NextSteps kind={ownership} />
-      ) : ownership === "staff_review" || ownership === "answers_received" ? (
-        <NextSteps kind="waiting" />
-      ) : null;
+      ownership === "staff_review" || ownership === "answers_received" ? (
+        <NextSteps />
+      ) : decided ? null : (
+        <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>
+      );
     // The AI note describes the possible match itself, never a staff follow-up.
     const aiNote =
       headline.tone === "match" && ownership !== "followup" ? (
@@ -394,7 +484,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
                 </section>
               )}
               {aiNote}
-              {nextSteps ?? <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+              {nextSteps}
               {sandbox ? <SandboxNote /> : null}
               <MoreActions
                 waiting={isContinuing}
@@ -438,7 +528,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         aside={
           <>
             {aiNote}
-            {nextSteps ?? <SceneNote icon={<UserIcon className="size-4" />}>{t.staffContact}</SceneNote>}
+            {nextSteps}
             {sandbox ? <SandboxNote /> : null}
             <MoreActions
               waiting={isContinuing}

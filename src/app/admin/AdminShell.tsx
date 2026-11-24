@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NextClaimLink } from "@/app/admin/parts/NextClaimLink";
 import type { ReactNode } from "react";
 import {
   AlertIcon,
@@ -265,10 +266,10 @@ export function AdminShell({
                 ) : null}
               </div>
               {next ? (
-                <Link href={next.href} className={`${primaryOnDarkButtonClassName} w-full shrink-0 sm:w-auto`}>
+                <NextClaimLink href={next.href} className={`${primaryOnDarkButtonClassName} w-full shrink-0 sm:w-auto`}>
                   {next.label}
                   <ArrowEndIcon className="size-4" />
-                </Link>
+                </NextClaimLink>
               ) : null}
             </div>
             {needsYou ? <NeedsYou items={needsYou} t={t} /> : null}
