@@ -19,6 +19,7 @@ import {
   type ReportMatch,
   type Verification,
 } from "@/app/admin/parts/model";
+import { ClaimExpander } from "@/app/admin/parts/ClaimExpander";
 import {
   Disclosure,
   EmptyState,
@@ -113,10 +114,8 @@ function OwnershipReview({
               </p>
             </>
           ) : assessmentMissing(verification) ? (
-            <>
-              <p className="text-small text-foreground">{t.assessmentDidNotFinish}</p>
-              <RetryAssessmentButton verificationId={verification.id} />
-            </>
+            // The retry button sits on the claim's head, where the row shows it too.
+            <p className="text-small text-foreground">{t.assessmentDidNotFinish}</p>
           ) : (
             <p className="text-small text-foreground/85">{t.assessmentRunsAfter}</p>
           )}
@@ -182,6 +181,7 @@ function ClaimEvidence({
   match,
   otherMatches,
   openAnswers,
+  withFollowup,
   t,
   locale,
 }: {
@@ -189,6 +189,8 @@ function ClaimEvidence({
   match: ReportMatch | undefined;
   otherMatches: ReportMatch[];
   openAnswers: boolean;
+  // Ready claims: the answered follow-up is evidence, read with the answers.
+  withFollowup: boolean;
   t: AdminMessages;
   locale: Locale;
 }) {
@@ -196,6 +198,11 @@ function ClaimEvidence({
     <div className="flex min-w-0 flex-col gap-1">
       <Disclosure label={t.questionsAndAnswers} defaultOpen={openAnswers}>
         <OwnershipReview verification={verification} t={t} locale={locale} />
+        {withFollowup && verification.followup ? (
+          <div className="mb-3">
+            <FollowupPanel verification={verification} decided available t={t} locale={locale} />
+          </div>
+        ) : null}
       </Disclosure>
 
       <Disclosure label={t.reportsCompared}>
@@ -257,9 +264,9 @@ function DecisionHistory({ verification, t, locale }: { verification: Verificati
 /**
  * One claim. The head is always a one-glance summary: the pair, where it
  * stands, the AI's suggestion in words and who it waits on. Evidence sits
- * behind disclosures. Claims ready for a decision keep the decision controls
- * in view; the next one (oldest ready) opens its answers and carries the
- * screen's one brass accent.
+ * behind disclosures. The next ready claim (oldest ready) is open with its
+ * decision controls and carries the screen's one brass accent; later ready
+ * claims stay compact until staff choose "Review claim".
  */
 function ClaimCard({
   verification,
@@ -294,10 +301,38 @@ function ClaimCard({
       verification={verification}
       match={match}
       otherMatches={otherMatches}
-      openAnswers={next}
+      openAnswers={kind === "ready"}
+      withFollowup={kind === "ready"}
       t={t}
       locale={locale}
     />
+  );
+
+  // Evidence beside the decision; asking a follow-up stays with the decision
+  // until one is asked, then the answer moves to the evidence.
+  const readyBody = (
+    <div
+      className={`grid border-t xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] ${next ? "border-brass/40" : "border-border/80"}`}
+    >
+      <div className="min-w-0 px-4 py-2 sm:px-5">{evidence}</div>
+      <section aria-label={t.staffDecision} className="flex min-w-0 flex-col gap-4 bg-secondary p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>
+          <StatusChip tone="wait">{t.status.pendingReview}</StatusChip>
+        </div>
+        <OwnershipDecisionForm verificationId={verification.id} />
+        {verification.followup ? null : (
+          <FollowupPanel
+            verification={verification}
+            decided={false}
+            available={followupsAvailable}
+            t={t}
+            locale={locale}
+          />
+        )}
+        <DecisionHistory verification={verification} t={t} locale={locale} />
+      </section>
+    </div>
   );
 
   return (
@@ -337,50 +372,18 @@ function ClaimCard({
           )}
           {match ? <ScoreNote score={match.ai_similarity_score} t={t} /> : null}
         </div>
+        {assessmentMissing(verification) && !decision ? (
+          <RetryAssessmentButton verificationId={verification.id} />
+        ) : null}
       </div>
 
-      {kind === "ready" && next ? (
-        <div className="grid border-t border-brass/40 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-          <div className="min-w-0 px-4 py-2 sm:px-5">{evidence}</div>
-          <section aria-label={t.staffDecision} className="flex min-w-0 flex-col gap-4 bg-secondary p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>
-              <StatusChip tone="wait">{t.status.pendingReview}</StatusChip>
-            </div>
-            <OwnershipDecisionForm verificationId={verification.id} />
-            <FollowupPanel
-              verification={verification}
-              decided={false}
-              available={followupsAvailable}
-              t={t}
-              locale={locale}
-            />
-            <DecisionHistory verification={verification} t={t} locale={locale} />
-          </section>
-        </div>
-      ) : null}
+      {kind === "ready" && next ? readyBody : null}
 
-      {/* Other ready claims: evidence folded, the decision controls in one band under it. */}
+      {/* Other ready claims: a compact row; "Review claim" opens the same body. */}
       {kind === "ready" && !next ? (
-        <>
-          <div className="min-w-0 border-t border-border/80 px-4 py-2 sm:px-5">{evidence}</div>
-          <section
-            aria-label={t.staffDecision}
-            className="@container flex min-w-0 flex-col gap-3 bg-secondary px-4 py-4 sm:px-5"
-          >
-            <div className="grid min-w-0 gap-4 @3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @3xl:gap-6">
-              <OwnershipDecisionForm verificationId={verification.id} />
-              <FollowupPanel
-                verification={verification}
-                decided={false}
-                available={followupsAvailable}
-                t={t}
-                locale={locale}
-              />
-            </div>
-            <DecisionHistory verification={verification} t={t} locale={locale} />
-          </section>
-        </>
+        <ClaimExpander claimId={`verification-${verification.id}`} label={t.reviewClaim} openLabel={t.hideClaim}>
+          {readyBody}
+        </ClaimExpander>
       ) : null}
 
       {kind === "waiting" ? (

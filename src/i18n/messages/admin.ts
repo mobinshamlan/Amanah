@@ -213,6 +213,9 @@ const en = {
   recentlyDecidedHelp: "Decisions from the last 30 minutes stay here so you can check or reset them.",
   olderDecidedGroup: (n: number) => `Earlier decisions (${n})`,
   openClaim: "Open the claim and decide",
+  // Ready claims after the next one: a compact row that opens on demand.
+  reviewClaim: "Review claim",
+  hideClaim: "Hide claim",
   changeDecision: "Change this decision",
   nextDecision: "Next decision",
   question: (n: number) => `Question ${n}`,
@@ -566,6 +569,8 @@ const ar: typeof en = {
   recentlyDecidedHelp: "قرارات آخر 30 دقيقة تبقى هنا عشان تراجعها أو ترجعها.",
   olderDecidedGroup: (n) => `قرارات سابقة (${n})`,
   openClaim: "افتح الطلب وقرّر",
+  reviewClaim: "راجع الطلب",
+  hideClaim: "اخفِ الطلب",
   changeDecision: "غيّر هذا القرار",
   nextDecision: "القرار التالي",
   question: (n) => `السؤال ${n}`,
