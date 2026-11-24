@@ -77,6 +77,7 @@ export function TrackScene({
   aside,
   stage = "status",
   context,
+  progress,
 }: {
   art: SceneArt;
   mark: SceneMark;
@@ -93,6 +94,8 @@ export function TrackScene({
   // "task": the sheet asks for something, so phones skip the render.
   // "recovery": a short help screen; the render shows on wide screens only.
   stage?: "status" | "task" | "recovery";
+  // The report's progress line, under the headline on the band.
+  progress?: ReactNode;
 }) {
   const c = useMessages(common);
   const artOnPhones = stage === "status";
@@ -139,6 +142,7 @@ export function TrackScene({
           <p className="mt-4 max-w-[46ch] text-lead text-paper/90 motion-safe:animate-rise motion-safe:[animation-delay:90ms]">
             {intro}
           </p>
+          {progress}
         </header>
 
         {/*

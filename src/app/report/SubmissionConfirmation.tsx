@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { ReactNode, RefObject } from "react";
 import type { PublicMatchingStatus } from "@/utils/matching/publicStatus";
 import { CaseTag } from "@/app/report/track/parts/CaseTag";
+import { ProgressLine } from "@/app/report/track/parts/ProgressLine";
+import { buildSteps } from "@/app/report/track/parts/steps";
 import {
   SceneNote,
   TrackScene,
@@ -177,7 +179,30 @@ export function useStatusMessage(
   return view ? statusMessage(reportType, view, waiting, t, ownership) : "";
 }
 
-export { buildSteps } from "@/app/report/track/parts/steps";
+export { buildSteps };
+
+/** The lost report's progress line: the four stages, from the same state as everything else. */
+export function LostProgress({
+  view,
+  waiting,
+  ownership,
+  children,
+}: {
+  view: MatchingView;
+  waiting: boolean;
+  ownership?: OwnershipStage | null;
+  children?: ReactNode;
+}) {
+  const t = useMessages(track);
+  const steps = buildSteps(t, view, waiting, ownership);
+  // Say plainly when there is nothing to answer, rather than implying questions will come.
+  const conditional = !waiting && steps.some((step) => step.state === "conditional");
+  return (
+    <ProgressLine steps={steps} label={t.steps.title} note={conditional ? t.steps.conditionalNote : undefined}>
+      {children}
+    </ProgressLine>
+  );
+}
 
 /* Scene */
 
@@ -203,6 +228,11 @@ export function sceneFor(
 }
 
 /* Actions */
+
+/** Whether checking can be continued from this page ("Try again" or "Refresh"). */
+export function canContinue(view: MatchingView, waiting: boolean, canRetry: boolean) {
+  return !waiting && (canRetry || view.phase === "stalled");
+}
 
 /** The one action that keeps checking going, when there is one. */
 export function RetryAction({
@@ -307,6 +337,16 @@ export function FoundConfirmation({
       title={t.found.title}
       intro={t.found.intro}
       headingRef={headingRef}
+      progress={
+        // Only the stages a found report has: nothing about comparisons or ownership.
+        <ProgressLine
+          label={t.steps.title}
+          steps={[
+            { key: "saved", state: "done", label: t.steps.labels.saved, short: t.steps.short.saved },
+            { key: "hand-in", state: "active", label: t.found.steps.handIn, short: t.found.steps.handInShort },
+          ]}
+        />
+      }
       sheet={
         <div className="relative w-full max-w-[32rem] pt-10">
           <span aria-hidden className="track-string absolute top-0 h-[4.25rem] w-0.5 -translate-x-1/2 bg-brass-light rtl:translate-x-1/2" />
@@ -385,6 +425,7 @@ export function LostConfirmation({
       title={title}
       intro={intro}
       headingRef={headingRef}
+      progress={<LostProgress view={view} waiting={isContinuing} />}
       sheet={
         <>
           <CaseTag view={view} waiting={isContinuing}>

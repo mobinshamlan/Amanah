@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  LostProgress,
   MoreActions,
   RetryAction,
+  canContinue,
   lostHeadline,
   sceneFor,
   statusMessage,
@@ -17,9 +19,9 @@ import { SceneNote, TrackScene } from "@/app/report/track/parts/TrackScene";
 import { OwnershipVerification } from "@/app/report/track/OwnershipVerification";
 import { takeJustSaved } from "@/app/report/tracking";
 import { useMatchingProgress } from "@/app/report/useMatchingProgress";
-import { ArrowEndIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
+import { ArrowEndIcon, ChevronDownIcon, LinkIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
-import { LoadingRow, textLinkClassName } from "@/components/ui";
+import { LoadingRow, textLinkClassName, textLinkOnDarkClassName } from "@/components/ui";
 import { useMessages } from "@/i18n/LocaleProvider";
 import { track } from "@/i18n/messages/track";
 
@@ -206,6 +208,13 @@ export default function TrackReport() {
     }
   }, [ownershipStage, justSaved]);
 
+  // Scrolls to the question and puts the cursor in its answer field; the hash stays the credential.
+  function goToQuestion() {
+    const field = document.getElementById("ownership-answer");
+    field?.scrollIntoView({ block: "center" });
+    field?.focus({ preventScroll: true });
+  }
+
   function retryChecks() {
     if (!credential) {
       return;
@@ -250,6 +259,17 @@ export default function TrackReport() {
       ownership === "followup" ||
       ownership === "retry";
     const retry = <RetryAction view={matching} waiting={isContinuing} canRetry={canRetry} onRetry={retryChecks} />;
+    const progress = (
+      <LostProgress view={matching} waiting={isContinuing} ownership={ownership}>
+        {/* Right after saving, the question sits under the link card: a way straight to it. */}
+        {justSaved && (ownership === "question" || ownership === "followup") ? (
+          <button type="button" onClick={goToQuestion} className={textLinkOnDarkClassName}>
+            {t.steps.toQuestion}
+            <ChevronDownIcon className="size-4" />
+          </button>
+        ) : null}
+      </LostProgress>
+    );
     // The AI note describes the possible match itself, never a staff follow-up.
     const aiNote =
       headline.tone === "match" && ownership !== "followup" ? (
@@ -272,6 +292,7 @@ export default function TrackReport() {
           title={definitiveNoMatch ? headline.title : t.saved.title}
           intro={definitiveNoMatch ? headline.intro : t.saved.intro}
           headingRef={headingRef}
+          progress={progress}
           sheet={
             <>
               {linkUrl ? <LinkTag url={linkUrl} focal /> : null}
@@ -322,11 +343,12 @@ export default function TrackReport() {
           )
         }
         headingRef={headingRef}
+        progress={progress}
         sheet={
           <>
             {verification}
             <CaseTag view={matching} waiting={isContinuing} ownership={ownership}>
-              {retry}
+              {canContinue(matching, isContinuing, canRetry) ? retry : null}
             </CaseTag>
             {/* The compact link sits on the counter under the tag. */}
             {linkUrl ? <LinkTag url={linkUrl} /> : null}

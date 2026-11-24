@@ -118,7 +118,6 @@ const en = {
   /* The case tag: the report's status and its four stages, on a paper tag. */
   tag: {
     title: "Your report",
-    progress: "Report progress",
     approvedNote: "Not handed over yet",
   },
 
@@ -154,15 +153,26 @@ const en = {
       questions: "Ownership questions",
       decision: "Staff decision",
     },
+    // Shorter names for phones, where only the current stage shows its full name.
+    short: {
+      saved: "Saved",
+      matching: "Compare",
+      questions: "Questions",
+      decision: "Decision",
+    },
     state: {
       done: "Done",
-      active: "In progress",
+      active: "Now",
       paused: "Paused",
-      waiting: "Waiting",
+      waiting: "Pending staff review",
       stopped: "Did not finish",
       rejected: "Not confirmed",
+      approved: "Approved",
       upcoming: "Later",
+      conditional: "Only if there's a possible match",
     },
+    conditionalNote: "Nothing to answer right now. Questions and a staff decision come only if there's a possible match.",
+    toQuestion: "Go to your question",
     detail: {
       saved: "Your details are stored privately.",
       matchingActive: "This can take a little while. Keep this page open.",
@@ -219,6 +229,11 @@ const en = {
     context: "Your report is saved",
     title: "Hand it to the lost-and-found desk",
     intro: "Thanks — your report is saved. Its details are never public; only lost-and-found staff review them.",
+    // The finder's progress: only the stages that apply to a found report.
+    steps: {
+      handIn: "Hand the item in",
+      handInShort: "Hand in",
+    },
     nextTitle: "After you drop it off",
     nextBody: "Staff keep it safe and return it to its owner once they confirm who it belongs to.",
     finishing: "Your report is already saved. A last background check is finishing; keep this page open a moment.",
@@ -389,7 +404,6 @@ const ar: typeof en = {
 
   tag: {
     title: "بلاغك",
-    progress: "مراحل البلاغ",
     approvedNote: "ما تسلّم بعد",
   },
 
@@ -421,15 +435,25 @@ const ar: typeof en = {
       questions: "أسئلة الملكية",
       decision: "قرار الموظف",
     },
+    short: {
+      saved: "الحفظ",
+      matching: "المقارنة",
+      questions: "الأسئلة",
+      decision: "القرار",
+    },
     state: {
       done: "تم",
-      active: "جاري",
+      active: "الحين",
       paused: "واقف شوي",
-      waiting: "بالانتظار",
+      waiting: "بانتظار مراجعة الموظف",
       stopped: "ما اكتمل",
       rejected: "ما تأكد",
+      approved: "وافق الموظف",
       upcoming: "بعدين",
+      conditional: "بس لو فيه احتمال تطابق",
     },
+    conditionalNote: "ما فيه شي تجاوب عليه الحين. الأسئلة وقرار الموظف بس لو فيه احتمال تطابق.",
+    toQuestion: "روح لسؤالك",
     detail: {
       saved: "تفاصيلك محفوظة بخصوصية.",
       matchingActive: "ممكن يأخذ شوي. خلّ الصفحة مفتوحة.",
@@ -481,6 +505,10 @@ const ar: typeof en = {
     context: "تم حفظ بلاغك",
     title: "سلّمه لمكتب المفقودات",
     intro: "شكرًا لك، بلاغك محفوظ. تفاصيله ما تنعرض للعامة، ويراجعها موظفو المفقودات بس.",
+    steps: {
+      handIn: "سلّم الغرض",
+      handInShort: "التسليم",
+    },
     nextTitle: "بعد ما تسلّمه",
     nextBody: "الموظفون يحفظونه ويرجّعونه لصاحبه بعد ما يتأكدون إنه له.",
     finishing: "بلاغك محفوظ خلاص. نخلّص فحص أخير في الخلفية، خلّ الصفحة مفتوحة لحظة.",
