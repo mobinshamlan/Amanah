@@ -49,10 +49,23 @@ const en = {
   navCount: {
     matches: (n: number) => enCount(n, "suggestion needs review", "suggestions need review"),
     candidates: (n: number) => enCount(n, "candidate to look at", "candidates to look at"),
-    claims: (n: number) => enCount(n, "claim awaiting a decision", "claims awaiting a decision"),
+    claims: (n: number) => enCount(n, "claim ready for your decision", "claims ready for your decision"),
   },
   alertLastRunFailed: "Last check failed",
   alertNotConfigured: "Matching is not configured",
+
+  // Phone section picker and the first-load summary of staff work.
+  sectionPicker: "Section",
+  needsYou: {
+    title: "Needs you now",
+    claims: (n: number) => `${enCount(n, "claim", "claims")} ready for your decision`,
+    matches: (n: number) => `${enCount(n, "possible match", "possible matches")} to review`,
+    candidates: (n: number) => `${enCount(n, "candidate pair", "candidate pairs")} to look at`,
+    retries: (n: number) => `${enCount(n, "AI assessment", "AI assessments")} to retry`,
+    owners: (n: number) => `${enCount(n, "claim waits", "claims wait")} on the owner`,
+    nothing: "Nothing needs you right now. New work shows up here.",
+  },
+  openNextClaim: "Open the next claim",
 
   // Section sublines: the finding first, then one sentence on what the list is.
   intro: {
@@ -161,7 +174,7 @@ const en = {
     awaitingAnswer: (answered: number, total: number) => `Awaiting answer (${answered}/${total})`,
     awaitingFollowup: "Awaiting follow-up answer",
     readyForDecision: "Ready for decision",
-    pendingReview: "Pending review",
+    pendingReview: "Pending staff review",
     noQuestions: "No questions needed",
     answersReceived: "Answers received",
     followupAnswered: "Follow-up answered",
@@ -178,6 +191,13 @@ const en = {
     conflicts: "Answers conflict with the found report",
   } satisfies Record<Assessment, string>,
   questionsAndAnswers: "Questions, answers and AI assessment",
+  aiSuggests: (assessment: string) => `AI suggests: ${assessment}`,
+  recentlyDecidedGroup: "Just decided",
+  recentlyDecidedHelp: "Decisions from the last 30 minutes stay here so you can check or reset them.",
+  olderDecidedGroup: (n: number) => `Earlier decisions (${n})`,
+  openClaim: "Open the claim and decide",
+  changeDecision: "Change this decision",
+  nextDecision: "Next decision",
   question: (n: number) => `Question ${n}`,
   ownerAnswer: "Owner's answer",
   awaitingAnswer: "Awaiting answer",
@@ -271,14 +291,61 @@ const ar: typeof en = {
     claims: (n) =>
       arCount(n, {
         zero: "ما فيه طلبات تنتظر قرار",
-        one: "طلب واحد ينتظر قرار",
-        two: "طلبين ينتظران قرار",
-        few: "طلبات تنتظر قرار",
-        many: "طلبًا ينتظر قرار",
+        one: "طلب واحد جاهز لقرارك",
+        two: "طلبين جاهزين لقرارك",
+        few: "طلبات جاهزة لقرارك",
+        many: "طلبًا جاهزًا لقرارك",
       }),
   },
   alertLastRunFailed: "آخر فحص فشل",
   alertNotConfigured: "المطابقة غير مهيّأة",
+
+  sectionPicker: "القسم",
+  needsYou: {
+    title: "يحتاجك الحين",
+    claims: (n) =>
+      arCount(n, {
+        zero: "ما فيه طلبات جاهزة لقرارك",
+        one: "طلب واحد جاهز لقرارك",
+        two: "طلبين جاهزين لقرارك",
+        few: "طلبات جاهزة لقرارك",
+        many: "طلبًا جاهزًا لقرارك",
+      }),
+    matches: (n) =>
+      arCount(n, {
+        zero: "ما فيه احتمالات تطابق للمراجعة",
+        one: "احتمال تطابق واحد للمراجعة",
+        two: "احتمالين تطابق للمراجعة",
+        few: "احتمالات تطابق للمراجعة",
+        many: "احتمال تطابق للمراجعة",
+      }),
+    candidates: (n) =>
+      arCount(n, {
+        zero: "ما فيه أزواج مرشّحة",
+        one: "زوج مرشّح واحد يحتاج نظرة",
+        two: "زوجين مرشّحين يحتاجان نظرة",
+        few: "أزواج مرشّحة تحتاج نظرة",
+        many: "زوجًا مرشّحًا يحتاج نظرة",
+      }),
+    retries: (n) =>
+      arCount(n, {
+        zero: "ما فيه تقييمات تحتاج إعادة",
+        one: "تقييم ذكاء اصطناعي واحد يحتاج إعادة",
+        two: "تقييمين يحتاجان إعادة",
+        few: "تقييمات تحتاج إعادة",
+        many: "تقييمًا يحتاج إعادة",
+      }),
+    owners: (n) =>
+      arCount(n, {
+        zero: "ما فيه طلبات تنتظر صاحب الغرض",
+        one: "طلب واحد ينتظر صاحب الغرض",
+        two: "طلبين ينتظران صاحب الغرض",
+        few: "طلبات تنتظر صاحب الغرض",
+        many: "طلبًا ينتظر صاحب الغرض",
+      }),
+    nothing: "ما فيه شي يحتاجك الحين. الشغل الجديد يظهر هنا.",
+  },
+  openNextClaim: "افتح الطلب التالي",
 
   intro: {
     matches: (n) =>
@@ -439,7 +506,7 @@ const ar: typeof en = {
     awaitingAnswer: (answered, total) => `بانتظار الجواب (${answered}/${total})`,
     awaitingFollowup: "بانتظار جواب المتابعة",
     readyForDecision: "جاهز للقرار",
-    pendingReview: "قيد المراجعة",
+    pendingReview: "بانتظار مراجعة الموظف",
     noQuestions: "ما يحتاج أسئلة",
     answersReceived: "وصلت الأجوبة",
     followupAnswered: "تمت الإجابة على المتابعة",
@@ -456,6 +523,13 @@ const ar: typeof en = {
     conflicts: "الأجوبة تتعارض مع بلاغ الملقى",
   },
   questionsAndAnswers: "الأسئلة والأجوبة وتقييم الذكاء الاصطناعي",
+  aiSuggests: (assessment) => `اقتراح الذكاء الاصطناعي: ${assessment}`,
+  recentlyDecidedGroup: "قرارات للتو",
+  recentlyDecidedHelp: "قرارات آخر 30 دقيقة تبقى هنا عشان تراجعها أو ترجعها.",
+  olderDecidedGroup: (n) => `قرارات سابقة (${n})`,
+  openClaim: "افتح الطلب وقرّر",
+  changeDecision: "غيّر هذا القرار",
+  nextDecision: "القرار التالي",
   question: (n) => `السؤال ${n}`,
   ownerAnswer: "جواب صاحب الغرض",
   awaitingAnswer: "بانتظار الجواب",

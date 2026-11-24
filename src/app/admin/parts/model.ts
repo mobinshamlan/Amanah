@@ -123,6 +123,26 @@ export function waitingOnOwner(verification: Verification) {
   return !currentDecision(verification) && (!allAnswered(verification) || followupPending(verification));
 }
 
+/** When the claim became ready for staff: the last answer, or when questions were prepared. */
+export function readySince(verification: Verification) {
+  const times = [
+    verification.created_at,
+    ...(verification.answers ?? []).map((answer) => answer.created_at),
+    verification.followup?.answered_at ?? null,
+  ].filter((value): value is string => Boolean(value));
+  return times.sort().at(-1) ?? verification.created_at;
+}
+
+/** Oldest-ready first, so the claim that has waited longest is decided next. */
+export function byReadySince(a: Verification, b: Verification) {
+  return readySince(a) < readySince(b) ? -1 : 1;
+}
+
+/** When the current decision was saved. */
+export function decidedAt(verification: Verification) {
+  return currentDecision(verification)?.created_at ?? verification.created_at;
+}
+
 export function assessmentMissing(verification: Verification) {
   return (
     verification.questions.length > 0 &&

@@ -13,7 +13,7 @@ import {
   answersStatus,
   assessmentMissing,
   currentDecision,
-  readyForDecision,
+  decidedAt,
   single,
   waitingOnLabel,
   type ReportMatch,
@@ -22,10 +22,11 @@ import {
 import {
   Disclosure,
   EmptyState,
-  PairNames,
+  PairLine,
   QueueHeading,
   ReportPair,
   ScoreChip,
+  ScoreNote,
   blockClassName,
   rowClassName,
   stampClassName,
@@ -42,6 +43,7 @@ type Props = {
   ready: Verification[];
   waiting: Verification[];
   decided: Verification[];
+  loadedAt: number;
   matches: ReportMatch[];
   followupsAvailable: boolean;
 };
@@ -70,12 +72,12 @@ function OwnershipReview({
             return (
               <li key={index} className={blockClassName}>
                 <p className="text-caption font-semibold text-muted-foreground">{t.question(index + 1)}</p>
-                <p className="break-words text-body font-semibold text-foreground">{question}</p>
+                <p dir="auto" className="break-words text-body font-semibold text-foreground">{question}</p>
                 <div className="mt-1 grid gap-3 md:grid-cols-2">
                   <div className="border-s-2 border-forest ps-3">
                     <p className="text-caption font-semibold text-forest">{t.ownerAnswer}</p>
                     {answer ? (
-                      <p className="mt-0.5 break-words text-small text-foreground">{answer.answer}</p>
+                      <p dir="auto" className="mt-0.5 break-words text-small text-foreground">{answer.answer}</p>
                     ) : (
                       <p className="mt-0.5 text-small text-muted-foreground">{t.awaitingAnswer}</p>
                     )}
@@ -85,7 +87,7 @@ function OwnershipReview({
                       <LockIcon className="size-3.5" />
                       {t.expectedPrivate}
                     </p>
-                    <p className="mt-0.5 break-words text-small text-foreground">
+                    <p dir="auto" className="mt-0.5 break-words text-small text-foreground">
                       {verification.expected_details[index]}
                     </p>
                   </div>
@@ -105,7 +107,7 @@ function OwnershipReview({
           {assessment ? (
             <>
               <p className="text-body font-medium text-foreground">{t.assessment[assessment.assessment]}</p>
-              <p className="break-words text-small text-foreground/85">{assessment.explanation}</p>
+              <p dir="auto" className="break-words text-small text-foreground/85">{assessment.explanation}</p>
               <p className={stampClassName}>
                 {t.assessmentFooter(formatDateTime(assessment.created_at, locale), assessment.model)}
               </p>
@@ -150,11 +152,11 @@ function FollowupPanel({
             {answered ? t.followupAnswered : t.followupAwaiting}
           </StatusChip>
         </div>
-        <p className="break-words text-small font-semibold text-foreground">{followup.question}</p>
+        <p dir="auto" className="break-words text-small font-semibold text-foreground">{followup.question}</p>
         {answered ? (
           <div className="border-s-2 border-forest ps-3">
             <p className="text-caption font-semibold text-forest">{t.ownerAnswer}</p>
-            <p className="mt-0.5 break-words text-small text-foreground">{followup.answer}</p>
+            <p dir="auto" className="mt-0.5 break-words text-small text-foreground">{followup.answer}</p>
           </div>
         ) : (
           <p className="text-small text-foreground/85">{t.followupOwnerSees}</p>
@@ -172,14 +174,105 @@ function FollowupPanel({
   return <AskFollowupForm verificationId={verification.id} />;
 }
 
+type CardKind = "ready" | "waiting" | "decided";
+
+/** The evidence behind a claim, each part behind its own disclosure. */
+function ClaimEvidence({
+  verification,
+  match,
+  otherMatches,
+  openAnswers,
+  t,
+  locale,
+}: {
+  verification: Verification;
+  match: ReportMatch | undefined;
+  otherMatches: ReportMatch[];
+  openAnswers: boolean;
+  t: AdminMessages;
+  locale: Locale;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <Disclosure label={t.questionsAndAnswers} defaultOpen={openAnswers}>
+        <OwnershipReview verification={verification} t={t} locale={locale} />
+      </Disclosure>
+
+      <Disclosure label={t.reportsCompared}>
+        <ReportPair lost={match?.lost ?? null} found={match?.found ?? null} t={t} />
+      </Disclosure>
+
+      {otherMatches.length > 0 ? (
+        <Disclosure label={t.otherSuggestions(otherMatches.length)}>
+          <ol className="flex flex-col gap-2">
+            {otherMatches.map((other) => (
+              <li key={other.id} className={blockClassName}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ScoreChip score={other.ai_similarity_score} t={t} />
+                  <span className="text-caption font-medium text-muted-foreground">
+                    {other.ai_decision === "match" ? t.aiPossibleMatch : t.aiNotEnough}
+                  </span>
+                </div>
+                <p className="text-small font-semibold text-foreground">
+                  {t.kindFound}: <bdi dir="auto">{other.found?.item_name ?? t.reportUnavailable}</bdi>
+                </p>
+                {other.found ? (
+                  <p dir="auto" className="break-words text-small text-foreground/85">
+                    {other.found.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </Disclosure>
+      ) : null}
+    </div>
+  );
+}
+
+function DecisionHistory({ verification, t, locale }: { verification: Verification; t: AdminMessages; locale: Locale }) {
+  const history = [...(verification.decisions ?? [])].sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+  if (history.length === 0) {
+    return null;
+  }
+  return (
+    <Disclosure label={t.decisionHistory(history.length)}>
+      <ol className="flex flex-col divide-y divide-border">
+        {history.map((entry) => (
+          <li key={entry.id} className="flex flex-col gap-0.5 py-2 text-small first:pt-0 last:pb-0">
+            <p className="font-semibold text-foreground">{t.decision[entry.decision]}</p>
+            {entry.note ? (
+              <p dir="auto" className="break-words text-foreground">
+                {entry.note}
+              </p>
+            ) : null}
+            <p className={stampClassName}>{formatDateTime(entry.created_at, locale)}</p>
+          </li>
+        ))}
+      </ol>
+    </Disclosure>
+  );
+}
+
+/**
+ * One claim. The head is always a one-glance summary: the pair, where it
+ * stands, the AI's suggestion in words and who it waits on. Evidence sits
+ * behind disclosures. Claims ready for a decision keep the decision controls
+ * in view; the next one (oldest ready) opens its answers and carries the
+ * screen's one brass accent.
+ */
 function ClaimCard({
   verification,
+  kind,
+  next = false,
   matches,
   followupsAvailable,
   t,
   locale,
 }: {
   verification: Verification;
+  kind: CardKind;
+  next?: boolean;
   matches: ReportMatch[];
   followupsAvailable: boolean;
   t: AdminMessages;
@@ -193,160 +286,225 @@ function ClaimCard({
     )
     .sort((a, b) => (b.ai_similarity_score ?? -1) - (a.ai_similarity_score ?? -1));
   const decision = currentDecision(verification);
-  const ready = readyForDecision(verification);
-  const history = [...(verification.decisions ?? [])].sort((a, b) =>
-    a.created_at < b.created_at ? -1 : 1,
-  );
+  const assessment = single(verification.assessment);
   const decisionTone =
     decision?.decision === "approved" ? "ok" : decision?.decision === "rejected" ? "bad" : "wait";
+  const evidence = (
+    <ClaimEvidence
+      verification={verification}
+      match={match}
+      otherMatches={otherMatches}
+      openAnswers={next}
+      t={t}
+      locale={locale}
+    />
+  );
 
   return (
     <li
       id={`verification-${verification.id}`}
-      className={`${rowClassName} scroll-mt-6 overflow-hidden ${ready ? "ring-2 ring-brass" : ""}`}
+      className={`${rowClassName} relative scroll-mt-6 overflow-hidden ${next ? "bg-brass-soft/60 ring-2 ring-brass" : ""}`}
     >
-      <div className="flex flex-col gap-3 p-4 sm:p-5">
-        <PairNames match={match} t={t} />
+      <div className="flex flex-col gap-2.5 p-4 sm:px-5">
+        {next ? (
+          <p className="flex items-center gap-2 text-caption font-semibold text-brass-ink">
+            <span aria-hidden className="eyelet size-3" />
+            {t.nextDecision}
+          </p>
+        ) : null}
+        <PairLine match={match} t={t} />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <StatusChip tone={decision ? decisionTone : ready ? "wait" : "neutral"}>
-            {decision ? t.decision[decision.decision] : answersStatus(verification, t)}
-          </StatusChip>
-          {match ? <ScoreChip score={match.ai_similarity_score} t={t} /> : null}
+          {kind === "decided" ? null : (
+            <StatusChip tone={kind === "ready" ? "wait" : "neutral"}>{answersStatus(verification, t)}</StatusChip>
+          )}
+          {assessment ? (
+            <StatusChip
+              tone="info"
+              icon={null}
+            >
+              {t.aiSuggests(t.assessment[assessment.assessment])}
+            </StatusChip>
+          ) : null}
           {assessmentMissing(verification) ? (
             <StatusChip tone="bad" icon={null}>
               {t.status.assessmentMissing}
             </StatusChip>
           ) : null}
-          <span className="text-small text-foreground">
-            {t.waitingOn}: <span className="font-semibold">{waitingOnLabel(verification, t)}</span>
-          </span>
-          <span className={stampClassName}>
-            {t.questionsPrepared(formatDateTime(verification.created_at, locale), verification.model)}
-          </span>
-        </div>
-      </div>
-
-      {/* Evidence first; the decision beside it on wide screens. */}
-      <div className="grid border-t border-border/80 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-        <div className="flex min-w-0 flex-col gap-1 p-4 sm:px-5">
-          <Disclosure label={t.questionsAndAnswers} defaultOpen={ready}>
-            <OwnershipReview verification={verification} t={t} locale={locale} />
-          </Disclosure>
-
-          <Disclosure label={t.reportsCompared}>
-            <ReportPair lost={match?.lost ?? null} found={match?.found ?? null} t={t} />
-          </Disclosure>
-
-          <Disclosure label={t.otherSuggestions(otherMatches.length)}>
-            {otherMatches.length === 0 ? (
-              <p className="text-small text-muted-foreground">{t.noOtherSuggestions}</p>
-            ) : (
-              <ol className="flex flex-col gap-2">
-                {otherMatches.map((other) => (
-                  <li key={other.id} className={blockClassName}>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <ScoreChip score={other.ai_similarity_score} t={t} />
-                      <span className="text-caption font-medium text-muted-foreground">
-                        {other.ai_decision === "match" ? t.aiPossibleMatch : t.aiNotEnough}
-                      </span>
-                    </div>
-                    <p className="text-small font-semibold text-foreground">
-                      {t.kindFound}: {other.found?.item_name ?? t.reportUnavailable}
-                    </p>
-                    {other.found ? (
-                      <p className="break-words text-small text-foreground/85">{other.found.description}</p>
-                    ) : null}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Disclosure>
-        </div>
-
-        <section
-          aria-label={t.staffDecision}
-          className={`flex min-w-0 flex-col gap-4 p-4 sm:p-5 ${
-            decision?.decision === "approved"
-              ? "bg-ok-soft/60"
-              : decision?.decision === "rejected"
-                ? "bg-bad-soft/60"
-                : "bg-secondary"
-          }`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>
-            <StatusChip tone={decisionTone}>
-              {decision ? t.decision[decision.decision] : t.status.pendingReview}
-            </StatusChip>
-          </div>
-
-          <FollowupPanel
-            verification={verification}
-            decided={Boolean(decision)}
-            available={followupsAvailable}
-            t={t}
-            locale={locale}
-          />
-
-          {decision ? (
-            <>
-              <div className="flex flex-col gap-1 text-small">
-                {decision.note ? (
-                  <p className="break-words text-foreground">
-                    <span className="font-semibold">{t.decisionNote}: </span>
-                    {decision.note}
-                  </p>
-                ) : null}
-                <p className={stampClassName}>{formatDateTime(decision.created_at, locale)}</p>
-                {decision.decision === "approved" ? (
-                  <p className="text-foreground/85">{t.approvalNoReturn}</p>
-                ) : null}
-              </div>
-              <ResetDecisionForm verificationId={verification.id} />
-            </>
-          ) : (
-            <OwnershipDecisionForm verificationId={verification.id} />
+          {kind === "decided" ? null : (
+            <span className="text-small text-foreground">
+              {t.waitingOn}: <span className="font-semibold">{waitingOnLabel(verification, t)}</span>
+            </span>
           )}
-
-          {history.length > 0 ? (
-            <Disclosure label={t.decisionHistory(history.length)} className="border-t border-foreground/10 pt-1">
-              <ol className="flex flex-col divide-y divide-border">
-                {history.map((entry) => (
-                  <li key={entry.id} className="flex flex-col gap-0.5 py-2 text-small first:pt-0 last:pb-0">
-                    <p className="font-semibold text-foreground">{t.decision[entry.decision]}</p>
-                    {entry.note ? <p className="break-words text-foreground">{entry.note}</p> : null}
-                    <p className={stampClassName}>{formatDateTime(entry.created_at, locale)}</p>
-                  </li>
-                ))}
-              </ol>
-            </Disclosure>
-          ) : null}
-        </section>
+          {match ? <ScoreNote score={match.ai_similarity_score} t={t} /> : null}
+        </div>
       </div>
+
+      {kind === "ready" && next ? (
+        <div className="grid border-t border-brass/40 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+          <div className="min-w-0 px-4 py-2 sm:px-5">{evidence}</div>
+          <section aria-label={t.staffDecision} className="flex min-w-0 flex-col gap-4 bg-secondary p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>
+              <StatusChip tone="wait">{t.status.pendingReview}</StatusChip>
+            </div>
+            <OwnershipDecisionForm verificationId={verification.id} />
+            <FollowupPanel
+              verification={verification}
+              decided={false}
+              available={followupsAvailable}
+              t={t}
+              locale={locale}
+            />
+            <DecisionHistory verification={verification} t={t} locale={locale} />
+          </section>
+        </div>
+      ) : null}
+
+      {/* Other ready claims: evidence folded, the decision controls in one band under it. */}
+      {kind === "ready" && !next ? (
+        <>
+          <div className="min-w-0 border-t border-border/80 px-4 py-2 sm:px-5">{evidence}</div>
+          <section
+            aria-label={t.staffDecision}
+            className="@container flex min-w-0 flex-col gap-3 bg-secondary px-4 py-4 sm:px-5"
+          >
+            <div className="grid min-w-0 gap-4 @3xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @3xl:gap-6">
+              <OwnershipDecisionForm verificationId={verification.id} />
+              <FollowupPanel
+                verification={verification}
+                decided={false}
+                available={followupsAvailable}
+                t={t}
+                locale={locale}
+              />
+            </div>
+            <DecisionHistory verification={verification} t={t} locale={locale} />
+          </section>
+        </>
+      ) : null}
+
+      {kind === "waiting" ? (
+        <div className="flex min-w-0 flex-col gap-3 border-t border-border/80 px-4 py-2 sm:px-5">
+          {verification.followup ? (
+            <div className="pt-2">
+              <FollowupPanel
+                verification={verification}
+                decided={false}
+                available={followupsAvailable}
+                t={t}
+                locale={locale}
+              />
+            </div>
+          ) : null}
+          <Disclosure label={t.openClaim}>
+            {evidence}
+            <section aria-label={t.staffDecision} className="mb-2 flex min-w-0 flex-col gap-4 rounded-2xl bg-secondary p-4">
+              <h4 className="text-subheading text-foreground">{t.staffDecision}</h4>
+              <OwnershipDecisionForm verificationId={verification.id} />
+              {verification.followup ? null : (
+                <FollowupPanel
+                  verification={verification}
+                  decided={false}
+                  available={followupsAvailable}
+                  t={t}
+                  locale={locale}
+                />
+              )}
+              <DecisionHistory verification={verification} t={t} locale={locale} />
+            </section>
+          </Disclosure>
+        </div>
+      ) : null}
+
+      {kind === "decided" && decision ? (
+        <div className="flex min-w-0 flex-col border-t border-border/80">
+          <section
+            aria-label={t.staffDecision}
+            className={`flex min-w-0 flex-col gap-1.5 px-4 py-3 sm:px-5 ${
+              decision.decision === "approved" ? "bg-ok-soft/60" : "bg-bad-soft/60"
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <StatusChip tone={decisionTone}>{t.decision[decision.decision]}</StatusChip>
+              <span className={stampClassName}>{formatDateTime(decision.created_at, locale)}</span>
+            </div>
+            {decision.note ? (
+              <p dir="auto" className="break-words text-small text-foreground">
+                <span className="font-semibold">{t.decisionNote}: </span>
+                {decision.note}
+              </p>
+            ) : null}
+            {decision.decision === "approved" ? (
+              <p className="text-small text-foreground/85">{t.approvalNoReturn}</p>
+            ) : null}
+          </section>
+          <div className="flex min-w-0 flex-col gap-1 px-4 py-2 sm:px-5">
+            {verification.followup ? (
+              <Disclosure label={t.followupTitle}>
+                <FollowupPanel
+                  verification={verification}
+                  decided
+                  available={followupsAvailable}
+                  t={t}
+                  locale={locale}
+                />
+              </Disclosure>
+            ) : null}
+            {evidence}
+            <Disclosure label={t.changeDecision}>
+              <ResetDecisionForm verificationId={verification.id} />
+              <DecisionHistory verification={verification} t={t} locale={locale} />
+            </Disclosure>
+          </div>
+        </div>
+      ) : null}
     </li>
   );
 }
 
 function ClaimList({
   items,
+  kind,
+  withNext = false,
   ...rest
 }: {
   items: Verification[];
+  kind: CardKind;
+  withNext?: boolean;
   matches: ReportMatch[];
   followupsAvailable: boolean;
   t: AdminMessages;
   locale: Locale;
 }) {
   return (
-    <ul className="flex flex-col gap-4">
-      {items.map((verification) => (
-        <ClaimCard key={verification.id} verification={verification} {...rest} />
+    <ul className="flex flex-col gap-3">
+      {items.map((verification, index) => (
+        <ClaimCard
+          key={verification.id}
+          verification={verification}
+          kind={kind}
+          next={withNext && index === 0}
+          {...rest}
+        />
       ))}
     </ul>
   );
 }
 
-export function ClaimsSection({ t, locale, state, ready, waiting, decided, matches, followupsAvailable }: Props) {
+// Decisions this recent stay in view so staff can check or reset them.
+const RECENT_DECISION_MS = 30 * 60_000;
+
+export function ClaimsSection({
+  t,
+  locale,
+  state,
+  ready,
+  waiting,
+  decided,
+  loadedAt,
+  matches,
+  followupsAvailable,
+}: Props) {
   if (state === "not_set_up") {
     return (
       <Notice tone="error" role="alert">
@@ -363,6 +521,10 @@ export function ClaimsSection({ t, locale, state, ready, waiting, decided, match
   }
   const total = ready.length + waiting.length + decided.length;
   const listProps = { matches, followupsAvailable, t, locale };
+  const recent = decided.filter(
+    (verification) => loadedAt - new Date(decidedAt(verification)).getTime() < RECENT_DECISION_MS,
+  );
+  const earlier = decided.filter((verification) => !recent.includes(verification));
 
   return (
     <div id="verification" className="flex scroll-mt-6 flex-col gap-6">
@@ -380,22 +542,38 @@ export function ClaimsSection({ t, locale, state, ready, waiting, decided, match
             {ready.length === 0 ? (
               <EmptyState title={t.emptyReadyTitle}>{t.emptyReady}</EmptyState>
             ) : (
-              <ClaimList items={ready} {...listProps} />
+              <ClaimList items={ready} kind="ready" withNext {...listProps} />
             )}
           </section>
 
-          {waiting.length > 0 ? (
-            <section aria-labelledby="waiting-heading" className="flex flex-col gap-3">
-              <QueueHeading id="waiting-heading" title={t.waitingGroup} count={waiting.length} />
-              <ClaimList items={waiting} {...listProps} />
+          {recent.length > 0 ? (
+            <section aria-labelledby="recent-heading" className="flex flex-col gap-3">
+              <QueueHeading
+                id="recent-heading"
+                title={t.recentlyDecidedGroup}
+                count={recent.length}
+                intro={t.recentlyDecidedHelp}
+              />
+              <ClaimList items={recent} kind="decided" {...listProps} />
             </section>
           ) : null}
 
-          {decided.length > 0 ? (
-            <section aria-labelledby="decided-heading" className="flex flex-col gap-3">
-              <QueueHeading id="decided-heading" title={t.decidedGroup} count={decided.length} />
-              <ClaimList items={decided} {...listProps} />
+          {waiting.length > 0 ? (
+            <section aria-labelledby="waiting-heading" className="flex scroll-mt-6 flex-col gap-3">
+              <QueueHeading id="waiting-heading" title={t.waitingGroup} count={waiting.length} />
+              <ClaimList items={waiting} kind="waiting" {...listProps} />
             </section>
+          ) : null}
+
+          {earlier.length > 0 ? (
+            <Disclosure
+              label={t.olderDecidedGroup(earlier.length)}
+              className="rounded-[1.25rem] bg-secondary/70 px-4 py-1.5 sm:px-5"
+            >
+              <div className="mb-4">
+                <ClaimList items={earlier} kind="decided" {...listProps} />
+              </div>
+            </Disclosure>
           ) : null}
         </>
       )}

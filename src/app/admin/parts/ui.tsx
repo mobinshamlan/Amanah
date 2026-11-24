@@ -132,6 +132,39 @@ export function PairNames({
   );
 }
 
+/** A compact "Lost item → Found item" line for list rows; wraps to two lines on phones. */
+export function PairLine({
+  match,
+  t,
+  as: Tag = "h3",
+}: {
+  match: ReportMatch | undefined;
+  t: AdminMessages;
+  as?: "h3" | "p";
+}) {
+  return (
+    <Tag className="flex min-w-0 flex-col gap-1.5 text-body font-semibold leading-snug text-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+      <span className="flex min-w-0 items-center gap-2">
+        <ReportKindCue kind="lost" className="shrink-0">
+          {t.kindLost}
+        </ReportKindCue>
+        <bdi dir="auto" className="min-w-0 break-words">
+          {match?.lost?.item_name ?? t.reportUnavailable}
+        </bdi>
+      </span>
+      <ArrowEndIcon className="hidden size-4 shrink-0 text-muted-foreground sm:block" />
+      <span className="flex min-w-0 items-center gap-2">
+        <ReportKindCue kind="found" className="shrink-0">
+          {t.kindFound}
+        </ReportKindCue>
+        <bdi dir="auto" className="min-w-0 break-words">
+          {match?.found?.item_name ?? t.reportUnavailable}
+        </bdi>
+      </span>
+    </Tag>
+  );
+}
+
 /** The suggestion's AI similarity as the row's key figure, labelled as a ranking aid. */
 export function ScoreFigure({ score, t }: { score: number | null; t: AdminMessages }) {
   return (
@@ -150,6 +183,23 @@ export function ScoreFigure({ score, t }: { score: number | null; t: AdminMessag
         <span className="hidden sm:inline"> · {t.scoreHelp}</span>
       </span>
     </div>
+  );
+}
+
+/** Similarity as a quiet ranking aid in a row's meta line. */
+export function ScoreNote({ score, t }: { score: number | null; t: AdminMessages }) {
+  return (
+    <span className={stampClassName}>
+      {t.aiSimilarity}{" "}
+      {score === null ? (
+        t.notScored
+      ) : (
+        <span dir="ltr" className="tabular-nums">
+          {score}
+          {t.outOf100}
+        </span>
+      )}
+    </span>
   );
 }
 
