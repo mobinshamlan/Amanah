@@ -278,7 +278,7 @@ export default function TrackReport({ sandbox = false }: { sandbox?: boolean }) 
         aside={
           <>
             <div aria-busy="true">
-              <LoadingRow>{t.loadingStatus}</LoadingRow>
+              <LoadingRow>{t.comparingNow}</LoadingRow>
             </div>
             {sandbox ? <SandboxNote /> : null}
           </>

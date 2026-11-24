@@ -2,6 +2,7 @@ import { GoogleGenAI, type GoogleGenAIRequestOptions } from "@google/genai";
 import { assertGeminiUsageAllowed } from "@/utils/limits/usageLimit";
 import { isFixtureMode } from "@/utils/fixtures/mode";
 import { fakeGeminiJson } from "@/utils/fixtures/fakeGemini";
+import { isSandboxMode } from "@/utils/sandbox";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
 // Answers instead when the main model stays overloaded (see requestJson).
@@ -50,22 +51,28 @@ export const GEMINI_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
   retry_codes: ["500", "502", "503", "504"],
 };
 
-// Status codes that mean the model itself is busy or down, so the same request
-// is sent once more to the fallback model. 429 is not included: Gemini does not
-// say whether a quota error is per model or for the whole key.
-export const FALLBACK_STATUSES = [500, 502, 503, 504];
+// Gemini's free tier often answers "busy" (503) or hangs for a while, but a
+// busy answer comes back within a second or two and the next try often works.
+// So instead of waiting between retries, the next attempt starts right away,
+// alternating the main and fallback models; an attempt with no answer after
+// HEDGE_AFTER_MS gets a second one beside it, and the first answer wins.
+// Everything stays within the request's timeout_ms. Few attempts, so a busy
+// spell does not also use up the per-minute quota.
+export const RETRY_STATUSES = [429, 500, 502, 503, 504];
+export const FAST_RETRY = { maxAttempts: 5, hedgeAfterMs: 7_000, pauseMs: 250, minAttemptMs: 1_500 };
 
-// With a fallback model, each model gets one attempt plus one retry (wait
-// 1.5 s), so four attempts in total take about as long as the three above.
-const RETRIES_WITH_FALLBACK = 1;
-
-// A batch answer is longer than a single comparison, so it gets more time.
+// A batch answer is longer than a single comparison, so it gets more time,
+// still inside the 30 s matching budget so the run can save what it found.
 export const GEMINI_BATCH_REQUEST_OPTIONS: GoogleGenAIRequestOptions = {
   ...GEMINI_REQUEST_OPTIONS,
-  timeout_ms: 30_000,
+  timeout_ms: 24_000,
 };
 
 export const MAX_CANDIDATES_PER_REQUEST = 10;
+
+// The public test version answers fast instead: after this long without an
+// answer, matching and ownership compare locally (see utils/sandbox).
+export const SANDBOX_GEMINI_BUDGET_MS = 12_000;
 
 export class GeminiConfigError extends Error {
   constructor(message = "Gemini is not configured.") {
@@ -375,6 +382,11 @@ export async function requestJson({
 }): Promise<unknown> {
   // Development fixture mode: a local fake answers. No usage counters, no key, no network.
   if (isFixtureMode()) {
+    // AMANAH_FIXTURES_GEMINI_BUSY=1 plays a Gemini that is always busy, to try the fallbacks.
+    if (process.env.AMANAH_FIXTURES_GEMINI_BUSY === "1") {
+      onAttempt?.({ ms: 1, status: 503 });
+      throw new GeminiApiError("Fixture Gemini: busy.", 503);
+    }
     return fakeGeminiJson({ input, schema, onAttempt });
   }
 
@@ -382,6 +394,11 @@ export async function requestJson({
   // SDK retries, a fallback attempt is part of the same call and is not counted again.
   await assertGeminiUsageAllowed();
   const apiKey = requireGeminiApiKey();
+
+  const timeout = requestOptions.timeout_ms ?? GEMINI_REQUEST_OPTIONS.timeout_ms ?? 20_000;
+  const budgeted = isSandboxMode()
+    ? { ...requestOptions, timeout_ms: Math.min(timeout, SANDBOX_GEMINI_BUDGET_MS) }
+    : requestOptions;
 
   return withModelFallback(
     (model, options, fallback) =>
@@ -394,29 +411,21 @@ export async function requestJson({
         requestOptions: options,
         onAttempt: onAttempt && ((attempt) => onAttempt({ ...attempt, model, fallback })),
       }),
-    { requestOptions },
+    { requestOptions: budgeted },
   );
 }
 
-function withMaxRetries(
-  requestOptions: GoogleGenAIRequestOptions,
-  maxRetries: number,
-): GoogleGenAIRequestOptions {
-  const retries = requestOptions.retries;
-  if (retries?.strategy !== "attempt-count-backoff") {
-    return requestOptions;
-  }
-  return {
-    ...requestOptions,
-    retries: { ...retries, maxRetries: Math.min(retries.maxRetries, maxRetries) },
-  };
+function retryable(error: unknown) {
+  if (error instanceof GeminiInvalidResponseError) return true;
+  if (!(error instanceof GeminiApiError)) return false;
+  return error.isTimeout || (error.status !== undefined && RETRY_STATUSES.includes(error.status));
 }
 
 /**
- * Sends the request to the main model. When it fails with an overloaded or
- * unavailable status (FALLBACK_STATUSES) after its retries, sends the same
- * request once to the fallback model. Quota errors, timeouts, client errors,
- * and invalid answers are never sent to the fallback.
+ * Sends the request until one attempt answers (see FAST_RETRY): busy, quota,
+ * timeout and unreadable answers try again at once, alternating the main and
+ * fallback models; at most two attempts are in flight. A model that hits its
+ * quota (429) is not tried again in this call. Client errors stop at once.
  */
 export async function withModelFallback<T>(
   send: (model: string, requestOptions: GoogleGenAIRequestOptions, fallback: boolean) => Promise<T>,
@@ -424,28 +433,77 @@ export async function withModelFallback<T>(
     requestOptions,
     model = getGeminiModel(),
     fallbackModel = getGeminiFallbackModel(),
+    retry = FAST_RETRY,
+    now = () => Date.now(),
   }: {
     requestOptions: GoogleGenAIRequestOptions;
     model?: string;
     fallbackModel?: string | null;
+    retry?: typeof FAST_RETRY;
+    now?: () => number;
   },
 ): Promise<T> {
-  if (!fallbackModel || fallbackModel === model) {
-    return send(model, requestOptions, false);
-  }
-  const options = withMaxRetries(requestOptions, RETRIES_WITH_FALLBACK);
-  try {
-    return await send(model, options, false);
-  } catch (error) {
-    if (
-      !(error instanceof GeminiApiError) ||
-      error.status === undefined ||
-      !FALLBACK_STATUSES.includes(error.status)
-    ) {
-      throw error;
-    }
-    return send(fallbackModel, options, true);
-  }
+  const models = fallbackModel && fallbackModel !== model ? [model, fallbackModel] : [model];
+  const deadline = now() + (requestOptions.timeout_ms ?? 20_000);
+  const outOfQuota = new Set<string>();
+  let attempts = 0;
+  let inFlight = 0;
+  let lastError: unknown = new GeminiApiError("The Gemini request failed.");
+
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const finish = (error: unknown) => {
+      if (!settled && inFlight === 0) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    const launch = () => {
+      if (settled || inFlight >= 2) return;
+      const remaining = deadline - now();
+      const available = models.filter((name) => !outOfQuota.has(name));
+      if (attempts >= retry.maxAttempts || remaining < retry.minAttemptMs || available.length === 0) {
+        finish(lastError);
+        return;
+      }
+      const target = available[attempts % available.length];
+      attempts += 1;
+      inFlight += 1;
+      const hedge = setTimeout(launch, retry.hedgeAfterMs);
+      send(
+        target,
+        { ...requestOptions, timeout_ms: remaining, retries: { strategy: "none" } },
+        target !== model,
+      ).then(
+        (value) => {
+          clearTimeout(hedge);
+          inFlight -= 1;
+          if (!settled) {
+            settled = true;
+            resolve(value);
+          }
+        },
+        (error: unknown) => {
+          clearTimeout(hedge);
+          inFlight -= 1;
+          if (settled) return;
+          lastError = error;
+          if (!retryable(error)) {
+            // Let an attempt still in flight answer; otherwise stop here.
+            finish(error);
+            return;
+          }
+          if (error instanceof GeminiApiError && error.status === 429) {
+            outOfQuota.add(target);
+          }
+          setTimeout(launch, retry.pauseMs);
+        },
+      );
+    };
+
+    launch();
+  });
 }
 
 async function sendJsonRequest({
@@ -515,9 +573,9 @@ async function sendJsonRequest({
   }
 }
 
-/** The model that answered: the last attempt's model, or the main model when none was recorded. */
+/** The model that answered: the last successful attempt's model, or the main model when none was recorded. */
 export function answeringModel(attempts: GeminiAttempt[]) {
-  return attempts.at(-1)?.model ?? getGeminiModel();
+  return attempts.findLast((attempt) => attempt.status === 200)?.model ?? getGeminiModel();
 }
 
 export async function compareLostAndFoundReports(

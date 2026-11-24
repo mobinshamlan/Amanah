@@ -3,6 +3,7 @@ import { afterEach, describe, it } from "node:test";
 import type { GoogleGenAIRequestOptions } from "@google/genai";
 import {
   DEFAULT_GEMINI_FALLBACK_MODEL,
+  FAST_RETRY,
   GEMINI_REQUEST_OPTIONS,
   GeminiApiError,
   GeminiInvalidResponseError,
@@ -29,10 +30,17 @@ function fakeSend(fail: (model: string) => Error | null) {
   return { send, calls };
 }
 
-const options = { requestOptions: GEMINI_REQUEST_OPTIONS, model: "main", fallbackModel: "backup" };
+// No waiting in tests: retries start at once, hedging is off unless a test turns it on.
+const quick = { ...FAST_RETRY, pauseMs: 0, hedgeAfterMs: 60_000 };
+const options = {
+  requestOptions: GEMINI_REQUEST_OPTIONS,
+  model: "main",
+  fallbackModel: "backup",
+  retry: quick,
+};
 
-describe("withModelFallback", () => {
-  it("sends the request to the fallback model when the main one is overloaded", async () => {
+describe("withModelFallback (fast retries)", () => {
+  it("retries a busy answer at once on the other model", async () => {
     const { send, calls } = fakeSend((model) =>
       model === "main" ? new GeminiApiError("busy", 503) : null,
     );
@@ -45,56 +53,66 @@ describe("withModelFallback", () => {
         ["backup", true],
       ],
     );
-    // Fewer retries per model keep primary plus fallback near the old worst case.
+    // The SDK's own retries are off: this loop decides, within the timeout.
     for (const call of calls) {
-      assert.deepEqual(call.options.retries, {
-        ...GEMINI_REQUEST_OPTIONS.retries,
-        maxRetries: 1,
-      });
-      assert.equal(call.options.timeout_ms, GEMINI_REQUEST_OPTIONS.timeout_ms);
+      assert.deepEqual(call.options.retries, { strategy: "none" });
+      assert.ok((call.options.timeout_ms ?? 0) <= (GEMINI_REQUEST_OPTIONS.timeout_ms ?? 0));
     }
   });
 
-  it("does not fall back on a client error", async () => {
+  it("keeps trying, alternating models, until one answers", async () => {
+    let n = 0;
+    const { send, calls } = fakeSend(() => (++n < 5 ? new GeminiApiError("busy", 503) : null));
+    await withModelFallback(send, options);
+    assert.deepEqual(
+      calls.map((call) => call.model),
+      ["main", "backup", "main", "backup", "main"],
+    );
+  });
+
+  it("stops at once on a client error", async () => {
     const { send, calls } = fakeSend(() => new GeminiApiError("bad request", 400));
     await assert.rejects(withModelFallback(send, options), { status: 400 });
     assert.equal(calls.length, 1);
   });
 
-  it("does not fall back on quota errors or timeouts", async () => {
-    for (const error of [
-      new GeminiApiError("quota", 429),
-      new GeminiApiError("timeout", undefined, true),
-    ]) {
-      const { send, calls } = fakeSend(() => error);
-      await assert.rejects(withModelFallback(send, options), GeminiApiError);
-      assert.equal(calls.length, 1);
-    }
-  });
-
-  it("does not fall back on an invalid answer", async () => {
-    const { send, calls } = fakeSend(() => new GeminiInvalidResponseError());
-    await assert.rejects(withModelFallback(send, options), GeminiInvalidResponseError);
-    assert.equal(calls.length, 1);
-  });
-
-  it("reports the fallback model's error when both models fail", async () => {
+  it("drops a model that ran out of quota and retries timeouts and unreadable answers", async () => {
+    const backupErrors = [new GeminiApiError("timeout", undefined, true), new GeminiInvalidResponseError()];
     const { send, calls } = fakeSend((model) =>
-      new GeminiApiError("busy", model === "main" ? 503 : 500),
+      model === "main" ? new GeminiApiError("quota", 429) : backupErrors.shift() ?? null,
     );
-    await assert.rejects(withModelFallback(send, options), { status: 500 });
-    assert.equal(calls.length, 2);
+    assert.deepEqual(await withModelFallback(send, options), { answeredBy: "backup" });
+    // The main model hit its quota first, so only the fallback is tried after that.
+    assert.deepEqual(
+      calls.map((call) => call.model),
+      ["main", "backup", "backup", "backup"],
+    );
   });
 
-  it("does not fall back, and keeps the full retries, when the fallback is the same model", async () => {
+  it("gives up after the attempt limit with the last error", async () => {
+    const { send, calls } = fakeSend(() => new GeminiApiError("busy", 503));
+    await assert.rejects(withModelFallback(send, options), { status: 503 });
+    assert.equal(calls.length, FAST_RETRY.maxAttempts);
+  });
+
+  it("starts a second attempt beside one that hangs, and the first answer wins", async () => {
+    const calls: string[] = [];
+    const send = (model: string) => {
+      calls.push(model);
+      return model === "main"
+        ? new Promise<{ answeredBy: string }>(() => {})
+        : Promise.resolve({ answeredBy: model });
+    };
+    const result = await withModelFallback(send, { ...options, retry: { ...quick, hedgeAfterMs: 5 } });
+    assert.deepEqual(result, { answeredBy: "backup" });
+    assert.deepEqual(calls, ["main", "backup"]);
+  });
+
+  it("uses only the main model when the fallback is the same model", async () => {
     for (const fallbackModel of ["main", null]) {
       const { send, calls } = fakeSend(() => new GeminiApiError("busy", 503));
-      await assert.rejects(
-        withModelFallback(send, { ...options, fallbackModel }),
-        { status: 503 },
-      );
-      assert.equal(calls.length, 1);
-      assert.equal(calls[0].options, GEMINI_REQUEST_OPTIONS);
+      await assert.rejects(withModelFallback(send, { ...options, fallbackModel }), { status: 503 });
+      assert.ok(calls.every((call) => call.model === "main" && !call.fallback));
     }
   });
 });
