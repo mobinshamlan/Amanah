@@ -42,9 +42,9 @@ Next.js server (Vercel)
    ├─ src/proxy.ts → /admin returns 404 outside development
    ├─ Validation: item ≤ 200, description ≤ 2000, location ≤ 500 characters
    ├─ Usage limits in Postgres (consume_usage): reports per IP, Gemini calls per app / IP / report
-   ├─ Supabase (server key only): reports, report_submissions (credential hash), report_pair_checks,
-   │                              report_matches, report_candidate_reviews, ownership_*,
-   │                              matching_runs, usage_counters
+   ├─ Neon Postgres (DATABASE_URL, server only; src/utils/db): reports, report_submissions
+   │                              (credential hash), report_pair_checks, report_matches,
+   │                              report_candidate_reviews, ownership_*, matching_runs, usage_counters
    └─ src/utils/gemini → Gemini (default gemini-3.5-flash-lite)
                          ├─ JSON Schema response format, then checked again on the server
                          ├─ automatic: up to 10 candidates per request, sent as C1…C10, never IDs,
@@ -64,7 +64,7 @@ The browser only ever receives a phase (`checking`, `complete`, `failed`, `rate_
 - **No public gallery.** Found-item details are never shown on a public page. A lost reporter never sees a list of found items.
 - **The link is the key.** The tracking credential is 32 random bytes (`base64url`). Only its SHA-256 hash is stored. It lives in the URL fragment, so it never appears in request URLs, server logs or `Referer` headers. The page passes it to server actions, which hash it and look it up, and may keep it in `sessionStorage` for that tab.
 - **Report text is data.** Matching sends Gemini only item name, description and location. Checking an ownership answer also sends the questions, the found-report detail behind each one, and the owner's answer. Everything is sent as data, never as instructions.
-- **Database first.** Row-level security is on for every table, and the publishable key cannot read reports, matches or pair checks. Anonymous clients cannot insert reports directly, so every report goes through the submission limit.
+- **Server-only database.** Only the server connects to Postgres, with `DATABASE_URL`; the browser has no database key or endpoint. Every query is a fixed, parameterised statement in `src/utils/db/queries.ts`. Every report goes through the submission limit, and constraints in the schema (unique pairs, one claim per lost report, a single-chain decision log, the usage counters) hold even if two requests race.
 - **Staff decide.** An AI suggestion is saved as "pending review". Approval means staff will continue the hand-over in person, not that the item is returned.
 
 ## What Gemini returns
@@ -133,7 +133,7 @@ The caps are constants in `src/utils/limits/usageBuckets.ts`:
 | Gemini requests per IP address, per UTC day | 120 |
 | Gemini requests per report, per UTC day | 40 |
 
-One Gemini request is one use, including a batch of up to 10 comparisons. IP addresses are stored as a SHA-256 hash with no secret, which keeps them out of plain sight but is not anonymisation. The counters are created by `supabase/migrations/20261101140000_usage_limits_and_private_report_inserts.sql`. Until it is applied, submissions fail closed and nothing is saved. Fixture mode always allows requests.
+One Gemini request is one use, including a batch of up to 10 comparisons. IP addresses are stored as a SHA-256 hash with no secret, which keeps them out of plain sight but is not anonymisation. The counters and the atomic `consume_usage` function are in `db/migrations/0001_init.sql`. Until it is applied, submissions fail closed and nothing is saved. Fixture mode always allows requests.
 
 ## Test mode
 
@@ -145,7 +145,6 @@ Set `AMANAH_SANDBOX=1` to run a public test version. **Use it only on a database
 - If Gemini is busy or gives no answer within 6 seconds, matching falls back to a plain word comparison and ownership questions to simple fixed ones, so the visit still finishes. These results are saved with the model `local-fallback` and say they were made without AI. After a busy answer, that server instance skips Gemini for a minute.
 - Every other report is removed by the next daily cleanup once it is 3 days old, with its matches and claims. A claim linked to an expired found report goes with it.
 - Vercel Cron calls `GET /api/sandbox/cleanup` daily at 03:00 UTC (`vercel.json`) with `Authorization: Bearer $CRON_SECRET`, and the route answers with counts only. `POST /api/sandbox/cleanup?purge=all` with the same header removes every non-sample report at once, for a deliberate clean.
-- Apply `supabase/migrations/20261124120000_sandbox_report_cleanup.sql` before the first cleanup.
 
 Without the setting, the route does not exist, Gemini has its full time, and only staff decide.
 
@@ -162,7 +161,7 @@ src/
     admin/                    # local staff workspace: claims, matches, reports, monitoring
   components/                 # site header, shared controls, icons
   i18n/                       # Arabic / English messages and locale switching
-  proxy.ts                    # Supabase session, /admin hidden outside development
+  proxy.ts                    # /admin hidden outside development
   utils/
     gemini/                   # comparison and ownership prompts, schemas, checks
     matching/                 # batching, pair tracking, credentials, public status
@@ -170,8 +169,11 @@ src/
     limits/                   # usage buckets and the consume_usage call
     monitoring/               # aggregate counts for the staff dashboard
     sandbox/                  # test mode: sample reports, cleanup, local fallback, staff role
-    fixtures/                 # in-memory Supabase and Gemini for local fixture mode
-supabase/migrations/          # schema, row-level security and grants, in filename order
+    db/                       # Neon connection, typed queries, local Postgres for fixtures and tests
+    fixtures/                 # fictional seed data and a fake Gemini for local fixture mode
+db/migrations/                # Postgres schema, applied in filename order by `npm run db:migrate`
+scripts/                      # db-migrate.mjs, db-import-backup.mjs (one-time Supabase import)
+supabase/migrations/          # old Supabase schema history, kept until the switch to Neon is verified
 tests/                        # node:test suites for matching, ownership, limits, monitoring, test mode, fixtures
 art-src/                      # source and render script for the 3D artwork in public/art/
 docs/                         # matching, ownership, fixtures and design guidelines
@@ -191,16 +193,26 @@ npm run dev
 
 | Variable | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key, used only by the session check in `src/proxy.ts`. |
-| `SUPABASE_SECRET_KEY` | Server key. Server only; saves reports and runs matching. |
+| `DATABASE_URL` | Neon Postgres connection string (pooled). Server only; saves reports and runs matching. |
+| `DATABASE_URL_UNPOOLED` | Optional. Direct connection, used by `npm run db:migrate` and `npm run db:import` when set. |
 | `GEMINI_API_KEY` | Gemini key for matching and ownership questions. Server only. |
 | `GEMINI_MODEL` | Optional. Defaults to `gemini-3.5-flash-lite`. |
 | `GEMINI_FALLBACK_MODEL` | Optional. Retries alternate with this model when `GEMINI_MODEL` is busy, out of quota, slow or gives an unreadable answer. Defaults to `gemini-3.5-flash`; set it to the same value as `GEMINI_MODEL` to turn the fallback off. |
 | `AMANAH_SANDBOX` | Optional. `1` runs the public [test mode](#test-mode). Only on a database with test data. |
 | `CRON_SECRET` | Needed with test mode. A long random value; Vercel Cron sends it to `/api/sandbox/cleanup`. |
 
-Never commit `.env.local`. Apply the SQL files in `supabase/migrations/` in filename order, for example with `supabase migration up` (local) or `supabase db push` (linked project). On Vercel, set the same variables in the project settings.
+Never commit `.env.local`. On Vercel, the Neon integration sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED` for every environment; `npx vercel env pull .env.neon.local` fetches them, and you can copy those two lines into `.env.local`. Set the other variables in the project settings.
+
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` are deprecated: the app no longer reads them. Keep them only while the old Supabase project is the rollback.
+
+### Database
+
+```sh
+npm run db:migrate            # apply db/migrations/*.sql that are not applied yet
+npm run db:migrate -- --list  # show applied and pending files
+```
+
+Each file runs once, in its own transaction, and is recorded in `schema_migrations`. To move data from a Supabase export (one JSON file per table), run `npm run db:import -- <folder>` on an empty database: it keeps ids and timestamps, runs in one transaction and prints row counts per table.
 
 ### Fixture mode, no accounts needed
 
@@ -208,12 +220,12 @@ Never commit `.env.local`. Apply the SQL files in `supabase/migrations/` in file
 npm run dev:fixtures
 ```
 
-This serves http://localhost:3100 with fictional in-memory data, including `/admin`, and needs no Supabase or Gemini. Prefix it with `AMANAH_SANDBOX=1` to try test mode, or with `AMANAH_FIXTURES_GEMINI_BUSY=1` to play a Gemini that is always busy. [docs/local-fixtures.md](docs/local-fixtures.md) lists the sample tracking links and what each screen shows.
+This serves http://localhost:3100 with fictional in-memory data in a local Postgres, including `/admin`, and needs no database or Gemini. Prefix it with `AMANAH_SANDBOX=1` to try test mode, or with `AMANAH_FIXTURES_GEMINI_BUSY=1` to play a Gemini that is always busy. [docs/local-fixtures.md](docs/local-fixtures.md) lists the sample tracking links and what each screen shows.
 
 ### Checks
 
 ```sh
-npm test            # node:test suites
+npm test            # node:test suites (database tests use a local in-memory Postgres; no network)
 npm run lint
 npx tsc --noEmit
 npm run build
@@ -221,7 +233,7 @@ npm run build
 
 ## Tech stack
 
-Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Supabase (Postgres, row-level security) · Google Gemini via `@google/genai` · IBM Plex Sans Arabic and IBM Plex Sans · Vercel
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · Neon Postgres via `@neondatabase/serverless` · Google Gemini via `@google/genai` · IBM Plex Sans Arabic and IBM Plex Sans · Vercel
 
 ## Credits
 

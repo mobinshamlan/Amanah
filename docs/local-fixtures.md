@@ -6,9 +6,11 @@ verification, and the staff workspace at `/admin`.
 
 ## Guarantees
 
-- **No Supabase.** `createAdminClient()` returns an in-memory fake before it
-  reads any Supabase setting. The proxy skips the Supabase auth check. The
-  server-side cookie client throws if anything calls it.
+- **No real database.** `createDb()` returns a local in-memory Postgres
+  (PGlite, Postgres compiled to WebAssembly) before it reads `DATABASE_URL`.
+  It has the real schema from `db/migrations/`, so the app runs the same SQL,
+  constraints and `consume_usage` function as production, then the fixture
+  rows are inserted. Nothing leaves your machine.
 - **No Gemini.** `requestJson()` returns a local fake answer before usage
   limits, the API key, or any network call. The fake waits 0.6–1.2 s so
   loading states are visible.
@@ -120,9 +122,8 @@ Restart the server to get them back.
 
 ## Limits
 
-- The fake client supports only the Supabase calls the app makes today. A new
-  call may return an error until `src/utils/fixtures/fakeSupabase.ts` and
-  `schema.ts` support it.
+- A new table or column needs its migration in `db/migrations/` first; fixture
+  mode and the tests apply every migration file on start.
 - Usage limits always allow requests, and the fake Gemini never fails unless
   you add `AMANAH_FIXTURES_GEMINI_BUSY=1`, which makes every Gemini call
   answer "busy" (503). With `AMANAH_SANDBOX=1` as well, that shows the test
@@ -130,6 +131,6 @@ Restart the server to get them back.
   rate-limit screens, use real services or Monitoring's demo preview
   (`/admin?section=monitoring&demo=1`).
 
-Code: `src/utils/fixtures/` (`mode.ts`, `fakeSupabase.ts`, `schema.ts`,
-`selectParser.ts`, `fakeGemini.ts`, `seed.ts`, `store.ts`). Tests:
+Code: `src/utils/fixtures/` (`mode.ts`, `fakeGemini.ts`, `seed.ts`,
+`store.ts`) and `src/utils/db/local.ts`. Tests:
 `tests/fixtures/fixtures.test.ts`.
