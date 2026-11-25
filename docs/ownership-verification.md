@@ -42,7 +42,7 @@ Matching ignores case, Arabic diacritics, and tatweel. These checks are conserva
 
 - Question and answer actions are authorized only by the lost report's private submission credential (the tracking link). A report ID alone, a malformed or unknown credential, or a found report's credential is refused.
 - Answers are saved only for the next unanswered question.
-- Four private tables (`db/migrations/0001_init.sql`): `ownership_verifications` (questions and private expected details), `ownership_answers`, `ownership_assessments`, and `ownership_decisions` (an append-only decision log). Only the server reaches them, with `DATABASE_URL`. The app's queries (`src/utils/db/queries.ts`) only read and insert; nothing updates or deletes these rows, except the test-mode cleanup, which removes a whole report and its claim through `ON DELETE CASCADE`.
+- Four private tables (`db/migrations/0001_init.sql`): `ownership_verifications` (questions and private expected details), `ownership_answers`, `ownership_assessments`, and `ownership_decisions` (an append-only decision log). Only the server reaches them, as the `amanah_app` role, which may only read and insert them (`db/migrations/0002_app_role.sql`). The app's queries (`src/utils/db/queries.ts`) only read and insert; nothing updates or deletes these rows, except the test-mode cleanup, which removes a whole report and its claim through `ON DELETE CASCADE`.
 - A composite foreign key makes sure a verification can only point at a `match` suggestion for the same lost report. The schema has the matching unique constraint `(id, lost_report_id, ai_decision)` on `report_matches`.
 - Logs contain only states, counts, and error kinds, never report text, questions, or answers.
 

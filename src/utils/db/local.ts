@@ -6,8 +6,16 @@ import { timestampText, TIMESTAMPTZ_OID, type Sql } from "@/utils/db/sql";
 // real schema from db/migrations. Development fixture mode and the tests use it
 // instead of a fake client, so they run the same SQL, constraints and
 // consume_usage function as production. It never opens a network connection.
+//
+// Queries run as amanah_app, the restricted role the app uses in production
+// (db/migrations/0002_app_role.sql), so a query that needs a privilege the role
+// lacks fails here too. Seeding runs as the owner through asOwner.
 
-export type LocalDb = Sql & { close(): Promise<void> };
+export type LocalDb = Sql & {
+  close(): Promise<void>;
+  /** Runs `run` as the database owner, then switches back to amanah_app. */
+  asOwner<T>(run: () => Promise<T>): Promise<T>;
+};
 
 export type Row = Record<string, unknown>;
 
@@ -27,9 +35,18 @@ export async function createLocalDb(): Promise<LocalDb> {
   for (const sql of migrationFiles()) {
     await db.exec(sql);
   }
+  await db.exec("set role amanah_app");
   return {
     async query<T>(text: string, params: unknown[] = []) {
       return (await db.query<T>(text, params)).rows;
+    },
+    async asOwner(run) {
+      await db.exec("reset role");
+      try {
+        return await run();
+      } finally {
+        await db.exec("set role amanah_app");
+      }
     },
     close: () => db.close(),
   };
@@ -86,12 +103,14 @@ export type TableName = (typeof TABLE_ORDER)[number];
 
 export type SeedData = Partial<Record<TableName, Row[]>>;
 
-/** Inserts seed rows table by table in foreign-key order. */
-export async function seedRows(sql: Sql, data: SeedData) {
-  for (const table of TABLE_ORDER) {
-    const rows = data[table] ?? [];
-    if (rows.length > 0) {
-      await insertRows(sql, table, rows);
+/** Inserts seed rows table by table in foreign-key order, as the owner. */
+export async function seedRows(db: LocalDb, data: SeedData) {
+  await db.asOwner(async () => {
+    for (const table of TABLE_ORDER) {
+      const rows = data[table] ?? [];
+      if (rows.length > 0) {
+        await insertRows(db, table, rows);
+      }
     }
-  }
+  });
 }

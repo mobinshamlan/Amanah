@@ -130,7 +130,7 @@ Messages for lost reporters:
 
 Closing the browser tab: processing stops after the current batch. For a found report, `sessionStorage` is cleared, so that tab cannot resume. A lost report resumes whenever its tracking link is opened again. The unchecked pairs stay unchecked, never "no match". They are covered later when an opposite-type report is submitted (its check includes this report), or by Run matching on `/admin`. A background worker (for example a scheduled job) would remove this limit, but it is new infrastructure and was not added for this MVP.
 
-`report_submissions` is reached only by the server, with `DATABASE_URL`; nothing in the browser can query the database. The app reads rows, inserts `report_id` and `token_hash`, and updates only `processing_until` (`src/utils/db/queries.ts`). It never rewrites a hash or deletes a submission; rows go only with their report, through `ON DELETE CASCADE`.
+`report_submissions` is reached only by the server, as the restricted `amanah_app` role (`AMANAH_DATABASE_URL`); nothing in the browser can query the database. The app reads rows, inserts `report_id` and `token_hash`, and updates only `processing_until` (`src/utils/db/queries.ts`). The role's grants (`db/migrations/0002_app_role.sql`) allow exactly that, so it cannot rewrite a hash or delete a submission; rows go only with their report, through `ON DELETE CASCADE`.
 
 ### Lost-report tracking link
 

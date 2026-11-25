@@ -4,7 +4,8 @@ import { createLocalDb, type LocalDb } from "@/utils/db/local";
 import { consumeUsage } from "@/utils/db/queries";
 import { submitSlots } from "@/utils/limits/usageBuckets";
 
-// The real consume_usage function from db/migrations, in a local Postgres.
+// The real consume_usage function from db/migrations, in a local Postgres,
+// called as amanah_app (the app's restricted role).
 
 describe("consume_usage", () => {
   let db: LocalDb;
@@ -13,10 +14,10 @@ describe("consume_usage", () => {
   });
   after(() => db.close());
 
+  // usage_counters is readable only by the owner; amanah_app goes through consume_usage.
   async function count(bucket: string) {
-    const [row] = await db.query<{ count: number }>(
-      "select count from public.usage_counters where bucket = $1",
-      [bucket],
+    const [row] = await db.asOwner(() =>
+      db.query<{ count: number }>("select count from public.usage_counters where bucket = $1", [bucket]),
     );
     return row?.count ?? 0;
   }

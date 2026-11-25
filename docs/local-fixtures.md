@@ -7,7 +7,7 @@ verification, and the staff workspace at `/admin`.
 ## Guarantees
 
 - **No real database.** `createDb()` returns a local in-memory Postgres
-  (PGlite, Postgres compiled to WebAssembly) before it reads `DATABASE_URL`.
+  (PGlite, Postgres compiled to WebAssembly) before it reads `AMANAH_DATABASE_URL`.
   It has the real schema from `db/migrations/`, so the app runs the same SQL,
   constraints and `consume_usage` function as production, then the fixture
   rows are inserted. Nothing leaves your machine.
