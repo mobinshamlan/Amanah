@@ -105,7 +105,8 @@ try {
 } catch (error) {
   failed = true;
   await client.query("rollback");
-  console.error("Import failed, nothing was saved:", error.code ?? "", error.message);
+  // Only the SQLSTATE code: Postgres messages can quote the offending (private) row values.
+  console.error("Import failed, nothing was saved. Postgres error code:", error.code ?? "unknown");
 }
 
 if (!failed) {
