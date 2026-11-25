@@ -4,8 +4,12 @@
 // jsonb_populate_recordset, so Postgres converts values to the column types.
 //
 //   npm run db:import -- ~/backups/amanah/2026-11-25
+//   npm run db:import -- --replace ~/backups/amanah/2026-11-25
 //
-// Runs in one transaction and stops if any target table already has rows.
+// Runs in one transaction. Without --replace it stops if any target table
+// already has rows. With --replace it first empties every listed table
+// (TRUNCATE ... RESTART IDENTITY, in the same transaction, so a failed load
+// leaves the old rows in place), for re-importing a fresh export at cutover.
 // Ends by comparing row counts with the files. Prints counts only, never data.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,10 +32,12 @@ const TABLES = [
   "usage_counters",
 ];
 
-const source = process.argv[2];
+const args = process.argv.slice(2);
+const replace = args.includes("--replace");
+const [source, ...extra] = args.filter((arg) => arg !== "--replace");
 const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
-if (!source || !url) {
-  console.error("Usage: DATABASE_URL=... node scripts/db-import-backup.mjs <backup folder>");
+if (!source || extra.length > 0 || source.startsWith("--") || !url) {
+  console.error("Usage: DATABASE_URL_UNPOOLED=... node scripts/db-import-backup.mjs [--replace] <backup folder>");
   process.exit(1);
 }
 
@@ -67,11 +73,23 @@ let failed = false;
 
 try {
   await client.query("begin");
+  const existing = {};
   for (const table of TABLES) {
     const { rows } = await client.query(`select count(*)::int as n from public.${table}`);
-    if (rows[0].n > 0) {
-      throw new Error(`${table} already has ${rows[0].n} rows; import only into an empty database`);
+    existing[table] = rows[0].n;
+    if (rows[0].n > 0 && !replace) {
+      throw new Error(`${table} already has ${rows[0].n} rows; import into an empty database, or pass --replace`);
     }
+  }
+  if (replace) {
+    console.log("--replace: emptying these tables first (same transaction):");
+    for (const table of TABLES) {
+      console.log(`  ${table.padEnd(28)} ${String(existing[table]).padStart(6)} rows`);
+    }
+    // Every table that references another is in the list, so no CASCADE: if a
+    // table outside the list ever references these, the truncate fails instead
+    // of emptying it silently.
+    await client.query(`truncate table ${TABLES.map((table) => `public.${table}`).join(", ")} restart identity`);
   }
   for (const table of TABLES) {
     if (data[table].length === 0) {
