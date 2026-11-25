@@ -1,3 +1,4 @@
+import { isMissingTableCode } from "@/utils/db/sql";
 import {
   GeminiApiError,
   GeminiConfigError,
@@ -60,7 +61,7 @@ export class OwnershipStoreError extends Error {
 
   // The migration has not been applied yet.
   get isMissingTable() {
-    return this.code === "PGRST205" || this.code === "42P01";
+    return isMissingTableCode(this.code);
   }
 }
 

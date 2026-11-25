@@ -1,6 +1,6 @@
 // Development-only local fixture mode: an in-memory database and a fake Gemini,
 // so the whole app can be used locally with fictional data. It never reads or
-// writes Supabase and never calls Gemini. See docs/local-fixtures.md.
+// writes the real database and never calls Gemini. See docs/local-fixtures.md.
 //
 // Kept free of imports so the proxy and any server module can use it.
 

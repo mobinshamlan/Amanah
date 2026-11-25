@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { isSandboxMode } from "@/utils/sandbox";
 import { cleanupSandbox } from "@/utils/sandbox/cleanup";
-import { createAdminClient } from "@/utils/supabase/admin";
+import { createDb } from "@/utils/db/client";
 
 // Daily test-mode cleanup, called by Vercel Cron (vercel.json) with
 // "Authorization: Bearer $CRON_SECRET": GET deletes visitor reports past the
@@ -28,7 +28,7 @@ async function run(request: Request, mode: "expired" | "all") {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
   try {
-    const summary = await cleanupSandbox(createAdminClient(), new Date(), mode);
+    const summary = await cleanupSandbox(createDb(), new Date(), mode);
     console.info(
       `Test mode cleanup (${summary.mode}): deleted=${summary.deletedReports} samples_added=${summary.samplesAdded}`,
     );

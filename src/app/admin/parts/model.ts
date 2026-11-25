@@ -1,4 +1,4 @@
-import { latestDecision } from "@/utils/ownership/supabaseStore";
+import { latestDecision } from "@/utils/ownership/sqlStore";
 import type { AdminMessages } from "@/i18n/messages/admin";
 
 // Types and status rules for the staff workspace. Everything here is derived

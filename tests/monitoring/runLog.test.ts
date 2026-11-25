@@ -5,10 +5,10 @@ import {
   loadFailureRow,
   recordMatchingRun,
   toRunRow,
-  type MatchingRunRow,
 } from "@/utils/monitoring/runLog";
+import type { Sql } from "@/utils/db/sql";
 
-// Controlled tests only: a fake client, no database.
+// Controlled tests only: a fake database, no real one.
 
 const SUMMARY: MatchingRunSummary = {
   checked: 3,
@@ -38,16 +38,19 @@ const ALLOWED_COLUMNS = [
   "uncertain",
 ];
 
+// A stand-in for the database: records each statement, then succeeds or fails.
 function fakeClient(result: { error: { code?: string } | null } | Error) {
-  const inserted: { table: string; row: MatchingRunRow }[] = [];
-  const client = {
-    from(table: "matching_runs") {
-      return {
-        insert(row: MatchingRunRow) {
-          inserted.push({ table, row });
-          return result instanceof Error ? Promise.reject(result) : Promise.resolve(result);
-        },
-      };
+  const inserted: { text: string; params: unknown[] }[] = [];
+  const client: Sql = {
+    async query<T>(text: string, params: unknown[] = []) {
+      inserted.push({ text, params });
+      if (result instanceof Error) {
+        throw result;
+      }
+      if (result.error) {
+        throw Object.assign(new Error("database error with secret details"), result.error);
+      }
+      return [] as T[];
     },
   };
   return { client, inserted };
@@ -125,7 +128,23 @@ describe("recordMatchingRun", () => {
   it("inserts into matching_runs", async () => {
     const { client, inserted } = fakeClient({ error: null });
     assert.equal(await recordMatchingRun(client, row, silent), true);
-    assert.deepEqual(inserted, [{ table: "matching_runs", row }]);
+    assert.equal(inserted.length, 1);
+    assert.match(inserted[0].text, /insert into public\.matching_runs/);
+    assert.deepEqual(inserted[0].params, [
+      row.source,
+      row.duration_ms,
+      row.requests,
+      row.checked,
+      row.matched,
+      row.uncertain,
+      row.no_match,
+      row.failed,
+      row.already_saved,
+      row.remaining,
+      row.failure,
+      row.stopped_for_time,
+      row.model,
+    ]);
   });
 
   it("never throws when saving fails, and logs only the error code", async () => {
@@ -140,14 +159,15 @@ describe("recordMatchingRun", () => {
 
     assert.deepEqual(messages, [
       ["Monitoring: failed to record matching run:", "42501"],
-      ["Monitoring: failed to record matching run:", "exception"],
+      // An error without a Postgres code (a network failure) is logged as "unknown".
+      ["Monitoring: failed to record matching run:", "unknown"],
     ]);
   });
 
   it("stays quiet before the migration is applied", async () => {
     const messages: unknown[][] = [];
     const logger = { error: (...args: unknown[]) => messages.push(args) };
-    for (const code of ["PGRST205", "42P01"]) {
+    for (const code of ["42P01"]) {
       const missing = fakeClient({ error: { code } });
       assert.equal(await recordMatchingRun(missing.client, row, logger), false);
     }

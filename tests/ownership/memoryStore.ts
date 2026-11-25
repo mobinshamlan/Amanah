@@ -11,9 +11,9 @@ import {
   type OwnershipStore,
   type VerificationRecord,
 } from "@/utils/ownership/service";
-import { latestDecision } from "@/utils/ownership/supabaseStore";
+import { latestDecision } from "@/utils/ownership/sqlStore";
 
-// In-memory stand-in for the Supabase store. Fictional data only.
+// In-memory stand-in for the SQL ownership store. Fictional data only.
 
 export const LOST: ReportComparisonInput = {
   itemName: "Black water bottle",
@@ -63,7 +63,7 @@ export function createMemoryStore() {
   function maybeFail(method: string) {
     calls.push(method);
     if (failures.has(method)) {
-      throw new OwnershipStoreError(`Failed: ${method}`, failures.has("missing_table") ? "PGRST205" : "XX000");
+      throw new OwnershipStoreError(`Failed: ${method}`, failures.has("missing_table") ? "42P01" : "XX000");
     }
   }
 

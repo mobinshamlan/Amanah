@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { parseSelect } from "@/utils/fixtures/selectParser";
-import { createEmptyDb, createFakeSupabase } from "@/utils/fixtures/fakeSupabase";
+import { after, before, describe, it } from "node:test";
+import { createLocalDb, seedRows, type LocalDb } from "@/utils/db/local";
+import {
+  claimMatchingLease,
+  countDemoRuns,
+  findFirstRunAt,
+  findMatchReports,
+  findTopMatch,
+  findVerification,
+  insertDecision,
+  insertMatch,
+  listCandidateReviews,
+  listMatchesWithReports,
+  listRecentRuns,
+  releaseMatchingLease,
+} from "@/utils/db/queries";
 import { FIXTURE_CREDENTIALS, seedFixtureDb } from "@/utils/fixtures/seed";
 import { fakeGeminiResponse } from "@/utils/fixtures/fakeGemini";
 import { isFixtureMode } from "@/utils/fixtures/mode";
@@ -14,7 +27,7 @@ import {
   parseOwnershipAssessment,
   parseOwnershipQuestions,
 } from "@/utils/gemini/ownershipVerification";
-import { createSupabaseOwnershipStore } from "@/utils/ownership/supabaseStore";
+import { createSqlOwnershipStore } from "@/utils/ownership/sqlStore";
 import { ownerView } from "@/utils/ownership/service";
 import {
   hashSubmissionCredential,
@@ -22,7 +35,8 @@ import {
 } from "@/utils/matching/submissionCredential";
 import { buildCandidateQueues, type StoredMatch } from "@/utils/matching/candidates";
 
-type Client = Parameters<typeof createSupabaseOwnershipStore>[0];
+// Fixture data in a local Postgres (PGlite) with the real schema from
+// db/migrations, queried through the same functions production uses.
 
 describe("fixture mode switch", () => {
   it("is on only in development with AMANAH_FIXTURES=1", () => {
@@ -34,152 +48,129 @@ describe("fixture mode switch", () => {
   });
 });
 
-describe("select parser", () => {
-  it("reads columns, aliases, hints, and nested embeds across lines", () => {
-    const nodes = parseSelect(`
-      id, alias:lost_report_id,
-      lost:reports!report_matches_lost_report_fkey(item_name, description),
-      answers:ownership_answers(question_number, nested:other(a, b))
-    `);
-    assert.deepEqual(nodes, [
-      { kind: "column", name: "id", alias: "id" },
-      { kind: "column", name: "lost_report_id", alias: "alias" },
-      {
-        kind: "embed",
-        alias: "lost",
-        table: "reports",
-        hint: "report_matches_lost_report_fkey",
-        children: [
-          { kind: "column", name: "item_name", alias: "item_name" },
-          { kind: "column", name: "description", alias: "description" },
-        ],
-      },
-      {
-        kind: "embed",
-        alias: "answers",
-        table: "ownership_answers",
-        hint: null,
-        children: [
-          { kind: "column", name: "question_number", alias: "question_number" },
-          {
-            kind: "embed",
-            alias: "nested",
-            table: "other",
-            hint: null,
-            children: [
-              { kind: "column", name: "a", alias: "a" },
-              { kind: "column", name: "b", alias: "b" },
-            ],
-          },
-        ],
-      },
-    ]);
+describe("fixture database", () => {
+  let db: LocalDb;
+  before(async () => {
+    db = await createLocalDb();
+    // Seeding goes through every table's constraints and foreign keys.
+    await seedRows(db, seedFixtureDb(new Date("2026-11-20T12:00:00Z")).tables);
   });
+  after(() => db.close());
 
-  it("rejects unbalanced parentheses", () => {
-    assert.throws(() => parseSelect("a:reports(id"));
-  });
-});
-
-describe("fake Supabase client", () => {
-  it("embeds to-one rows as objects and to-many rows as arrays", async () => {
-    const supabase = createFakeSupabase(seedFixtureDb(new Date("2026-11-20T12:00:00Z")));
-    const { data, error } = await supabase
-      .from("ownership_verifications")
-      .select(
-        `id, answers:ownership_answers(question_number, answer),
-         assessment:ownership_assessments(assessment),
-         decisions:ownership_decisions(id, decision, previous_decision_id)`,
-      )
-      .eq("lost_report_id", "00000000-0000-4000-8000-000000001008")
-      .maybeSingle();
+  it("embeds answers, the assessment and the decision log with a verification", async () => {
+    const { data, error } = await findVerification(db, "lost_report_id", "00000000-0000-4000-8000-000000001008");
     assert.equal(error, null);
-    const row = data as {
-      answers: unknown[];
-      assessment: { assessment: string } | null;
-      decisions: { decision: string; previous_decision_id: string | null }[];
-    };
-    assert.equal(row.answers.length, 1);
-    assert.deepEqual(row.assessment, { assessment: "unclear" });
-    assert.deepEqual(
-      row.decisions.map((entry) => entry.decision).sort(),
-      ["approved", "pending_review"],
-    );
+    assert.ok(data);
+    assert.equal(data.answers.length, 1);
+    assert.deepEqual(data.assessment?.assessment, "unclear");
+    assert.deepEqual(data.decisions.map((entry) => entry.decision).sort(), ["approved", "pending_review"]);
+    // Embedded and top-level timestamps use the same ISO form.
+    assert.match(data.decisions[0].created_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+00:00$/);
 
-    const match = await supabase
-      .from("report_matches")
-      .select(
-        "id, lost:reports!report_matches_lost_report_fkey(report_type), found:reports!report_matches_found_report_fkey(report_type)",
-      )
-      .limit(1)
-      .maybeSingle();
-    assert.deepEqual(
-      [(match.data as { lost: { report_type: string } }).lost.report_type,
-        (match.data as { found: { report_type: string } }).found.report_type],
-      ["lost", "found"],
-    );
+    const matches = await listMatchesWithReports(db);
+    assert.equal(matches.error, null);
+    const first = matches.data![0];
+    assert.match(first.created_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?\+00:00$/);
+    const pair = await findMatchReports(db, first.id);
+    assert.ok(pair.data?.lost?.item_name && pair.data.found?.item_name);
   });
 
-  it("enforces unique keys, including NULLs-equal keys", async () => {
-    const db = createEmptyDb();
-    const supabase = createFakeSupabase(db);
-    db.tables.ownership_verifications.push({ id: "v1" });
-    const first = await supabase
-      .from("ownership_decisions")
-      .insert({ verification_id: "v1", decision: "approved" });
+  it("orders the top match by score (unscored last), then newest", async () => {
+    const lost = "00000000-0000-4000-8000-000000001099";
+    const found = ["00000000-0000-4000-8000-000000002091", "00000000-0000-4000-8000-000000002092", "00000000-0000-4000-8000-000000002093"];
+    await seedRows(db, {
+      reports: [
+        { id: lost, report_type: "lost", item_name: "Order test", description: "d", location: "l" },
+        ...found.map((id) => ({ id, report_type: "found", item_name: "Order test", description: "d", location: "l" })),
+      ],
+    });
+    const insert = (foundId: string, score: number | null) =>
+      insertMatch(db, {
+        lost_report_id: lost,
+        found_report_id: foundId,
+        explanation: "e",
+        model: "m",
+        ai_decision: "match",
+        supporting_details: ["s"],
+        contradictions: [],
+        missing_information: [],
+        ai_similarity_score: score,
+      });
+    await insert(found[0], null);
+    await insert(found[1], 50);
+    await insert(found[2], 80);
+    const top = await findTopMatch(db, lost);
+    const best = (await db.query<{ id: string }>(
+      "select id from report_matches where found_report_id = $1",
+      [found[2]],
+    ))[0];
+    assert.equal(top.data?.id, best.id);
+  });
+
+  it("reports unique, missing-table and bad-column errors with their Postgres codes", async () => {
+    const [{ id: verificationId }] = await db.query<{ id: string }>(
+      `select id from ownership_verifications v
+       where not exists (select 1 from ownership_decisions d where d.verification_id = v.id)
+       limit 1`,
+    );
+    const first = await insertDecision(db, {
+      verification_id: verificationId,
+      decision: "approved",
+      note: null,
+      previous_decision_id: null,
+      previous_decision: null,
+    });
     assert.equal(first.error, null);
-    const second = await supabase
-      .from("ownership_decisions")
-      .insert({ verification_id: "v1", decision: "rejected" });
+    // A second first entry would branch the log: the NULLS NOT DISTINCT key stops it.
+    const second = await insertDecision(db, {
+      verification_id: verificationId,
+      decision: "rejected",
+      note: null,
+      previous_decision_id: null,
+      previous_decision: null,
+    });
     assert.equal(second.error?.code, "23505");
-    const missing = await supabase.from("not_a_table").select("id");
-    assert.equal(missing.error?.code, "PGRST205");
-    const badColumn = await supabase.from("reports").select("nope");
-    assert.equal(badColumn.error?.code, "42703");
+    await assert.rejects(db.query("select id from not_a_table"), { code: "42P01" });
+    await assert.rejects(db.query("select nope from reports"), { code: "42703" });
   });
 
-  it("claims a lease only once with update + or + select", async () => {
-    const db = createEmptyDb();
-    db.tables.report_submissions.push({ report_id: "r1", token_hash: "x", processing_until: null });
-    const supabase = createFakeSupabase(db);
+  it("claims a matching lease only once until it is released", async () => {
+    const reportId = "00000000-0000-4000-8000-000000001001";
     const claim = () =>
-      supabase
-        .from("report_submissions")
-        .update({ processing_until: new Date(Date.now() + 60_000).toISOString() })
-        .eq("report_id", "r1")
-        .or(`processing_until.is.null,processing_until.lt.${new Date().toISOString()}`)
-        .select("report_id");
-    assert.equal(((await claim()).data as unknown[]).length, 1);
-    assert.equal(((await claim()).data as unknown[]).length, 0);
+      claimMatchingLease(db, reportId, new Date(Date.now() + 60_000).toISOString(), new Date().toISOString());
+    assert.equal((await claim()).data?.length, 1);
+    assert.equal((await claim()).data?.length, 0);
+    await releaseMatchingLease(db, reportId);
+    assert.equal((await claim()).data?.length, 1);
+    await releaseMatchingLease(db, reportId);
   });
 
-  it("orders with nullsFirst, counts, and filters with not ilike", async () => {
-    const db = createEmptyDb();
-    db.tables.report_matches.push(
-      { id: "a", ai_similarity_score: null, created_at: "2026-01-01T00:00:00.000Z", model: "m" },
-      { id: "b", ai_similarity_score: 50, created_at: "2026-01-02T00:00:00.000Z", model: "x-demo" },
-      { id: "c", ai_similarity_score: 80, created_at: "2026-01-03T00:00:00.000Z", model: "m" },
-    );
-    const supabase = createFakeSupabase(db);
-    const ordered = await supabase
-      .from("report_matches")
-      .select("id")
-      .order("ai_similarity_score", { ascending: false, nullsFirst: false });
-    assert.deepEqual((ordered.data as { id: string }[]).map((row) => row.id), ["c", "b", "a"]);
-    const counted = await supabase
-      .from("report_matches")
-      .select("id", { count: "exact", head: true })
-      .not("model", "ilike", "%demo%");
-    assert.equal(counted.count, 2);
-    assert.equal(counted.data, null);
+  it("counts runs with demo runs kept apart", async () => {
+    await seedRows(db, {
+      matching_runs: [
+        { source: "admin", duration_ms: 1, requests: 0, checked: 0, matched: 0, uncertain: 0, no_match: 0, failed: 0, already_saved: 0, model: "x-demo-fixture", finished_at: "2020-01-01T00:00:00Z" },
+      ],
+    });
+    const runs = await listRecentRuns(db, 5);
+    assert.equal(runs.data?.rows.length, 5);
+    assert.ok(runs.data!.rows.every((row) => !row.model.includes("demo")));
+    assert.ok(runs.data!.rows[0].finished_at >= runs.data!.rows[4].finished_at);
+    assert.equal(runs.data!.total, 24);
+    assert.equal((await countDemoRuns(db)).data, 1);
+    assert.notEqual((await findFirstRunAt(db)).data, "2020-01-01T00:00:00+00:00");
   });
 });
 
 describe("seeded tracking states", () => {
+  let db: LocalDb;
+  before(async () => {
+    db = await createLocalDb();
+    await seedRows(db, seedFixtureDb().tables);
+  });
+  after(() => db.close());
+
   it("uses valid credentials and gives each documented owner state", async () => {
-    const store = createSupabaseOwnershipStore(
-      createFakeSupabase(seedFixtureDb()) as unknown as Client,
-    );
+    const store = createSqlOwnershipStore(db);
     const expected: Record<string, string | null> = {
       questions: "question",
       answersSent: "answers_received",
@@ -205,16 +196,8 @@ describe("seeded tracking states", () => {
   });
 
   it("surfaces potential candidates, including the staff-added pair", async () => {
-    const supabase = createFakeSupabase(seedFixtureDb());
-    const matches = await supabase.from("report_matches").select(`
-      id, lost_report_id, found_report_id, explanation, model, created_at, ai_decision,
-      supporting_details, contradictions, missing_information, ai_similarity_score,
-      lost:reports!report_matches_lost_report_fkey(item_name, description, location),
-      found:reports!report_matches_found_report_fkey(item_name, description, location)
-    `);
-    const reviews = await supabase
-      .from("report_candidate_reviews")
-      .select("lost_report_id, found_report_id, action, note, created_at");
+    const matches = await listMatchesWithReports(db);
+    const reviews = await listCandidateReviews(db);
     const queues = buildCandidateQueues(
       matches.data as StoredMatch[],
       reviews.data as Parameters<typeof buildCandidateQueues>[1],

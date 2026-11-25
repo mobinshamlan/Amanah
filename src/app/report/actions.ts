@@ -1,7 +1,18 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { tryCreateAdminClient } from "@/utils/supabase/admin";
+import { tryCreateDb } from "@/utils/db/client";
+import {
+  claimMatchingLease,
+  findSubmissionWithReport,
+  insertReport,
+  insertSubmission,
+  listMatchReports,
+  listPairCheckKeys,
+  listSuggestionKeys,
+  listSuggestionStatus,
+  releaseMatchingLease,
+} from "@/utils/db/queries";
 import { currentIpKey } from "@/utils/limits/clientIp";
 import { consumeReportSubmission } from "@/utils/limits/usageLimit";
 import { runWithUsageScope } from "@/utils/limits/usageScope";
@@ -20,7 +31,6 @@ import {
 import {
   checkedKeysFrom,
   elapsedSince,
-  REPORT_COLUMNS,
   runNewReportMatching,
 } from "@/utils/matching/serverMatching";
 import {
@@ -81,21 +91,20 @@ export async function submitReport(
     return { ok: false, message: t.fixHighlighted, fieldErrors };
   }
 
-  // The server key inserts the row. After the usage-limit migration, anonymous
-  // clients can no longer insert reports directly and skip this check.
+  // Only the server can insert reports, so every report goes through this limit.
   const submission = await consumeReportSubmission(await currentIpKey());
   if (submission === "blocked") {
     return { ok: false, message: t.busy };
   }
 
   const reportId = randomUUID();
-  const supabase = tryCreateAdminClient();
-  if (!supabase) {
-    console.error("Report insert unavailable: admin client not configured");
+  const db = tryCreateDb();
+  if (!db) {
+    console.error("Report insert unavailable: database not configured");
     return { ok: false, message: t.saveFailed };
   }
 
-  const { error } = await supabase.from("reports").insert({
+  const { error } = await insertReport(db, {
     id: reportId,
     report_type: reportType,
     item_name: input.itemName.trim(),
@@ -111,7 +120,7 @@ export async function submitReport(
   const saved = { ok: true, message: t.savedContext };
 
   const credential = createSubmissionCredential();
-  const { error: credentialError } = await supabase.from("report_submissions").insert({
+  const { error: credentialError } = await insertSubmission(db, {
     report_id: reportId,
     token_hash: hashSubmissionCredential(credential),
   });
@@ -139,17 +148,16 @@ export async function continueMatching(
   }
 
   const ipKey = await currentIpKey();
-  const supabase = tryCreateAdminClient();
-  if (!supabase) {
+  const db = tryCreateDb();
+  if (!db) {
     return { ok: true, status: { phase: "unavailable" } };
   }
 
   const loadStartedAt = performance.now();
-  const { data: submission, error: submissionError } = await supabase
-    .from("report_submissions")
-    .select(`report_id, report:reports(report_type, ${REPORT_COLUMNS})`)
-    .eq("token_hash", hashSubmissionCredential(credential))
-    .maybeSingle();
+  const { data: submission, error: submissionError } = await findSubmissionWithReport(
+    db,
+    hashSubmissionCredential(credential),
+  );
 
   if (submissionError) {
     console.error("Failed to load submission:", submissionError.code);
@@ -165,16 +173,15 @@ export async function continueMatching(
   }
 
   const reportType = report.report_type;
-  const ownColumn = reportType === "lost" ? "lost_report_id" : "found_report_id";
   const otherType: ReportType = reportType === "lost" ? "found" : "lost";
 
   const nowIso = new Date().toISOString();
-  const { data: lease, error: leaseError } = await supabase
-    .from("report_submissions")
-    .update({ processing_until: new Date(Date.now() + PROCESSING_LEASE_MS).toISOString() })
-    .eq("report_id", submission.report_id)
-    .or(`processing_until.is.null,processing_until.lt.${nowIso}`)
-    .select("report_id");
+  const { data: lease, error: leaseError } = await claimMatchingLease(
+    db,
+    submission.report_id,
+    new Date(Date.now() + PROCESSING_LEASE_MS).toISOString(),
+    nowIso,
+  );
 
   if (leaseError) {
     console.error("Failed to claim matching lease:", leaseError.code);
@@ -188,12 +195,13 @@ export async function continueMatching(
   try {
     // Test mode: the sample found reports must exist before the first comparison.
     if (isSandboxMode()) {
-      await ensureSampleReportsOnce(supabase);
+      await ensureSampleReportsOnce(db);
     }
+    const own = { side: reportType, reportId: report.id };
     const [otherResult, savedResult, checksResult] = await Promise.all([
-      supabase.from("reports").select(REPORT_COLUMNS).eq("report_type", otherType),
-      supabase.from("report_matches").select("lost_report_id, found_report_id").eq(ownColumn, report.id),
-      supabase.from("report_pair_checks").select("lost_report_id, found_report_id").eq(ownColumn, report.id),
+      listMatchReports(db, otherType),
+      listSuggestionKeys(db, own),
+      listPairCheckKeys(db, own),
     ]);
     const loadMs = elapsedSince(loadStartedAt);
 
@@ -203,7 +211,7 @@ export async function continueMatching(
       // Only the call holding the lease would have run; a waiting call is not a run.
       if (hasLease) {
         await recordMatchingRun(
-          supabase,
+          db,
           loadFailureRow("auto", { durationMs: loadMs, model: getGeminiModel() }),
         );
       }
@@ -225,7 +233,7 @@ export async function continueMatching(
       } else {
         const summary = await runWithUsageScope({ ipKey, reportId: report.id }, () =>
           runNewReportMatching({
-            supabase,
+            db,
             side: reportType,
             pairs,
             checkedKeys,
@@ -238,10 +246,7 @@ export async function continueMatching(
     }
   } finally {
     if (hasLease) {
-      const { error: releaseError } = await supabase
-        .from("report_submissions")
-        .update({ processing_until: null })
-        .eq("report_id", submission.report_id);
+      const { error: releaseError } = await releaseMatchingLease(db, submission.report_id);
       if (releaseError) {
         console.error("Failed to release matching lease:", releaseError.code);
       }
@@ -251,10 +256,10 @@ export async function continueMatching(
   let hasMatch = false;
   let hasUncertain = false;
   if (reportType === "lost") {
-    const { data: suggestions, error: suggestionsError } = await supabase
-      .from("report_matches")
-      .select("ai_decision, ai_similarity_score")
-      .eq("lost_report_id", report.id);
+    const { data: suggestions, error: suggestionsError } = await listSuggestionStatus(
+      db,
+      report.id,
+    );
     if (suggestionsError) {
       console.error("Failed to load suggestion status:", suggestionsError.code);
       return { ok: true, status: { phase: "failed" } };

@@ -4,21 +4,21 @@ import {
   generateOwnershipQuestions,
 } from "@/utils/gemini/ownershipVerification";
 import type { OwnershipDeps } from "@/utils/ownership/service";
-import { createSupabaseOwnershipStore } from "@/utils/ownership/supabaseStore";
+import { createSqlOwnershipStore } from "@/utils/ownership/sqlStore";
 import { withLocalQuestionFallback } from "@/utils/sandbox/localQuestions";
-import { createAdminClient } from "@/utils/supabase/admin";
+import { createDb } from "@/utils/db/client";
 
 // Server-only. Real dependencies for the ownership service; null when the
-// server key is not configured.
+// database is not configured.
 export function createOwnershipDeps(): OwnershipDeps | null {
-  let supabase;
+  let db;
   try {
-    supabase = createAdminClient();
+    db = createDb();
   } catch {
     return null;
   }
   return {
-    store: createSupabaseOwnershipStore(supabase),
+    store: createSqlOwnershipStore(db),
     ai: {
       model: getGeminiModel(),
       // Test mode only: plain local questions when Gemini is busy.

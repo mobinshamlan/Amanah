@@ -1,7 +1,14 @@
 import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import {
+  countDemoRuns,
+  findFirstRunAt,
+  listMonitoringPairChecks,
+  listMonitoringReports,
+  listRecentRuns,
+} from "@/utils/db/queries";
+import type { Sql } from "@/utils/db/sql";
+import {
   buildMonitoringSnapshot,
-  MATCHING_RUN_COLUMNS,
   toMatchingRun,
   type ClaimSummaryInput,
   type MonitoringInput,
@@ -9,12 +16,9 @@ import {
 } from "@/utils/monitoring/snapshot";
 import { isMissingTableCode } from "@/utils/monitoring/runLog";
 import { excludeDemoData, isDemoModel, isDemoReportName } from "@/utils/monitoring/demoRecords";
-import type { createAdminClient } from "@/utils/supabase/admin";
 
-// Server-only (admin client). Loads what the monitoring view counts. Report
+// Server-only (database). Loads what the monitoring view counts. Report
 // IDs are read only to count pairs and never leave this function.
-
-type AdminClient = ReturnType<typeof createAdminClient>;
 
 // Enough for the 14-day check statistics at MVP scale; the view says when
 // more checks exist than were loaded.
@@ -37,7 +41,7 @@ type SuggestionRef = {
 };
 
 export async function loadMonitoringSnapshot(
-  supabase: AdminClient,
+  db: Sql,
   {
     suggestions,
     claims,
@@ -52,26 +56,11 @@ export async function loadMonitoringSnapshot(
   // Demo runs are filtered in the query, so the count and first date are real too.
   const [reportsResult, checksResult, runsResult, firstRunResult, demoRunsResult] =
     await Promise.all([
-    supabase.from("reports").select("id, report_type, item_name, created_at"),
-    supabase
-      .from("report_pair_checks")
-      .select("lost_report_id, found_report_id, ai_decision, checked_at"),
-    supabase
-      .from("matching_runs")
-      .select(MATCHING_RUN_COLUMNS, { count: "exact" })
-      .not("model", "ilike", "%demo%")
-      .order("finished_at", { ascending: false })
-      .limit(RUN_LOAD_LIMIT),
-    supabase
-      .from("matching_runs")
-      .select("finished_at")
-      .not("model", "ilike", "%demo%")
-      .order("finished_at", { ascending: true })
-      .limit(1),
-    supabase
-      .from("matching_runs")
-      .select("finished_at", { count: "exact", head: true })
-      .ilike("model", "%demo%"),
+    listMonitoringReports(db),
+    listMonitoringPairChecks(db),
+    listRecentRuns(db, RUN_LOAD_LIMIT),
+    findFirstRunAt(db),
+    countDemoRuns(db),
   ]);
 
   if (reportsResult.error || checksResult.error) {
@@ -114,15 +103,15 @@ export async function loadMonitoringSnapshot(
       history: runsError
         ? null
         : {
-            runs: ((runsResult.data ?? []) as Parameters<typeof toMatchingRun>[0][]).map(
+            runs: ((runsResult.data?.rows ?? []) as Parameters<typeof toMatchingRun>[0][]).map(
               toMatchingRun,
             ),
-            total: runsResult.count ?? (runsResult.data ?? []).length,
-            firstAt: (firstRunResult.data?.[0] as { finished_at: string } | undefined)?.finished_at ?? null,
+            total: runsResult.data?.total ?? 0,
+            firstAt: firstRunResult.data ?? null,
           },
       claims,
     },
-    runsError ? 0 : (demoRunsResult.count ?? 0),
+    runsError ? 0 : (demoRunsResult.data ?? 0),
   );
 
   return {

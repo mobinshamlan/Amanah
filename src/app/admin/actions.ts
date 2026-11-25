@@ -9,7 +9,6 @@ import {
 import {
   checkedKeysFrom,
   elapsedSince,
-  REPORT_COLUMNS,
   runMatchingPairs,
 } from "@/utils/matching/serverMatching";
 import {
@@ -24,10 +23,17 @@ import {
   type OwnershipDeps,
 } from "@/utils/ownership/service";
 import { createOwnershipDeps } from "@/utils/ownership/server";
+import { isLocalAdminEnabled, tryCreateDb } from "@/utils/db/client";
 import {
-  isLocalAdminEnabled,
-  tryCreateAdminClient,
-} from "@/utils/supabase/admin";
+  findMatchId,
+  insertCandidateReview,
+  insertMatch,
+  listMatchReports,
+  listPairCheckKeys,
+  listReportsByIds,
+  listSuggestionKeys,
+} from "@/utils/db/queries";
+import { isMissingTableCode, UNIQUE_VIOLATION } from "@/utils/db/sql";
 import { getGeminiModel, isGeminiConfigured } from "@/utils/gemini/compareReports";
 import { currentIpKey } from "@/utils/limits/clientIp";
 import { runWithUsageScope } from "@/utils/limits/usageScope";
@@ -71,17 +77,17 @@ export async function runMatching(): Promise<RunMatchingResult> {
   runInProgress = true;
 
   try {
-    const supabase = tryCreateAdminClient();
-    if (!supabase) {
+    const db = tryCreateDb();
+    if (!db) {
       return { ok: false, message: t.adminNotConfigured };
     }
 
     const loadStartedAt = performance.now();
     const [lostResult, foundResult, savedResult, checksResult] = await Promise.all([
-      supabase.from("reports").select(REPORT_COLUMNS).eq("report_type", "lost"),
-      supabase.from("reports").select(REPORT_COLUMNS).eq("report_type", "found"),
-      supabase.from("report_matches").select("lost_report_id, found_report_id"),
-      supabase.from("report_pair_checks").select("lost_report_id, found_report_id"),
+      listMatchReports(db, "lost"),
+      listMatchReports(db, "found"),
+      listSuggestionKeys(db),
+      listPairCheckKeys(db),
     ]);
     const loadMs = elapsedSince(loadStartedAt);
 
@@ -90,7 +96,7 @@ export async function runMatching(): Promise<RunMatchingResult> {
     if (loadError) {
       console.error("Failed to load matching data:", loadError.code, `${loadMs}ms`);
       await recordMatchingRun(
-        supabase,
+        db,
         loadFailureRow("admin", { durationMs: loadMs, model: getGeminiModel() }),
       );
       return { ok: false, message: t.loadFailed };
@@ -98,7 +104,7 @@ export async function runMatching(): Promise<RunMatchingResult> {
 
     const summary = await runWithUsageScope({ ipKey: await currentIpKey(), reportId: null }, () =>
       runMatchingPairs({
-        supabase,
+        db,
         pairs: buildPairs(
           (lostResult.data ?? []) as MatchReport[],
           (foundResult.data ?? []) as MatchReport[],
@@ -247,19 +253,15 @@ function candidateGate(t: AdminToolsMessages["actions"]) {
   if (!gate.ok) {
     return { ok: false as const, message: t.notAvailable };
   }
-  const admin = tryCreateAdminClient();
-  if (!admin) {
+  const db = tryCreateDb();
+  if (!db) {
     return { ok: false as const, message: t.adminNotConfiguredShort };
   }
-  return { ok: true as const, admin };
+  return { ok: true as const, db };
 }
 
 function isUuid(value: unknown) {
   return typeof value === "string" && UUID_PATTERN.test(value);
-}
-
-function missingCandidateTable(code: string | undefined) {
-  return code === "PGRST205" || code === "42P01";
 }
 
 /**
@@ -289,12 +291,7 @@ export async function reviewCandidate(
     return { ok: false, message: t.candidateNoteTooLong(CANDIDATE_NOTE_MAX) };
   }
 
-  const existing = await checked.admin
-    .from("report_matches")
-    .select("id")
-    .eq("lost_report_id", lostReportId)
-    .eq("found_report_id", foundReportId)
-    .maybeSingle();
+  const existing = await findMatchId(checked.db, lostReportId, foundReportId);
   if (existing.error) {
     console.error("Candidate: lookup failed", existing.error.code);
     return { ok: false, message: t.candidateReviewFailed };
@@ -303,7 +300,7 @@ export async function reviewCandidate(
     return { ok: false, message: t.candidateNotListed };
   }
 
-  const inserted = await checked.admin.from("report_candidate_reviews").insert({
+  const inserted = await insertCandidateReview(checked.db, {
     lost_report_id: lostReportId,
     found_report_id: foundReportId,
     action,
@@ -311,7 +308,7 @@ export async function reviewCandidate(
   });
   if (inserted.error) {
     console.error("Candidate: review failed", inserted.error.code);
-    if (missingCandidateTable(inserted.error.code)) {
+    if (isMissingTableCode(inserted.error.code)) {
       return { ok: false, message: t.candidateReviewsNotSetUp };
     }
     return { ok: false, message: t.candidateReviewFailed };
@@ -344,10 +341,7 @@ export async function createCandidate(
     return { ok: false, message: t.candidateNoteTooLong(CANDIDATE_NOTE_MAX) };
   }
 
-  const loaded = await checked.admin
-    .from("reports")
-    .select("id, report_type, item_name, description, location")
-    .in("id", [lostReportId, foundReportId]);
+  const loaded = await listReportsByIds(checked.db, [lostReportId, foundReportId]);
   if (loaded.error) {
     console.error("Candidate: reports failed", loaded.error.code);
     return { ok: false, message: t.candidateCreateFailed };
@@ -375,14 +369,14 @@ export async function createCandidate(
     description: found.description,
     location: found.location,
   };
-  const inserted = await checked.admin.from("report_matches").insert({
+  const inserted = await insertMatch(checked.db, {
     lost_report_id: lostReportId,
     found_report_id: foundReportId,
     ...manualCandidateInsert(lostReport, foundReport, parsedNote.note),
   });
   if (inserted.error) {
     console.error("Candidate: create failed", inserted.error.code);
-    if (inserted.error.code === "23505") {
+    if (inserted.error.code === UNIQUE_VIOLATION) {
       return { ok: false, message: t.candidateDuplicate };
     }
     return { ok: false, message: t.candidateCreateFailed };

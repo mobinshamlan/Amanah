@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { updateSession } from "@/utils/supabase/proxy";
-import { isFixtureMode } from "@/utils/fixtures/mode";
 
+// The staff workspace has no sign-in, so it exists only in local development.
 export async function proxy(request: NextRequest) {
   if (
     process.env.NODE_ENV !== "development" &&
@@ -10,14 +9,7 @@ export async function proxy(request: NextRequest) {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  // Development fixture mode never contacts Supabase, including its auth check,
-  // and neither does the guided demo, which has no account or data at all.
-  const path = request.nextUrl.pathname;
-  if (isFixtureMode() || path === "/demo" || path.startsWith("/demo/")) {
-    return NextResponse.next();
-  }
-
-  return await updateSession(request);
+  return NextResponse.next();
 }
 
 export const config = {

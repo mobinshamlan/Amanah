@@ -25,17 +25,15 @@ import {
   type ReportPair,
   type SaveOutcome,
 } from "@/utils/matching/runMatchingBatch";
-import type { createAdminClient } from "@/utils/supabase/admin";
+import { insertMatch, insertPairCheck } from "@/utils/db/queries";
+import { UNIQUE_VIOLATION, type DbResult, type Sql } from "@/utils/db/sql";
 import { recordMatchingRun, toRunRow } from "@/utils/monitoring/runLog";
 import { isSandboxMode } from "@/utils/sandbox";
 import { compareBatchLocally, isBusyGeminiError } from "@/utils/sandbox/localMatch";
 
-// Server-only: uses the admin client and the Gemini key. Never import from client components.
+// Server-only: uses the database and the Gemini key. Never import from client components.
 
-type AdminClient = ReturnType<typeof createAdminClient>;
 type Source = "admin" | "auto";
-
-export const REPORT_COLUMNS = "id, item_name, description, location, created_at";
 
 function failureKind(error: unknown): MatchingFailure {
   if (error instanceof GeminiUsageLimitError) {
@@ -86,22 +84,22 @@ function toComparisonInput(report: MatchReport) {
 const AUTO_PARALLEL_REQUESTS = 3;
 
 /** Inserts suggestions and pair checks, tracking total save time. */
-function createSaver(supabase: AdminClient, source: Source) {
+function createSaver(db: Sql, source: Source) {
   const model = getGeminiModel();
   const timing = { saveMs: 0 };
 
   const timedInsert = async (
     table: "report_matches" | "report_pair_checks",
-    row: Record<string, unknown>,
+    insert: () => Promise<DbResult<null>>,
   ): Promise<SaveOutcome> => {
     const startedAt = performance.now();
-    const { error } = await supabase.from(table).insert(row);
+    const { error } = await insert();
     const ms = elapsedSince(startedAt);
     timing.saveMs += ms;
     if (!error) {
       return "saved";
     }
-    if (error.code === "23505") {
+    if (error.code === UNIQUE_VIOLATION) {
       return "duplicate";
     }
     console.error(`Matching (${source}) failed to save to ${table}:`, error.code, `${ms}ms`);
@@ -109,7 +107,7 @@ function createSaver(supabase: AdminClient, source: Source) {
   };
 
   const saveMatch = (pair: ReportPair, result: ComparisonDetails) =>
-    timedInsert("report_matches", {
+    timedInsert("report_matches", () => insertMatch(db, {
       lost_report_id: pair.lost.id,
       found_report_id: pair.found.id,
       explanation: result.reason,
@@ -119,15 +117,15 @@ function createSaver(supabase: AdminClient, source: Source) {
       contradictions: result.contradictions,
       missing_information: result.missingInformation,
       ai_similarity_score: result.similarityScore,
-    });
+    }));
 
   const recordCheck = (pair: ReportPair, result: ComparisonDetails) =>
-    timedInsert("report_pair_checks", {
+    timedInsert("report_pair_checks", () => insertPairCheck(db, {
       lost_report_id: pair.lost.id,
       found_report_id: pair.found.id,
       ai_decision: result.decision,
       model: result.model ?? model,
-    });
+    }));
 
   return { saveMatch, recordCheck, timing };
 }
@@ -165,20 +163,20 @@ function logRunSummary({
  * statuses, decisions, and counts.
  */
 export async function runMatchingPairs({
-  supabase,
+  db,
   pairs,
   checkedKeys,
   source,
   loadMs,
 }: {
-  supabase: AdminClient;
+  db: Sql;
   pairs: ReportPair[];
   checkedKeys: Set<string>;
   source: Source;
   loadMs: number;
 }): Promise<MatchingRunSummary> {
   const runStartedAt = performance.now();
-  const saver = createSaver(supabase, source);
+  const saver = createSaver(db, source);
   let pairNumber = 0;
   let geminiMs = 0;
 
@@ -231,7 +229,7 @@ export async function runMatchingPairs({
     summary,
   });
   await recordMatchingRun(
-    supabase,
+    db,
     toRunRow(source, summary, { durationMs: totalMs, requests: pairNumber, model: getGeminiModel() }),
   );
   return summary;
@@ -243,20 +241,20 @@ export async function runMatchingPairs({
  * Every pair must involve the same new report on the given side.
  */
 export async function runNewReportMatching({
-  supabase,
+  db,
   side,
   pairs,
   checkedKeys,
   loadMs,
 }: {
-  supabase: AdminClient;
+  db: Sql;
   side: "lost" | "found";
   pairs: ReportPair[];
   checkedKeys: Set<string>;
   loadMs: number;
 }): Promise<MatchingRunSummary> {
   const runStartedAt = performance.now();
-  const saver = createSaver(supabase, "auto");
+  const saver = createSaver(db, "auto");
   const otherSide = side === "lost" ? "found" : "lost";
   let requests = 0;
   let geminiMs = 0;
@@ -321,7 +319,7 @@ export async function runNewReportMatching({
     summary,
   });
   await recordMatchingRun(
-    supabase,
+    db,
     toRunRow("auto", summary, { durationMs: totalMs, requests, model: getGeminiModel() }),
   );
   return summary;

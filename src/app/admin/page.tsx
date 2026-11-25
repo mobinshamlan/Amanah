@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { isLocalAdminEnabled } from "@/utils/supabase/admin";
+import { isLocalAdminEnabled } from "@/utils/db/client";
 import { Notice } from "@/components/ui";
 import { admin } from "@/i18n/messages/admin";
 import { getLocale, getMessages } from "@/i18n/server";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createEmptyDb, createFakeSupabase, type FixtureDb } from "@/utils/fixtures/fakeSupabase";
+import { createLocalDb, seedRows, type LocalDb } from "@/utils/db/local";
 import { hasUncertainSuggestion, toPublicStatus } from "@/utils/matching/publicStatus";
 import type { OwnershipDeps } from "@/utils/ownership/service";
 import { isSandboxMode, SANDBOX_RETENTION_DAYS } from "@/utils/sandbox";
@@ -12,9 +12,7 @@ import { GET as cleanupRoute } from "@/app/api/sandbox/cleanup/route";
 import { createMemoryStore } from "../ownership/memoryStore";
 
 // Test mode: sample reports, cleanup, the cleanup route, the visitor's staff
-// role, and the "uncertain" threshold. In-memory data only.
-
-type Client = Parameters<typeof cleanupSandbox>[0];
+// role, and the "uncertain" threshold. A local in-memory Postgres with the real schema.
 
 const NOW = new Date("2026-11-24T12:00:00Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -24,21 +22,22 @@ function daysAgo(days: number) {
   return new Date(NOW.getTime() - days * DAY_MS).toISOString();
 }
 
-function sandboxDb() {
-  const db = createEmptyDb();
-  const client = createFakeSupabase(db) as unknown as Client;
-  return { db, client };
+const OLD_LOST = "00000000-0000-4000-8000-0000000000a1";
+const OLD_FOUND = "00000000-0000-4000-8000-0000000000a2";
+const NEW_LOST = "00000000-0000-4000-8000-0000000000a3";
+
+function report(id: string, type: "lost" | "found", createdAt: string) {
+  return { id, report_type: type, item_name: "Item", description: "Description", location: "Location", created_at: createdAt };
 }
 
-function addReport(db: FixtureDb, id: string, type: "lost" | "found", createdAt: string) {
-  db.tables.reports.push({
-    id,
-    report_type: type,
-    item_name: "Item",
-    description: "Description",
-    location: "Location",
-    created_at: createdAt,
-  });
+async function ids(db: LocalDb, table: "reports" | "report_matches" | "ownership_verifications" | "ownership_decisions") {
+  return (await db.query<{ id: string }>(`select id from public.${table}`)).map((row) => row.id);
+}
+
+async function submissionReportIds(db: LocalDb) {
+  return (await db.query<{ report_id: string }>("select report_id from public.report_submissions")).map(
+    (row) => row.report_id,
+  );
 }
 
 describe("test mode switch", () => {
@@ -61,61 +60,85 @@ describe("sample reports", () => {
   });
 
   it("are added once and never duplicated", async () => {
-    const { db, client } = sandboxDb();
-    assert.equal(await ensureSampleReports(client), SAMPLE_REPORTS.length);
-    assert.equal(await ensureSampleReports(client), 0);
-    assert.equal(db.tables.reports.length, SAMPLE_REPORTS.length);
+    const db = await createLocalDb();
+    assert.equal(await ensureSampleReports(db), SAMPLE_REPORTS.length);
+    assert.equal(await ensureSampleReports(db), 0);
+    assert.equal((await ids(db, "reports")).length, SAMPLE_REPORTS.length);
+    await db.close();
   });
 });
 
 describe("cleanupSandbox", () => {
-  function seeded() {
-    const { db, client } = sandboxDb();
-    // A sample older than the retention period must survive.
-    db.tables.reports.push({ ...SAMPLE_REPORTS[0], created_at: daysAgo(30) });
-    addReport(db, "old-lost", "lost", daysAgo(SANDBOX_RETENTION_DAYS + 1));
-    addReport(db, "old-found", "found", daysAgo(SANDBOX_RETENTION_DAYS + 0.5));
-    addReport(db, "new-lost", "lost", daysAgo(1));
-    db.tables.report_matches.push({
-      id: "match-old",
-      lost_report_id: "old-lost",
-      lost_report_type: "lost",
-      found_report_id: SAMPLE_REPORTS[0].id,
-      found_report_type: "found",
-      ai_decision: "match",
+  async function seeded() {
+    const db = await createLocalDb();
+    await seedRows(db, {
+      // A sample older than the retention period must survive.
+      reports: [
+        { ...SAMPLE_REPORTS[0], created_at: daysAgo(30) },
+        report(OLD_LOST, "lost", daysAgo(SANDBOX_RETENTION_DAYS + 1)),
+        report(OLD_FOUND, "found", daysAgo(SANDBOX_RETENTION_DAYS + 0.5)),
+        report(NEW_LOST, "lost", daysAgo(1)),
+      ],
+      report_matches: [
+        {
+          id: "00000000-0000-4000-8000-0000000000b1",
+          lost_report_id: OLD_LOST,
+          found_report_id: SAMPLE_REPORTS[0].id,
+          explanation: "Same item",
+          model: "test-model",
+          ai_decision: "match",
+        },
+      ],
+      ownership_verifications: [
+        {
+          id: "00000000-0000-4000-8000-0000000000c1",
+          lost_report_id: OLD_LOST,
+          report_match_id: "00000000-0000-4000-8000-0000000000b1",
+          model: "test-model",
+        },
+      ],
+      ownership_decisions: [
+        {
+          id: "00000000-0000-4000-8000-0000000000d1",
+          verification_id: "00000000-0000-4000-8000-0000000000c1",
+          decision: "approved",
+        },
+      ],
+      report_submissions: [
+        { report_id: OLD_LOST, token_hash: "1".repeat(64) },
+        { report_id: NEW_LOST, token_hash: "2".repeat(64) },
+      ],
     });
-    db.tables.ownership_verifications.push({ id: "ver-old", lost_report_id: "old-lost", report_match_id: "match-old", match_ai_decision: "match" });
-    db.tables.ownership_decisions.push({ id: "dec-old", verification_id: "ver-old", decision: "approved" });
-    db.tables.report_submissions.push({ report_id: "old-lost", token_hash: "h1" });
-    db.tables.report_submissions.push({ report_id: "new-lost", token_hash: "h2" });
-    return { db, client };
+    return db;
   }
 
   it("deletes only non-sample reports older than the retention period, with their rows", async () => {
-    const { db, client } = seeded();
-    const summary = await cleanupSandbox(client, NOW);
+    const db = await seeded();
+    const summary = await cleanupSandbox(db, NOW);
     assert.deepEqual(summary, {
       mode: "expired",
       deletedReports: 2,
       samplesAdded: SAMPLE_REPORTS.length - 1,
     });
-    const ids = db.tables.reports.map((row) => row.id);
-    assert.ok(ids.includes("new-lost"));
-    assert.ok(!ids.includes("old-lost") && !ids.includes("old-found"));
-    assert.ok(SAMPLE_REPORTS.every((report) => ids.includes(report.id)));
-    assert.equal(db.tables.report_matches.length, 0);
-    assert.equal(db.tables.ownership_verifications.length, 0);
-    assert.equal(db.tables.ownership_decisions.length, 0);
-    assert.deepEqual(db.tables.report_submissions.map((row) => row.report_id), ["new-lost"]);
+    const reportIds = await ids(db, "reports");
+    assert.ok(reportIds.includes(NEW_LOST));
+    assert.ok(!reportIds.includes(OLD_LOST) && !reportIds.includes(OLD_FOUND));
+    assert.ok(SAMPLE_REPORTS.every((sample) => reportIds.includes(sample.id)));
+    assert.equal((await ids(db, "report_matches")).length, 0);
+    assert.equal((await ids(db, "ownership_verifications")).length, 0);
+    assert.equal((await ids(db, "ownership_decisions")).length, 0);
+    assert.deepEqual(await submissionReportIds(db), [NEW_LOST]);
+    await db.close();
   });
 
   it("purges every non-sample report regardless of age in mode 'all'", async () => {
-    const { db, client } = seeded();
-    const summary = await cleanupSandbox(client, NOW, "all");
+    const db = await seeded();
+    const summary = await cleanupSandbox(db, NOW, "all");
     assert.equal(summary.mode, "all");
     assert.equal(summary.deletedReports, 3);
-    assert.equal(db.tables.reports.length, SAMPLE_REPORTS.length);
-    assert.equal(db.tables.report_submissions.length, 0);
+    assert.equal((await ids(db, "reports")).length, SAMPLE_REPORTS.length);
+    assert.equal((await submissionReportIds(db)).length, 0);
+    await db.close();
   });
 });
 
