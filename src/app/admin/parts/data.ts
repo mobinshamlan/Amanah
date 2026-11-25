@@ -1,4 +1,12 @@
-import { createAdminClient } from "@/utils/supabase/admin";
+import { createDb } from "@/utils/db/client";
+import {
+  listAdminFollowups,
+  listAdminReports,
+  listAdminVerifications,
+  listCandidateReviews,
+  listMatchesWithReports,
+} from "@/utils/db/queries";
+import { isMissingTableCode } from "@/utils/db/sql";
 import {
   buildDemoMonitoringSnapshot,
   isMonitoringDemoEnabled,
@@ -20,21 +28,6 @@ import {
 // Loads everything the staff workspace shows. The queries, their order and
 // their error handling are unchanged from the earlier single-file page; this
 // module only keeps them out of the way of the screens.
-
-const MATCH_COLUMNS = `
-  id, lost_report_id, found_report_id, explanation, model, created_at, ai_decision,
-  supporting_details, contradictions, missing_information,
-  ai_similarity_score, status,
-  lost:reports!report_matches_lost_report_fkey(item_name, description, location),
-  found:reports!report_matches_found_report_fkey(item_name, description, location)
-`;
-
-const VERIFICATION_COLUMNS = `
-  id, lost_report_id, report_match_id, questions, expected_details, model, created_at,
-  answers:ownership_answers(question_number, answer, created_at),
-  assessment:ownership_assessments(assessment, explanation, model, created_at),
-  decisions:ownership_decisions(id, decision, note, previous_decision_id, created_at)
-`;
 
 type TableState = "ok" | "not_set_up" | "error";
 
@@ -78,7 +71,7 @@ export function parseSection(value: string | string[] | undefined): AdminSection
 }
 
 function missingTable(code: string | undefined): TableState {
-  return code === "PGRST205" || code === "42P01" ? "not_set_up" : "error";
+  return isMissingTableCode(code) ? "not_set_up" : "error";
 }
 
 export async function loadAdminData(params: {
@@ -103,65 +96,41 @@ export async function loadAdminData(params: {
     monitoringDemo,
     loadedAt: Date.now(),
   };
-  // Demo snapshot is built in memory only: no Supabase read/write, no Gemini.
+  // Demo snapshot is built in memory only: no database read/write, no Gemini.
   if (monitoringDemo) {
     data.monitoring = { ok: true, snapshot: buildDemoMonitoringSnapshot(), reviewNeeded: null };
   }
 
   try {
-    const supabase = createAdminClient();
+    const db = createDb();
 
-    const matchesResult = await supabase
-      .from("report_matches")
-      .select(MATCH_COLUMNS)
-      .order("created_at", { ascending: false });
+    const matchesResult = await listMatchesWithReports(db);
     if (matchesResult.error) {
       data.matchesError = true;
     } else {
-      data.matches = (matchesResult.data ?? []) as unknown as ReportMatch[];
+      data.matches = (matchesResult.data ?? []) as ReportMatch[];
     }
 
-    const candidateReviewsResult = await supabase
-      .from("report_candidate_reviews")
-      .select("lost_report_id, found_report_id, action, note, created_at")
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const candidateReviewsResult = await listCandidateReviews(db);
     if (candidateReviewsResult.error) {
       data.candidateReviewsState = missingTable(candidateReviewsResult.error.code);
     } else {
       data.candidateReviews = (candidateReviewsResult.data ?? []) as CandidateReview[];
     }
 
-    const verificationsResult = await supabase
-      .from("ownership_verifications")
-      .select(VERIFICATION_COLUMNS)
-      .order("created_at", { ascending: false });
+    const verificationsResult = await listAdminVerifications(db);
     if (verificationsResult.error) {
       data.verificationsState = missingTable(verificationsResult.error.code);
     } else {
-      data.verifications = (verificationsResult.data ?? []) as unknown as Verification[];
+      data.verifications = (verificationsResult.data ?? []) as Verification[];
 
       // Follow-ups load on their own: a missing table (migration not applied)
       // only turns the feature off and never breaks the claims list.
-      const followupsResult = await supabase
-        .from("ownership_followups")
-        .select(
-          "verification_id, question, created_at, answer:ownership_followup_answers(answer, created_at)",
-        );
+      const followupsResult = await listAdminFollowups(db);
       if (!followupsResult.error) {
         data.followupsAvailable = true;
         const byVerification = new Map(
-          (
-            (followupsResult.data ?? []) as unknown as {
-              verification_id: string;
-              question: string;
-              created_at: string;
-              answer:
-                | { answer: string; created_at: string }
-                | { answer: string; created_at: string }[]
-                | null;
-            }[]
-          ).map((row) => [
+          (followupsResult.data ?? []).map((row) => [
             row.verification_id,
             {
               question: row.question,
@@ -182,7 +151,7 @@ export async function loadAdminData(params: {
     // Skip when demo mode is on so live figures never mix with the fixture.
     if (!monitoringDemo && !data.matchesError) {
       const { matches, verifications } = data;
-      data.monitoring = await loadMonitoringSnapshot(supabase, {
+      data.monitoring = await loadMonitoringSnapshot(db, {
         suggestions: matches,
         // Possible matches without a current staff decision (same rule as the queue).
         needsReview: matches
@@ -225,23 +194,17 @@ export async function loadAdminData(params: {
       });
     }
 
-    let query = supabase
-      .from("reports")
-      .select("id, report_type, item_name, description, location, created_at")
-      .order("created_at", { ascending: false });
-
-    if (params.section === "reports" && params.filter !== "all") {
-      query = query.eq("report_type", params.filter);
-    }
-
-    const { data: rows, error } = await query;
+    const { data: rows, error } = await listAdminReports(
+      db,
+      params.section === "reports" && params.filter !== "all" ? params.filter : null,
+    );
     if (error) {
       data.loadError = true;
     } else {
       data.reports = (rows ?? []) as Report[];
     }
   } catch (error) {
-    if (error instanceof Error && error.message === "missing-admin-config") {
+    if (error instanceof Error && error.message === "missing-db-config") {
       data.missingConfig = true;
     } else {
       data.loadError = true;

@@ -1,11 +1,10 @@
-import type { createAdminClient } from "@/utils/supabase/admin";
+import { insertMissingReports } from "@/utils/db/queries";
+import type { Sql } from "@/utils/db/sql";
 
 // Sample found reports for test mode. Fictional items "handed in" at the
 // organisation, so a visitor's lost report has something to match. Fixed ids:
 // cleanup never deletes them, and ensureSampleReports only adds missing ones.
 // The lost-form examples are written to match the first three.
-
-type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type SampleReport = {
   id: string;
@@ -110,17 +109,11 @@ export const SAMPLE_REPORTS: readonly SampleReport[] = [
 
 /**
  * Adds any missing sample report and leaves existing ones untouched
- * (ON CONFLICT DO NOTHING), so it needs only the insert grant and is safe to
- * run any number of times. Returns how many were added.
+ * (ON CONFLICT DO NOTHING), so it is safe to run any number of times.
+ * Returns how many were added.
  */
-export async function ensureSampleReports(client: AdminClient): Promise<number> {
-  const { data, error } = await client
-    .from("reports")
-    .upsert(SAMPLE_REPORTS.map((report) => ({ ...report })), {
-      onConflict: "id",
-      ignoreDuplicates: true,
-    })
-    .select("id");
+export async function ensureSampleReports(db: Sql): Promise<number> {
+  const { data, error } = await insertMissingReports(db, [...SAMPLE_REPORTS]);
   if (error) {
     throw new Error(`sample-insert-failed:${error.code ?? "unknown"}`);
   }
@@ -135,9 +128,9 @@ type EnsuredGlobal = typeof globalThis & { [ENSURED_KEY]?: Promise<void> };
  * A failure is logged (error code only) and retried on the next call; matching
  * still runs against whatever reports exist.
  */
-export async function ensureSampleReportsOnce(client: AdminClient) {
+export async function ensureSampleReportsOnce(db: Sql) {
   const holder = globalThis as EnsuredGlobal;
-  holder[ENSURED_KEY] ??= ensureSampleReports(client).then(
+  holder[ENSURED_KEY] ??= ensureSampleReports(db).then(
     () => undefined,
     (error: unknown) => {
       holder[ENSURED_KEY] = undefined;

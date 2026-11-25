@@ -64,7 +64,7 @@ The dev server logs one line per pair (Gemini duration, each HTTP attempt's dura
 
 `/admin?section=monitoring` is a dashboard for local staff inside the development-only admin workspace. It is never shown on public or tracking pages. It shows aggregate counts and timestamps only, never report names, descriptions, locations, IDs, credentials, keys, questions, or answers, and it never calls Gemini ("Gemini key: Present" only means a key is set; it does not show the service works. Health comes from recorded checks).
 
-**Demo data (development only):** open `/admin?section=monitoring&demo=1`, or set `AMANAH_MONITORING_DEMO=1` in `.env.local` and restart the dev server. The panel shows a **DEMO DATA** banner and a synthetic 14-day school lost-and-found snapshot (`src/utils/monitoring/demo.ts`) built through `buildMonitoringSnapshot`. It never reads or writes Supabase and never calls Gemini. Turn it off with `?demo=0` (overrides the env flag) or by removing the env and the query.
+**Demo data (development only):** open `/admin?section=monitoring&demo=1`, or set `AMANAH_MONITORING_DEMO=1` in `.env.local` and restart the dev server. The panel shows a **DEMO DATA** banner and a synthetic 14-day school lost-and-found snapshot (`src/utils/monitoring/demo.ts`) built through `buildMonitoringSnapshot`. It never reads or writes the database and never calls Gemini. Turn it off with `?demo=0` (overrides the env flag) or by removing the env and the query.
 
 - **Health summary:** whether matching is configured and what happened on the latest recorded check. It separates "nothing to compare yet" (no lost/found pair), "no checks have run yet" (no comparison and no recorded check, ever), and "no checks recorded since run history began" (comparisons exist from before `matching_runs` existed). Monitoring has no run button; start a manual check with **Check for matches** on Possible matches.
 - **Staff approval rate:** approved ÷ (approved + rejected) over claims with a current staff decision, with the counts and the percentage, and the same figures by AI similarity band (85–100, 70–84, below 70, using the score of the suggestion each claim was made for). Pending claims, claims reset to pending and unscored claims are excluded from the bands; "No reviewed claims yet" shows instead of 0%, and fewer than 10 decisions is flagged as a small sample. It is derived from existing scores and decisions with no extra storage or Gemini call, and is the share of decided claims that staff approved: a staff-decision signal, not verified AI accuracy. Bands group scores; they are not calibrated confidence levels.
@@ -73,7 +73,7 @@ The dev server logs one line per pair (Gemini duration, each HTTP attempt's dura
 - **Recent checks:** the newest 10 recorded checks, with a 14-day summary of completed, failed, and stopped-early checks and their failure kinds. An automatic check covers only the new report's pairs, so its "left unchecked" counts those pairs alone.
 - **Ownership claims:** awaiting decision, assessment retry, waiting for owner answers, staff review without questions, and current approved/rejected counts. These are decision counts, not a measure of AI accuracy.
 
-Run history is stored in `matching_runs` (`20261024222909_create_matching_runs.sql`): one aggregate row per bounded batch (`source` admin or auto, finish time, duration, request count, checked / matched / uncertain / no-match / failed / already-saved counts, unchecked pairs left, failure kind, `stopped_for_time`, model). A run that could not load its data is recorded with failure `load` and an unknown unchecked count. RLS is enabled with no public grants; the server role can only read and insert those columns. Recording is best-effort: if the insert fails, matching continues and only the error code is logged. The dashboard loads the newest 200 recorded checks and says so when the 14-day figures may be incomplete.
+Run history is stored in `matching_runs` (`db/migrations/0001_init.sql`): one aggregate row per bounded batch (`source` admin or auto, finish time, duration, request count, checked / matched / uncertain / no-match / failed / already-saved counts, unchecked pairs left, failure kind, `stopped_for_time`, model). A run that could not load its data is recorded with failure `load` and an unknown unchecked count. RLS is enabled with no public grants; the server role can only read and insert those columns. Recording is best-effort: if the insert fails, matching continues and only the error code is logged. The dashboard loads the newest 200 recorded checks and says so when the 14-day figures may be incomplete.
 
 ## Usage limits
 
@@ -87,7 +87,7 @@ Caps live in `src/utils/limits/usageBuckets.ts`. Counters are Postgres rows keye
 | Gemini requests per IP, per UTC day (`gemini_ip`) | 120 |
 | Gemini requests per report, per UTC day (`gemini_report`) | 40 |
 
-One Gemini HTTP call is one use, including a batch of up to 10 comparisons. A Gemini call with no report in scope is blocked before it reaches Gemini. A blocked or unavailable counter (including a missing migration or admin client) fails closed. A blocked submission saves nothing. A blocked Gemini call is recorded as the `usage_limit` failure, never as `no_match`. In fixture mode these limits always allow requests.
+One Gemini HTTP call is one use, including a batch of up to 10 comparisons. A Gemini call with no report in scope is blocked before it reaches Gemini. A blocked or unavailable counter (including a missing migration or database setting) fails closed. A blocked submission saves nothing. A blocked Gemini call is recorded as the `usage_limit` failure, never as `no_match`. In fixture mode these limits always allow requests.
 
 ## Errors
 
@@ -130,7 +130,7 @@ Messages for lost reporters:
 
 Closing the browser tab: processing stops after the current batch. For a found report, `sessionStorage` is cleared, so that tab cannot resume. A lost report resumes whenever its tracking link is opened again. The unchecked pairs stay unchecked, never "no match". They are covered later when an opposite-type report is submitted (its check includes this report), or by Run matching on `/admin`. A background worker (for example a scheduled job) would remove this limit, but it is new infrastructure and was not added for this MVP.
 
-`report_submissions` (`20261023185900_create_report_submissions.sql`) has RLS enabled and no public access. The server role can read rows, insert only `report_id` and `token_hash`, and update only `processing_until`. It cannot rewrite a hash or delete a row.
+`report_submissions` is reached only by the server, as the restricted `amanah_app` role (`AMANAH_DATABASE_URL`); nothing in the browser can query the database. The app reads rows, inserts `report_id` and `token_hash`, and updates only `processing_until` (`src/utils/db/queries.ts`). The role's grants (`db/migrations/0002_app_role.sql`) allow exactly that, so it cannot rewrite a hash or delete a submission; rows go only with their report, through `ON DELETE CASCADE`.
 
 ### Lost-report tracking link
 

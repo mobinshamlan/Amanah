@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ownerView, type VerificationRecord } from "@/utils/ownership/service";
-import { isLocalAdminEnabled } from "@/utils/supabase/admin";
+import { isLocalAdminEnabled } from "@/utils/db/client";
 import {
   buildCandidateQueues,
   compareForStaff,

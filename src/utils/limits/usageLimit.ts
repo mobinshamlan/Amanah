@@ -1,4 +1,6 @@
-import { createAdminClient } from "@/utils/supabase/admin";
+import { createDb } from "@/utils/db/client";
+import { consumeUsage } from "@/utils/db/queries";
+import { isFixtureMode } from "@/utils/fixtures/mode";
 import {
   geminiSlots,
   submitSlots,
@@ -34,19 +36,25 @@ function blockedLabel(value: unknown): UsageLabel | "unavailable" {
  * Fails closed when the counter function is missing or the database errors.
  */
 async function consumeSlots(slots: UsageSlot[]): Promise<ConsumeResult> {
-  let supabase;
+  // Development fixture mode: usage limits always allow and nothing is counted.
+  if (isFixtureMode()) {
+    return slots.length >= 1 && slots.length <= 6 ? { ok: true } : { ok: false, label: "unavailable" };
+  }
+
+  let db;
   try {
-    supabase = createAdminClient();
+    db = createDb();
   } catch {
-    console.error("Usage: unavailable admin_client");
+    console.error("Usage: unavailable database");
     return { ok: false, label: "unavailable" };
   }
 
-  const { data, error } = await supabase.rpc("consume_usage", {
-    p_buckets: slots.map((slot) => slot.bucket),
-    p_limits: slots.map((slot) => slot.limit),
-    p_labels: slots.map((slot) => slot.label),
-  });
+  const { data, error } = await consumeUsage(
+    db,
+    slots.map((slot) => slot.bucket),
+    slots.map((slot) => slot.limit),
+    slots.map((slot) => slot.label),
+  );
 
   if (error) {
     console.error("Usage: unavailable", error.code ?? "unknown");

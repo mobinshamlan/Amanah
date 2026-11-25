@@ -23,7 +23,7 @@ import {
   type OwnershipAi,
   type OwnershipDeps,
 } from "@/utils/ownership/service";
-import { latestDecision } from "@/utils/ownership/supabaseStore";
+import { latestDecision } from "@/utils/ownership/sqlStore";
 import { createMemoryStore, FOUND } from "./memoryStore";
 
 // Controlled tests only: an in-memory store and a fake AI. No Gemini or database calls.

@@ -1,3 +1,5 @@
+import { insertMatchingRun } from "@/utils/db/queries";
+import { isMissingTableCode, type Sql } from "@/utils/db/sql";
 import type {
   MatchingFailure,
   MatchingRunSummary,
@@ -27,18 +29,10 @@ export type MatchingRunRow = {
   model: string;
 };
 
-type Insertable = {
-  from(table: "matching_runs"): {
-    insert(row: MatchingRunRow): PromiseLike<{ error: { code?: string } | null }>;
-  };
-};
-
 type Logger = Pick<Console, "error">;
 
 // The matching_runs table does not exist until its migration is applied.
-export function isMissingTableCode(code: string | undefined) {
-  return code === "PGRST205" || code === "42P01";
-}
+export { isMissingTableCode };
 
 function count(value: number) {
   return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
@@ -95,12 +89,12 @@ export function loadFailureRow(
  * logged; the monitoring view says history is not set up.
  */
 export async function recordMatchingRun(
-  supabase: Insertable,
+  db: Sql,
   row: MatchingRunRow,
   logger: Logger = console,
 ): Promise<boolean> {
   try {
-    const { error } = await supabase.from("matching_runs").insert(row);
+    const { error } = await insertMatchingRun(db, row);
     if (error) {
       if (!isMissingTableCode(error.code)) {
         logger.error("Monitoring: failed to record matching run:", error.code ?? "unknown");

@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
-import { createEmptyDb, type FixtureDb } from "@/utils/fixtures/fakeSupabase";
+import { TABLE_ORDER, type Row, type TableName } from "@/utils/db/local";
 import { FIXTURE_MODEL } from "@/utils/fixtures/mode";
-import type { Row } from "@/utils/fixtures/schema";
 import { manualCandidateInsert } from "@/utils/matching/candidates";
 
 // Fictional campus lost-and-found data for development fixture mode. Every
@@ -658,13 +657,21 @@ const CANDIDATE_REVIEWS: {
   },
 ];
 
-/** Builds a fresh database with every fixture row. `now` anchors all relative times. */
+export type FixtureDb = { tables: Record<TableName, Row[]> };
+
+function createEmptyDb(): FixtureDb {
+  return {
+    tables: Object.fromEntries(TABLE_ORDER.map((name) => [name, [] as Row[]])) as FixtureDb["tables"],
+  };
+}
+
+/** Builds every fixture row, table by table. `now` anchors all relative times. */
 export function seedFixtureDb(now = new Date()): FixtureDb {
   const db = createEmptyDb();
   const at = (hoursAgo: number) => new Date(now.getTime() - hoursAgo * 3_600_000).toISOString();
   const later = (iso: string, hours: number) =>
     new Date(Math.min(Date.parse(iso) + hours * 3_600_000, now.getTime() - 60_000)).toISOString();
-  const push = (table: string, row: Row) => db.tables[table].push(row);
+  const push = (table: TableName, row: Row) => db.tables[table].push(row);
 
   const reports = new Map<string, Row & { id: string; created_at: string }>();
   REPORTS.forEach((seed, index) => {

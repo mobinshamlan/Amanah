@@ -42,8 +42,8 @@ Matching ignores case, Arabic diacritics, and tatweel. These checks are conserva
 
 - Question and answer actions are authorized only by the lost report's private submission credential (the tracking link). A report ID alone, a malformed or unknown credential, or a found report's credential is refused.
 - Answers are saved only for the next unanswered question.
-- Migration `20261024150432_ownership_verification.sql` adds four private tables: `ownership_verifications` (questions and private expected details), `ownership_answers`, `ownership_assessments`, and `ownership_decisions` (an append-only decision log). RLS is enabled and there are no public grants. The server role can only read and insert specific columns; nothing can be updated or deleted through it.
-- A composite foreign key makes sure a verification can only point at a `match` suggestion for the same lost report. The migration adds the matching unique constraint `(id, lost_report_id, ai_decision)` on `report_matches`; `id` is already unique, so existing rows are unaffected.
+- Four private tables (`db/migrations/0001_init.sql`): `ownership_verifications` (questions and private expected details), `ownership_answers`, `ownership_assessments`, and `ownership_decisions` (an append-only decision log). Only the server reaches them, as the `amanah_app` role, which may only read and insert them (`db/migrations/0002_app_role.sql`). The app's queries (`src/utils/db/queries.ts`) only read and insert; nothing updates or deletes these rows, except the test-mode cleanup, which removes a whole report and its claim through `ON DELETE CASCADE`.
+- A composite foreign key makes sure a verification can only point at a `match` suggestion for the same lost report. The schema has the matching unique constraint `(id, lost_report_id, ai_decision)` on `report_matches`.
 - Logs contain only states, counts, and error kinds, never report text, questions, or answers.
 
 ## Failures
@@ -64,7 +64,7 @@ None of these change the report, its suggestions, or show "no match".
 - A decision can only be made while the claim is pending review, and only an approved or rejected claim can be reset. The server checks this, and the database enforces it too: each entry records the entry before it (`previous_decision_id` and `previous_decision`), a composite foreign key ties those to a real earlier entry of the same claim, and a check constraint allows only pending → approved/rejected → pending.
 - `unique nulls not distinct (verification_id, previous_decision_id)` keeps the log a single chain. If two staff tabs act on the same claim at once, the second action is not saved and staff see "Another staff action was saved first".
 - Nothing in the log is updated or deleted. `/admin` shows every decision and reset under **Decision history**, oldest first. Resetting never changes the owner's answers or the AI assessment.
-- The decision log is private: RLS is enabled, there are no public grants, and the owner only ever sees the current approved or rejected state.
+- The decision log is private: only the server can read it, and the owner only ever sees the current approved or rejected state.
 - Approval means staff may proceed with ownership follow-up. It does not return the item automatically and does not change the suggestion's "Pending review" status.
 - The AI assessment never approves or rejects anything.
 
